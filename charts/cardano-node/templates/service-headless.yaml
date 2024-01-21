@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+{{ include "cardano-node.labels" . | indent 4 }}
+  name: {{ include "cardano-node.fullname" . }}-headless
+spec:
+  clusterIP: None
+  ports:
+  - name: ntn
+    port: 3001
+    protocol: TCP
+    targetPort: 3001
+  - name: socat-ntc
+    port: 30000
+    protocol: TCP
+    targetPort: 30000
+  selector:
+    cardano_network: {{ include "cardano-node.network" . }}
+    app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}
+  sessionAffinity: ClientIP
+  type: ClusterIP
