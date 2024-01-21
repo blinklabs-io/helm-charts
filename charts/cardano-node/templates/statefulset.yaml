@@ -1,0 +1,87 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+{{ include "cardano-node.labels" . | indent 4 }}
+  name: {{ include "cardano-node.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      cardano_network: {{ include "cardano-node.network" . }}
+      app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}
+  serviceName: {{ include "cardano-node.fullname" . }}-headless
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        kubectl.kubernetes.io/default-container: cardano-node
+      labels:
+{{ include "cardano-node.labels" . | indent 8 }}
+    spec:
+      {{- if .Values.affinity }}
+      affinity: {{ .Values.affinity | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+      - env:
+        - name: CARDANO_NODE_SOCKET_PATH
+          value: /ipc/node.socket
+        - name: CARDANO_DATABASE_PATH
+          value: /data/db
+        - name: CARDANO_SOCKET_PATH
+          value: /ipc/node.socket
+        - name: NETWORK
+          value: {{ .Values.cardano_network }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        name: cardano-node
+        ports:
+        - name: ntn
+          containerPort: 3001
+        resources: {{ .Values.resources | toYaml | nindent 10 }}
+        volumeMounts:
+        - mountPath: /data
+          name: node-db
+        - mountPath: /ipc
+          name: node-ipc
+      - command:
+        - sh
+        - -c
+        - socat TCP-LISTEN:${PORT},fork UNIX-CLIENT:/ipc/node.socket,ignoreeof
+        env:
+        - name: PORT
+          value: "30000"
+        image: alpine/socat
+        imagePullPolicy: IfNotPresent
+        name: socat-ntc
+        ports:
+        - containerPort: 30000
+        resources: {}
+        volumeMounts:
+        - mountPath: /ipc
+          name: node-ipc
+      restartPolicy: Always
+      serviceAccountName: ""
+    {{- if .Values.tolerations }}
+      tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
+    {{- end }}
+      volumes:
+      - name: node-db
+        persistentVolumeClaim:
+          claimName: node-db
+      - emptyDir: {}
+        name: node-ipc
+  updateStrategy:
+    type: OnDelete
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        cardano_network: {{ .Values.cardano_network }}
+      name: node-db
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ .Values.storage.size }}

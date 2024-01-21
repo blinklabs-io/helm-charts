@@ -1,0 +1,14 @@
+---
+cardano_network: preview
+image:
+  repository: ghcr.io/blinklabs-io/cardano-node
+  tag: 8.7.3-1
+replicaCount: 1
+resources: {}
+storage:
+  size: "24Gi"
+tolerations:
+- key: kubernetes.io/arch
+  operator: Equal
+  value: arm64
+  effect: NoSchedule
