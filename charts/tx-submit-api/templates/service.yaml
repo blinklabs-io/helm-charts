@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ include "tx-submit-api.fullname" . }}
+{{ include "tx-submit-api.labels" . | indent 4 }}
+  name: {{ include "tx-submit-api.fullname" . }}
+spec:
+  ports:
+  - name: tx-submit-api
+    port: 8090
+    protocol: TCP
+    targetPort: 8090
+  selector:
+    cardano_network: {{ .Values.cardano_network }}
+    app.kubernetes.io/name: {{ include "tx-submit-api.fullname" . }}
+  sessionAffinity: ClientIP
+  type: ClusterIP
