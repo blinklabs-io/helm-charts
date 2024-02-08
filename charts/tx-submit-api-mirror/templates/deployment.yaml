@@ -1,0 +1,37 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+{{ include "tx-submit-api-mirror.labels" . | indent 4 }}
+  name: {{ include "tx-submit-api-mirror.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      cardano_network: {{ .Values.cardano_network }}
+      app.kubernetes.io/name: {{ include "tx-submit-api-mirror.fullname" . }}
+  template:
+    metadata:
+      labels:
+{{ include "tx-submit-api-mirror.labels" . | indent 8 }}
+    spec:
+      {{- if .Values.affinity }}
+      affinity: {{ .Values.affinity | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+      - env:
+        - name: BACKENDS
+          value: {{ join "," .Values.backends }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        name: tx-submit-api-mirror
+        ports:
+        - name: api
+          containerPort: 8090
+        resources: {{ .Values.resources | toYaml | nindent 10 }}
+      restartPolicy: Always
+      serviceAccountName: ""
+{{- if .Values.tolerations }}
+      tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
+{{- end }}

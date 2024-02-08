@@ -1,0 +1,18 @@
+---
+backends:
+  - http://one.example.com/api/submit/tx
+  - http://another.example.com/api/submit/tx
+cardano_network: preview
+image:
+  repository: ghcr.io/blinklabs-io/tx-submit-api-mirror
+  tag: 0.3.3
+ingress:
+  enabled: false
+  host: submit-api-mirror.preview.local
+replicaCount: 1
+resources: {}
+tolerations:
+- key: kubernetes.io/arch
+  operator: Equal
+  value: arm64
+  effect: NoSchedule
