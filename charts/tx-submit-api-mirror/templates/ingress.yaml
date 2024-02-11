@@ -8,8 +8,7 @@ metadata:
   name: {{ include "tx-submit-api-mirror.fullname" . }}
 spec:
   rules:
-  - host: {{ .Values.ingress.host }}
-    http:
+  - http:
       paths:
       - backend:
           service:
@@ -18,7 +17,4 @@ spec:
               number: 8090
         path: /api
         pathType: Prefix
-  tls:
-  - hosts:
-    - {{ .Values.ingress.host }}
 {{- end }}
