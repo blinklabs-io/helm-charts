@@ -61,6 +61,9 @@ spec:
         volumeMounts:
         - mountPath: /ipc
           name: node-ipc
+{{- if .Values.sidecars }}
+{{- .Values.sidecars | toYaml | nindent 6 }}
+{{- end }}
       restartPolicy: Always
       serviceAccountName: ""
 {{- if .Values.tolerations }}
