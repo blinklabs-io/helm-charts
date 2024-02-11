@@ -33,6 +33,10 @@ spec:
         ports:
         - name: api
           containerPort: 8090
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: api
         resources: {{ .Values.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /node-ipc
