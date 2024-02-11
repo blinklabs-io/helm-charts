@@ -1,7 +1,7 @@
 ---
 backends:
-  - http://one.example.com/api/submit/tx
-  - http://another.example.com/api/submit/tx
+- http://one.example.com/api/submit/tx
+- http://another.example.com/api/submit/tx
 cardano_network: preview
 image:
   repository: ghcr.io/blinklabs-io/tx-submit-api-mirror
