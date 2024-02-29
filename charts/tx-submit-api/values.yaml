@@ -4,8 +4,8 @@ cardano_node:
   host: cardano-node-headless
   port: 30000
 image:
-  repository: ghcr.io/blinklabs-io/tx-submit-api
-  tag: 0.15.2
+  repository: blinklabs/tx-submit-api
+  tag: 0.16.0
 ingress:
   enabled: false
   host: submit-api.preview.local
