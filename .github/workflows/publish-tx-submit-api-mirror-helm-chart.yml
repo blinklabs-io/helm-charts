@@ -8,7 +8,7 @@ on:
 concurrency: ${{ github.ref }}
 
 jobs:
-  build-and-push-helm-chart:
+  build-and-push-tx-submit-api-mirror-helm-chart:
     runs-on: ubuntu-latest
     permissions:
       contents: read
