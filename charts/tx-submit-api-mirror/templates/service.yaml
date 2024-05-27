@@ -16,4 +16,8 @@ spec:
     cardano_network: {{ .Values.cardano_network }}
     app.kubernetes.io/name: {{ include "tx-submit-api-mirror.fullname" . }}
   sessionAffinity: ClientIP
+{{- if .Values.ingress.enabled }}
+  type: NodePort
+{{- else }}
   type: ClusterIP
+{{- end }}
