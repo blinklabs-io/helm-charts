@@ -17,4 +17,7 @@ spec:
               number: 8090
         path: /api
         pathType: Prefix
+{{- if hasKey .Values.ingress "host" }}
+    host: {{ .Values.ingress.host }}
+{{- end }}
 {{- end }}
