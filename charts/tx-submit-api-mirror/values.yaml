@@ -5,7 +5,7 @@ backends:
 cardano_network: preview
 image:
   repository: ghcr.io/blinklabs-io/tx-submit-api-mirror
-  tag: 0.3.3
+  tag: 0.4.1
 ingress:
   enabled: false
   host: submit-api-mirror.preview.local
