@@ -11,9 +11,12 @@ spec:
     matchLabels:
       cardano_network: {{ .Values.cardano_network }}
       app.kubernetes.io/name: {{ include "tx-submit-api-mirror.fullname" . }}
+{{ include "tx-submit-api-mirror.labels" . | indent 6 }}
   template:
     metadata:
       labels:
+        cardano_network: {{ .Values.cardano_network }}
+        app.kubernetes.io/name: {{ include "tx-submit-api-mirror.fullname" . }}
 {{ include "tx-submit-api-mirror.labels" . | indent 8 }}
     spec:
       {{- if .Values.affinity }}
