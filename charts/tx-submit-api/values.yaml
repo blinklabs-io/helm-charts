@@ -3,6 +3,7 @@ cardano_network: preview
 cardano_node:
   host: cardano-node-headless
   port: 30000
+  skip_check: true
 image:
   repository: ghcr.io/blinklabs-io/tx-submit-api
   tag: 0.17.2

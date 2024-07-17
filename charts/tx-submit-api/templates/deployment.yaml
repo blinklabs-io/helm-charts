@@ -11,9 +11,12 @@ spec:
     matchLabels:
       cardano_network: {{ .Values.cardano_network }}
       app.kubernetes.io/name: {{ include "tx-submit-api.fullname" . }}
+{{ include "tx-submit-api.labels" . | indent 6 }}
   template:
     metadata:
       labels:
+        cardano_network: {{ .Values.cardano_network }}
+        app.kubernetes.io/name: {{ include "tx-submit-api.fullname" . }}
 {{ include "tx-submit-api.labels" . | indent 8 }}
     spec:
       {{- if .Values.affinity }}
@@ -27,6 +30,8 @@ spec:
           value: {{ .Values.cardano_node.host }}
         - name: CARDANO_NODE_SOCKET_TCP_PORT
           value: {{ .Values.cardano_node.port | toString | quote }}
+        - name: CARDANO_NODE_SKIP_CHECK
+          value: {{ .Values.cardano_node.skip_check | quote }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         name: tx-submit-api
