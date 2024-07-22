@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bluefin.fullname" . }}
+  labels:
+    {{- include "bluefin.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bluefin.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "bluefin.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "bluefin.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          env:
+            - name: NETWORK
+              value: {{ .Values.network }} 
+            - name: PROFILE
+              value: {{ .Values.profile }}
+            {{- if .Values.submitUrl }}
+            - name: SUBMIT_URL
+              value: {{ .Values.submitUrl }}
+            {{- end }}
+            {{- if or .Values.mnemonic .Values.secretName }}
+            - name: MNEMONIC
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName | default "bluefin-secret" }}
+                  key: MNEMONIC
+            {{- end }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          workingDir: /app/.bluefin
+          volumeMounts:
+            - name: bluefin-storage
+              mountPath: /app/.bluefin
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+      volumes:
+        - name: bluefin-storage
+          emptyDir: {}
+      {{- if .Values.tolerations }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
