@@ -1,0 +1,13 @@
+apiVersion: v2
+name: bluefin
+description: A Helm chart for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "0.9.0"
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io

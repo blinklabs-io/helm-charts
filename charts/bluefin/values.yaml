@@ -1,0 +1,75 @@
+# Default values for bluefin.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/blinklabs-io/bluefin
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "0.9.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+# The Cardano network
+network: "preview"
+profile: "tuna-v2"
+
+# By default, bluefin will use the NtN (node-to-node) TxSubmission protocol to submit transactions directly
+# to the Cardano network. This method has the downside of not providing any feedback if a transaction fails.
+# You can use the SUBMIT_URL environment variable to specify the URL for a submit API to use instead,
+# which will provide feedback about any transaction validation issues.
+submitUrl: ""
+
+# If you don't provide a wallet seed phrase, bluefin will generate one for you locally.
+# If you want to provide your own wallet seed phrase, you can set the MNEMONIC environment variable
+# Mnemonic will be stored and read from a secret (default name: bluefin-secret).
+mnemonic: ""
+
+# You can provide your own secret by providing secretName. The secret should contain the MNEMONIC key.
+# Secret name
+secretName: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 2000
+  runAsUser: 1000
+  runAsGroup: 3000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
