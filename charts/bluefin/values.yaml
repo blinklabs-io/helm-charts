@@ -8,13 +8,13 @@ image:
   repository: ghcr.io/blinklabs-io/bluefin
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "0.9.0"
+  tag: "0.12.0"
 
 nameOverride: ""
 fullnameOverride: ""
 
 # The Cardano network
-network: "preview"
+network: "mainnet"
 profile: "tuna-v2"
 
 # By default, bluefin will use the NtN (node-to-node) TxSubmission protocol to submit transactions directly
