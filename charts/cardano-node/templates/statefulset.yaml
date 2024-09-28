@@ -55,7 +55,7 @@ spec:
         env:
         - name: PORT
           value: "30000"
-        image: alpine/socat
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         name: socat-ntc
         ports:
