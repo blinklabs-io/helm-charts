@@ -1,8 +1,8 @@
 apiVersion: v2
 name: tx-submit-api-mirror
 description: Creates a Cardano Tx Submit API mirror service deployment
-version: 0.0.4
-appVersion: 0.6.0
+version: 0.0.5
+appVersion: 0.7.0
 maintainers:
   - name: aurora
     email: aurora@blinklabs.io
