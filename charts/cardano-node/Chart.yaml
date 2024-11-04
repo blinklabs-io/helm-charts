@@ -1,8 +1,8 @@
 apiVersion: v2
 name: cardano-node
 description: Creates a Cardano node deployment with SOCAT sidecar
-version: 0.1.6
-appVersion: 9.2.1
+version: 0.1.7
+appVersion: 10.1.2
 maintainers:
   - name: aurora
     email: aurora@blinklabs.io
