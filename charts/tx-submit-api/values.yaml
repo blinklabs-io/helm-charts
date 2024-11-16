@@ -6,7 +6,7 @@ cardano_node:
   skip_check: true
 image:
   repository: ghcr.io/blinklabs-io/tx-submit-api
-  tag: 0.20.2
+  tag: 0.20.3
 ingress:
   enabled: false
   host: submit-api.preview.local
