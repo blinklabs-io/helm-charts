@@ -1,0 +1,58 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+{{ include "cardano-node-api.labels" . | indent 4 }}
+  name: {{ include "cardano-node-api.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      cardano_network: {{ .Values.cardano_network }}
+      app.kubernetes.io/name: {{ include "cardano-node-api.fullname" . }}
+{{ include "cardano-node-api.labels" . | indent 6 }}
+  template:
+    metadata:
+      labels:
+        cardano_network: {{ .Values.cardano_network }}
+        app.kubernetes.io/name: {{ include "cardano-node-api.fullname" . }}
+{{ include "cardano-node-api.labels" . | indent 8 }}
+    spec:
+      {{- if .Values.affinity }}
+      affinity: {{ .Values.affinity | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+      - env:
+        - name: CARDANO_NETWORK
+          value: {{ .Values.cardano_network }}
+        - name: CARDANO_NODE_SOCKET_TCP_HOST
+          value: {{ .Values.cardano_node.host }}
+        - name: CARDANO_NODE_SOCKET_TCP_PORT
+          value: {{ .Values.cardano_node.port | toString | quote }}
+        - name: CARDANO_NODE_SKIP_CHECK
+          value: {{ .Values.cardano_node.skip_check | quote }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        name: cardano-node-api
+        ports:
+        - name: api
+          containerPort: 8080
+        - name: grpc
+          containerPort: 9090
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: api
+        resources: {{ .Values.resources | toYaml | nindent 10 }}
+        volumeMounts:
+        - mountPath: /node-ipc
+          name: node-ipc
+      restartPolicy: Always
+      serviceAccountName: ""
+{{- if .Values.tolerations }}
+      tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
+{{- end }}
+      volumes:
+      - emptyDir: {}
+        name: node-ipc

@@ -1,0 +1,32 @@
+name: publish-cardano-node-api-helm-chart
+
+on:
+  push:
+    branches: ['main']
+    paths: ['charts/cardano-node-api-/**','.github/workflows/publish-cardano-node-api-helm-chart.yml']
+
+jobs:
+  build-and-push-cardano-node-api-helm-chart:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+      - name: Package and upload chart
+        shell: bash
+        env:
+          REGISTRY: "ghcr.io"
+          REPOSITORY: "${{ github.repository }}"
+          TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          USER: "${{ github.repository_owner }}"
+        run: |
+          rm -rf dist
+          mkdir dist
+          helm package charts/cardano-node-api/ -d dist/
+          echo "${TOKEN}" | helm registry login "${REGISTRY}/${REPOSITORY,,}" -u "${USER}" --password-stdin
+          for file in dist/*; do
+            helm push "$file" "oci://${REGISTRY}/${REPOSITORY,,}/charts"
+          done
