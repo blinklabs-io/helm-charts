@@ -1,0 +1,24 @@
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+{{ include "cardano-node-api.labels" . | indent 4 }}
+  name: {{ include "cardano-node-api.fullname" . }}
+spec:
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ include "cardano-node-api.fullname" . }}
+            port:
+              number: 8080
+        path: /api
+        pathType: Prefix
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host }}
+{{- end }}
