@@ -1,0 +1,19 @@
+---
+cardano_network: preview
+cardano_node:
+  host: cardano-node-headless
+  port: 30000
+  skip_check: true
+image:
+  repository: ghcr.io/blinklabs-io/cardano-node-api
+  tag: 0.6.0
+ingress:
+  enabled: false
+  host: node-api.preview.local
+replicaCount: 1
+resources: {}
+tolerations:
+- key: kubernetes.io/arch
+  operator: Equal
+  value: arm64
+  effect: NoSchedule

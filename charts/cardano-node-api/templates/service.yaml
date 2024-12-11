@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ include "cardano-node-api.fullname" . }}
+{{ include "cardano-node-api.labels" . | indent 4 }}
+  name: {{ include "cardano-node-api.fullname" . }}
+spec:
+  ports:
+  - name: api
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    cardano_network: {{ .Values.cardano_network }}
+    app.kubernetes.io/name: {{ include "cardano-node-api.fullname" . }}
+  sessionAffinity: ClientIP
+  type: ClusterIP
