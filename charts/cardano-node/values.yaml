@@ -2,7 +2,7 @@
 cardano_network: preview
 image:
   repository: ghcr.io/blinklabs-io/cardano-node
-  tag: 10.1.2
+  tag: 10.1.3
 replicaCount: 1
 resources: {}
 service:
