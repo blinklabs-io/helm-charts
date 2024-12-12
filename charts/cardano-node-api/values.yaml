@@ -6,7 +6,7 @@ cardano_node:
   skip_check: true
 image:
   repository: ghcr.io/blinklabs-io/cardano-node-api
-  tag: 0.6.0
+  tag: 0.6.1
 ingress:
   enabled: false
   host: node-api.preview.local
