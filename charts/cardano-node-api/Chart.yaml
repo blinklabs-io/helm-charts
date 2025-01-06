@@ -1,7 +1,7 @@
 apiVersion: v2
 name: cardano-node-api
 description: Creates a Cardano Node API deployment
-version: 0.0.3
+version: 0.0.4
 appVersion: 0.7.0
 maintainers:
   - name: aurora

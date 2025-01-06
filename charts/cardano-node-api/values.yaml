@@ -7,13 +7,33 @@ cardano_node:
 image:
   repository: ghcr.io/blinklabs-io/cardano-node-api
   tag: 0.7.0
-ingress:
-  enabled: false
-  host: node-api.preview.local
 replicaCount: 1
 resources: {}
 tolerations:
-- key: kubernetes.io/arch
+- effect: NoSchedule
+  key: kubernetes.io/arch
   operator: Equal
   value: arm64
-  effect: NoSchedule
+
+affinity: {}
+
+ingress:
+  enabled: false
+  cluster_issuer: letsencrypt-dns01
+  host: node-api.preview.dmtr.host
+  ingressClassName: kong
+
+service:
+  annotations: {}
+  ports:
+    - name: grpc
+      port: 443
+      protocol: TCP
+      targetPort: 9090
+  # type: ClusterIP
+  type: LoadBalancer
+
+secret:
+  enabled: false
+  tlsKey: ""
+  tlsCrt: ""
