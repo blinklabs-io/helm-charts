@@ -1,4 +1,6 @@
 ---
+nameOverride: ""
+
 cardano_network: preview
 cardano_node:
   host: cardano-node-headless
@@ -7,9 +9,6 @@ cardano_node:
 image:
   repository: ghcr.io/blinklabs-io/cardano-node-api
   tag: 0.7.0
-ingress:
-  enabled: false
-  host: node-api.preview.local
 replicaCount: 1
 resources: {}
 tolerations:
@@ -17,3 +16,33 @@ tolerations:
   operator: Equal
   value: arm64
   effect: NoSchedule
+
+affinity: {}
+
+ingress:
+  enabled: false
+  host: node-api.preview.local
+  ingressClassName: kong
+
+service:
+  enabled: false
+  annotations: {}
+  ports:
+    - name: grpc
+      port: 443
+      protocol: TCP
+      targetPort: 9090
+  type: LoadBalancer
+
+# Example of a ClusterIP service
+  # ports:
+  # - name: api
+  #   port: 8080
+  #   protocol: TCP
+  #   targetPort: 8080
+  # type: ClusterIP
+
+secret:
+  enabled: false
+  # tlsKey: ""
+  # tlsCrt: ""

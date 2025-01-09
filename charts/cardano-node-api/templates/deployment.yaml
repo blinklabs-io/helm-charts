@@ -10,13 +10,15 @@ spec:
   selector:
     matchLabels:
       cardano_network: {{ .Values.cardano_network }}
-      app.kubernetes.io/name: {{ include "cardano-node-api.fullname" . }}
-{{ include "cardano-node-api.labels" . | indent 6 }}
+      app.kubernetes.io/name: {{ include "cardano-node-api.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+      cardano_network: {{ include "cardano-node-api.network" . }}
+      cardano_service: cardano-node-api
   template:
     metadata:
       labels:
         cardano_network: {{ .Values.cardano_network }}
-        app.kubernetes.io/name: {{ include "cardano-node-api.fullname" . }}
 {{ include "cardano-node-api.labels" . | indent 8 }}
     spec:
       {{- if .Values.affinity }}
@@ -32,6 +34,12 @@ spec:
           value: {{ .Values.cardano_node.port | toString | quote }}
         - name: CARDANO_NODE_SKIP_CHECK
           value: {{ .Values.cardano_node.skip_check | quote }}
+        {{- if .Values.secret.enabled }}
+        - name: TLS_CERT_FILE_PATH
+          value: "/certs/tls.crt"
+        - name: TLS_KEY_FILE_PATH
+          value: "/certs/tls.key"
+        {{- end }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         name: cardano-node-api
@@ -42,17 +50,32 @@ spec:
           containerPort: 9090
         readinessProbe:
           httpGet:
+            {{- if .Values.secret.enabled }}
+            scheme: HTTPS
+            {{- else }}
+            scheme: HTTP
+            {{- end }}
             path: /healthcheck
             port: api
         resources: {{ .Values.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /node-ipc
           name: node-ipc
+      {{- if .Values.secret.enabled }}
+        - mountPath: /certs
+          name: certs
+      {{- end }}
       restartPolicy: Always
       serviceAccountName: ""
 {{- if .Values.tolerations }}
       tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
 {{- end }}
       volumes:
-      - emptyDir: {}
-        name: node-ipc
+      - name: node-ipc
+        emptyDir: {}
+    {{- if .Values.secret.enabled }}
+      - name: certs
+        secret:
+          optional: false
+          secretName: {{ include "cardano-node-api.fullname" . }}-tls
+    {{- end }}
