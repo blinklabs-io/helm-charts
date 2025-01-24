@@ -8,7 +8,7 @@ cardano_node:
   skip_check: true
 image:
   repository: ghcr.io/blinklabs-io/cardano-node-api
-  tag: 0.8.0
+  tag: 0.8.1
 replicaCount: 1
 resources: {}
 tolerations:
