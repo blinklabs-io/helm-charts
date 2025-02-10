@@ -22,8 +22,12 @@ spec:
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: NETWORK
-              value: {{ .Values.environment.NETWORK }}
+            {{- range $key, $value := .Values.environment }}
+            {{- if $value }}
+            - name: {{ $key }}
+              value: "{{ $value }}"
+            {{- end }}
+            {{- end }}
           ports:
             - name: api
               containerPort: 8080
