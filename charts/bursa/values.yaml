@@ -6,7 +6,16 @@ image:
   pullPolicy: IfNotPresent
 
 environment:
-  NETWORK: "mainnet"
+  CARDANO_NETWORK: "mainnet"
+  # Optional variables. Uncomment and set to use.
+  # API_LISTEN_ADDRESS: ""
+  # API_LISTEN_PORT: 8080
+  # GOOGLE_PROJECT: ""
+  # GCP_KMS_RESOURCE_ID: ""
+  # GCP_SECRET_PREFIX: ""
+  # LOGGING_LEVEL: "info"
+  # METRICS_LISTEN_ADDRESS: ""
+  # METRICS_LISTEN_PORT: 8081
 
 service:
   annotations: {}
