@@ -9,6 +9,8 @@ service:
   type: ClusterIP
 storage:
   size: "24Gi"
+# Leave empty to use the default storage class
+  storageClassName: ""
 tolerations:
 - key: kubernetes.io/arch
   operator: Equal
