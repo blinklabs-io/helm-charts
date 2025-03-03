@@ -23,3 +23,18 @@ service:
   ports:
     api: 8080
     metrics: 8081
+
+serviceAccount:
+  name: kms-sa
+  annotations: {}
+    # iam.gke.io/gcp-service-account: bursa-sa@example-google-project.iam.gserviceaccount.com
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+tolerations: []
