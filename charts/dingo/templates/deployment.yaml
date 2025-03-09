@@ -1,0 +1,54 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dingo.fullname" . }}
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "dingo.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "dingo.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: dingo
+        command: ["dingo"]
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          {{- range $key, $value := .Values.environment }}
+          {{- if $value }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
+          {{- end }}
+        ports:
+          - name: private
+            containerPort: {{ .Values.service.ports.private }}
+          - name: relay
+            containerPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+          - name: utxorpc
+            containerPort: {{ .Values.environment.CARDANO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+          - name: metrics
+            containerPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
+        volumeMounts:
+          - name: dingo-storage
+            mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
+        {{- if .Values.resources }}
+        resources: {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        - name: dingo-storage
+          persistentVolumeClaim:
+            claimName: {{ include "dingo.fullname" . }}-pvc

@@ -1,0 +1,53 @@
+---
+replicaCount: 1
+
+image:
+  repository: ghcr.io/blinklabs-io/dingo
+  tag: "0.3.6"
+  pullPolicy: IfNotPresent
+
+environment:
+  CARDANO_NETWORK: "preview"
+  CARDANO_DATABASE_PATH: "/data"
+  # CARDANO_BIND_ADDR
+  # CARDANO_CONFIG
+  # CARDANO_SOCKET_PATH
+  # CARDANO_TLS_CERT_FILE_PATH
+  # CARDANO_TLS_KEY_FILE_PATH
+  # CARDANO_TOPOLOGY
+  # CARDANO_METRICS_PORT
+  # CARDANO_PRIVATE_BIND_ADDR
+  # CARDANO_PRIVATE_PORT
+# CARDANO_PORT is Relay Port
+  # CARDANO_PORT
+  # CARDANO_UTXORPC_PORT
+  # CARDANO_INTERSECT_TIP
+
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+tolerations: []
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 40Gi
+  storageClass: ""
+
+service:
+  annotations: {}
+  type: ClusterIP
+  ports:
+    private: 3002
+    relay: 3001
+    utxorpc: 9090
+    metrics: 12789
+
+serviceAccount:
+  name: dingo-sa
+  annotations: {}

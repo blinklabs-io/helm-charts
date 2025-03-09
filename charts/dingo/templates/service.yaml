@@ -1,0 +1,27 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dingo.fullname" . }}
+  labels: {{- include "dingo.labels" . | nindent 4 }}
+  {{- if .Values.service.annotations }}
+  annotations: {{- toYaml .Values.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: private
+      port: {{ .Values.service.ports.private }}
+      targetPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
+    - name: relay
+      port: {{ .Values.service.ports.relay }}
+      targetPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+    - name: utxorpc
+      port: {{ .Values.service.ports.utxorpc }}
+      targetPort: {{ .Values.environment.CARDANO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+    - name: metrics
+      port: {{ .Values.service.ports.metrics }}
+      targetPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
+  selector:
+    app.kubernetes.io/name: {{ include "dingo.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
