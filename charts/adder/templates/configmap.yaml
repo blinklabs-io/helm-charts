@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "adder.fullname" . }}-config
+  labels:
+    {{- include "adder.labels" . | nindent 4 }}
+  annotations:
+    checksum/config: {{ toYaml .Values.config | sha256sum }}
+data:
+  config: |-
+    {{ .Values.config | nindent 4 }}
