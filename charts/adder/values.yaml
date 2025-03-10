@@ -1,0 +1,71 @@
+---
+replicaCount: 1
+
+image:
+  repository: "ghcr.io/blinklabs-io/adder"
+  tag: "0.26.0"
+  pullPolicy: IfNotPresent
+
+annotations: {}
+podAnnotations: {}
+
+environment:
+  # GIN_MODE: release
+
+affinity: {}
+nodeSelector: {}
+tolerations: []
+
+service:
+  type: ClusterIP
+  webhook: 3000
+  api: 8080
+
+serviceAccount:
+  name: adder-sa
+  annotations: {}
+
+config: |
+  # Example config
+
+  # Api server address
+  api:
+    address: localhost
+    port: 8080
+
+  # Logging options
+  logging:
+    # Log level
+    level: info
+
+  # Debug options
+  debug:
+    # Debug listener address
+    address: localhost
+
+    # Debug listener port
+    # Set this to a non-zero value to enable debug listener
+    #port: 0
+
+  # Input plugin to use
+  input: chainsync
+
+  # Output plugin to use
+  output: log
+
+  # Plugin options
+  plugins:
+
+    # Input plugin options
+    input:
+      # Chainsync input plugin options
+      chainsync:
+        network: preview
+        # kupo-url: kupo-preview.kupo.svc.cluster.local:3000
+
+    # Output plugin options
+    output:
+      # Log output plugin options
+      log:
+        # Logging level
+        level: info
