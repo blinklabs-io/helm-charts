@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "adder.fullname" . }}
+  labels:
+    {{- include "adder.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.webhook }}
+      targetPort: webhook
+      protocol: TCP
+      name: webhook
+    - port: {{ .Values.service.api }}
+      targetPort: api
+      protocol: TCP
+      name: api
+  selector:
+    {{- include "adder.selectorLabels" . | nindent 4 }}
