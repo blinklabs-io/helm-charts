@@ -1,0 +1,14 @@
+apiVersion: v2
+name: handshake-node
+description: Deploys a Handshake node for specified network
+version: 0.1.8
+appVersion: 7.0.1
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
