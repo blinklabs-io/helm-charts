@@ -1,6 +1,6 @@
 ---
 # Network configuration (main for mainnet, testnet for testnet, regtest, etc.)
-handshake_network: main
+handshake_network: regtest
 
 networkPorts:
   main:
