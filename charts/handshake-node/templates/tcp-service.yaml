@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "handshake-node.fullname" . }}-tcp
+  labels:
+    {{- include "handshake-node.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.service.tcp.annotations }}
+    {{- toYaml .Values.service.tcp.annotations | nindent 4 }}
+    {{- end }}
+    cloud.google.com/load-balancer-type: "External"
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  ports:
+  - name: p2p
+    port: {{ index .Values.networkPorts .Values.handshake_network "p2p" }}
+    targetPort: {{ index .Values.networkPorts .Values.handshake_network "p2p" }}
+    protocol: TCP
+  - name: brontide
+    port: {{ index .Values.networkPorts .Values.handshake_network "brontide" }}
+    targetPort: {{ index .Values.networkPorts .Values.handshake_network "brontide" }}
+    protocol: TCP
+  - name: http
+    port: {{ index .Values.networkPorts .Values.handshake_network "http" }}
+    targetPort: {{ index .Values.networkPorts .Values.handshake_network "http" }}
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}

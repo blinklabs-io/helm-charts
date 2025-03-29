@@ -1,0 +1,125 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    {{- include "handshake-node.labels" . | nindent 4 }}
+  name: {{ include "handshake-node.network-fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      handshake_network: {{ include "handshake-node.network" . }}
+      app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  serviceName: {{ include "handshake-node.network-fullname" . }}
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        kubectl.kubernetes.io/default-container: handshake-node
+      labels:
+        handshake_network: {{ include "handshake-node.network" . }}
+        app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "handshake-node.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.affinity }}
+      affinity: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: handshake-node
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - --network={{ include "handshake-node.network" . }}
+        - --listen={{ .Values.nodeConfig.listen }}
+        - --max-inbound={{ .Values.nodeConfig.maxInbound }}
+        - --max-outbound={{ .Values.nodeConfig.maxOutbound }}
+        - --http-host={{ .Values.nodeConfig.httpHost }}
+        - --http-port={{ include "handshake-node.http-port" . }}
+        {{- if .Values.nodeConfig.api.secretName }}
+        - --api-key=$(HSD_API_KEY)
+        {{- end }}
+        {{- if .Values.nodeConfig.publicHost }}
+        - --public-host={{ .Values.nodeConfig.publicHost }}
+        {{- end }}
+        - --brontide-port={{ include "handshake-node.brontide-port" . }}
+        - --prune={{ .Values.nodeConfig.prune }}
+        - --index-tx={{ .Values.nodeConfig.indexTx }}
+        - --index-address={{ .Values.nodeConfig.indexAddress }}
+        - --checkpoints={{ .Values.nodeConfig.checkpoints }}
+        - --log-level={{ .Values.nodeConfig.logLevel }}
+        - --cors={{ .Values.nodeConfig.cors }}
+        {{- if .Values.nodeConfig.ssl }}
+        - --ssl=true
+        - --ssl-cert={{ .Values.nodeConfig.sslCert }}
+        - --ssl-key={{ .Values.nodeConfig.sslKey }}
+        {{- end }}
+        - --ns-host={{ .Values.nodeConfig.nsHost }}
+        - --ns-port={{ include "handshake-node.ns-port" . }}
+        - --rs-host={{ .Values.nodeConfig.rsHost }}
+        - --rs-port={{ include "handshake-node.rs-port" . }}
+        - --rs-no-unbound={{ .Values.nodeConfig.rsNoUnbound }}
+        env:
+        {{- if .Values.nodeConfig.api.secretName }}
+        - name: HSD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.nodeConfig.api.secretName }}
+              key: {{ .Values.nodeConfig.api.secretKey }}
+        {{ end }}
+        - name: HSD_NETWORK
+          value: "{{ include "handshake-node.network" . }}"
+        - name: HSD_PREFIX
+          value: "/data"
+        ports:
+        - name: p2p
+          containerPort: {{ include "handshake-node.p2p-port" . }}
+          protocol: TCP
+        - name: brontide
+          containerPort: {{ include "handshake-node.brontide-port" . }}
+          protocol: TCP
+        - name: http
+          containerPort: {{ include "handshake-node.http-port" . }}
+          protocol: TCP
+        - name: ns
+          containerPort: {{ include "handshake-node.ns-port" . }}
+          protocol: UDP
+        - name: rs
+          containerPort: {{ include "handshake-node.rs-port" . }}
+          protocol: UDP
+        resources:
+          {{- $network := include "handshake-node.network" . }}
+          {{- if .Values.resources }}
+          {{- toYaml .Values.resources | nindent 12 }}
+          {{- else }}
+          {{- toYaml (index .Values.networkResources $network) | nindent 12 }}
+          {{- end }}
+        volumeMounts:
+        - name: handshake-data-{{ include "handshake-node.network" . }}
+          mountPath: /data
+  updateStrategy:
+    type: OnDelete
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        handshake_network: {{ include "handshake-node.network" . }}
+      name: handshake-data-{{ include "handshake-node.network" . }}
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      {{- if .Values.storage.storageClassName }}
+      storageClassName: {{ .Values.storage.storageClassName }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ include "handshake-node.storage-size" . }}
