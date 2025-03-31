@@ -8,10 +8,11 @@ metadata:
     {{- if .Values.service.tcp.annotations }}
     {{- toYaml .Values.service.tcp.annotations | nindent 4 }}
     {{- end }}
-    cloud.google.com/load-balancer-type: "External"
 spec:
-  type: LoadBalancer
-  externalTrafficPolicy: Local
+  type: {{ .Values.service.tcp.type | default "ClusterIP" }}
+  {{- if eq (.Values.service.tcp.type | default "ClusterIP") "LoadBalancer" }}
+  externalTrafficPolicy: {{ .Values.service.tcp.externalTrafficPolicy | default "Cluster" }}
+  {{- end }}
   ports:
   - name: p2p
     port: {{ index .Values.networkPorts .Values.handshake_network "p2p" }}

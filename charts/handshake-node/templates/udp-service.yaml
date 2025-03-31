@@ -8,10 +8,11 @@ metadata:
     {{- if .Values.service.udp.annotations }}
     {{- toYaml .Values.service.udp.annotations | nindent 4 }}
     {{- end }}
-    cloud.google.com/load-balancer-type: "External"
 spec:
-  type: LoadBalancer
-  externalTrafficPolicy: Local
+  type: {{ .Values.service.udp.type | default "ClusterIP" }}
+  {{- if eq (.Values.service.udp.type | default "ClusterIP") "LoadBalancer" }}
+  externalTrafficPolicy: {{ .Values.service.udp.externalTrafficPolicy | default "Cluster" }}
+  {{- end }}
   ports:
   - name: ns
     port: {{ index .Values.networkPorts .Values.handshake_network "ns" }}
