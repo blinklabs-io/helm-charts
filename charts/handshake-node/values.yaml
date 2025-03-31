@@ -95,8 +95,8 @@ nodeConfig:
   sslCert: ""
   sslKey: ""
   api:
-    secretName: "handshake-node-http-api-key"
-    secretKey: "apiKey"
+    secretName:
+    secretKey:
 
   # DNS server configs
   nsHost: "0.0.0.0"
