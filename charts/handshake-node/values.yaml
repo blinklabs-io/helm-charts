@@ -103,9 +103,6 @@ nodeConfig:
   rsHost: "0.0.0.0"
   rsNoUnbound: false
 
-# Override default network resources if needed
-resources: {}
-
 # Service configurations
 service:
   tcp:

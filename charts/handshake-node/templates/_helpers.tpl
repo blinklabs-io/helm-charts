@@ -84,11 +84,7 @@ Define resource requirements based on network
 */}}
 {{- define "handshake-node.resources" -}}
 {{- $network := include "handshake-node.network" . -}}
-{{- if .Values.resources -}}
-{{- toYaml .Values.resources -}}
-{{- else -}}
-{{- toYaml (index .Values.networkResources $network) -}}
-{{- end -}}
+{{ toYaml (index .Values.networkResources $network) }}
 {{- end -}}
 
 {{/*
