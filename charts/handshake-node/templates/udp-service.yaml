@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "handshake-node.fullname" . }}-udp
+  labels:
+    {{- include "handshake-node.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.service.udp.annotations }}
+    {{- toYaml .Values.service.udp.annotations | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.service.udp.type | default "ClusterIP" }}
+  {{- if eq (.Values.service.udp.type | default "ClusterIP") "LoadBalancer" }}
+  externalTrafficPolicy: {{ .Values.service.udp.externalTrafficPolicy | default "Cluster" }}
+  {{- end }}
+  ports:
+  - name: ns
+    port: {{ index .Values.networkPorts .Values.handshake_network "ns" }}
+    targetPort: {{ index .Values.networkPorts .Values.handshake_network "ns" }}
+    protocol: UDP
+  - name: rs
+    port: {{ index .Values.networkPorts .Values.handshake_network "rs" }}
+    targetPort: {{ index .Values.networkPorts .Values.handshake_network "rs" }}
+    protocol: UDP
+  selector:
+    app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}

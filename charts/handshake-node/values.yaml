@@ -1,0 +1,120 @@
+---
+# Network configuration (main for mainnet, testnet for testnet, regtest, etc.)
+handshake_network: main
+
+networkPorts:
+  main:
+    p2p: 12038
+    brontide: 44806
+    http: 12037
+    ns: 5349
+    rs: 5350
+  testnet:
+    p2p: 13038
+    brontide: 45806
+    http: 13037
+    ns: 15349
+    rs: 15350
+  regtest:
+    p2p: 14038
+    brontide: 46806
+    http: 14037
+    ns: 25349
+    rs: 25350
+  simnet:
+    p2p: 15038
+    brontide: 47806
+    http: 15037
+    ns: 35349
+    rs: 35350
+
+networkResources:
+  main:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+  testnet:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  regtest:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  simnet:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+networkStorage:
+  main: "200Gi"
+  testnet: "100Gi"
+  regtest: "20Gi"
+  simnet: "20Gi"
+
+image:
+  repository: ghcr.io/handshake-org/hsd
+  tag: 7.0.1
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# Node configuration
+nodeConfig:
+  # Chain options
+  prune: false
+  indexTx: false
+  indexAddress: false
+  checkpoints: true
+
+  # Logging options
+  logLevel: "info"
+
+  # Network options
+  listen: true
+  maxInbound: 50
+  maxOutbound: 8
+  publicHost: ""
+
+  # HTTP API configuration
+  httpHost: "0.0.0.0"
+  cors: false
+  ssl: false
+  sslCert: ""
+  sslKey: ""
+  api:
+    secretName:
+    secretKey:
+
+  # DNS server configs
+  nsHost: "0.0.0.0"
+  rsHost: "0.0.0.0"
+  rsNoUnbound: false
+
+# Service configurations
+service:
+  tcp:
+    annotations: {}
+  udp:
+    annotations: {}
+
+# Override default network storage size if needed
+storage:
+  storageClassName: ""
+
+# Pod scheduling configuration
+affinity: {}
+nodeSelector: {}
+tolerations: []
