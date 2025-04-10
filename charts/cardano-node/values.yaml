@@ -2,12 +2,13 @@
 cardano_network: preview
 image:
   repository: ghcr.io/blinklabs-io/cardano-node
-  tag: 10.2.1-1
+  tag: 10.2.1
 replicaCount: 1
 resources: {}
 service:
   type: ClusterIP
 storage:
+# Suitable for preview and preprod, 250+ for mainnet
   size: "24Gi"
 # Leave empty to use the default storage class
   storageClassName: ""
