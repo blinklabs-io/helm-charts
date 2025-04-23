@@ -119,23 +119,23 @@ affinity: {}
 nodeSelector: {}
 tolerations: []
 
-# Prometheus exporter configuration
-prometheus:
+# Prometheus metrics exporter configuration
+metrics:
   enabled: true
   image:
-    repository: blinklabs/handshake-prometheus-exporter
+    repository: ghcr.io/blinklabs-io/handshake-prometheus-exporter
     tag: 0.0.1
     pullPolicy: IfNotPresent
   refreshSeconds: 1
   banAddressMetrics: true
   logLevel: "INFO"
   port: 12000
-  resources:
-    requests:
-      cpu: 250m
-      memory: 256Mi
-    limits:
-      memory: 256Mi
+  resources: {}
+#    requests:
+#      cpu: 250m
+#      memory: 256Mi
+#    limits:
+#      memory: 256Mi
   # ServiceMonitor configuration for Prometheus Operator
   serviceMonitor:
     enabled: false
