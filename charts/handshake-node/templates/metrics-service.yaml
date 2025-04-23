@@ -1,0 +1,20 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "handshake-node.network-fullname" . }}-metrics
+  labels:
+    {{- include "handshake-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metrics
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ .Values.metrics.port }}
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    handshake_network: {{ include "handshake-node.network" . }}
+    app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
