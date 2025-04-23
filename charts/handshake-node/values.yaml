@@ -139,6 +139,7 @@ prometheus:
   # ServiceMonitor configuration for Prometheus Operator
   serviceMonitor:
     enabled: true
+    installCRDs: true  # Install Prometheus Operator CRDs as dependencies
     interval: 30s
     path: "/"
     labels: {}
