@@ -12,8 +12,3 @@ maintainers:
     email: wolf31o2@blinklabs.io
   - name: overcookedpanda
     email: overcookedpanda@blinklabs.io
-dependencies:
-  - name: prometheus-operator-crds
-    version: "^19.0.0"
-    repository: https://prometheus-community.github.io/helm-charts
-    condition: prometheus.serviceMonitor.installCRDs
