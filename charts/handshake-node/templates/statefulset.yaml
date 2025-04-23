@@ -114,6 +114,8 @@ spec:
         env:
         - name: HANDSHAKE_RPC_HOST
           value: "localhost"
+        - name: HANDSHAKE_RPC_PORT
+          value: {{ include "handshake-node.http-port" . }}
         - name: HANDSHAKE_RPC_USER
           value: "x"
         - name: HANDSHAKE_RPC_PASSWORD
