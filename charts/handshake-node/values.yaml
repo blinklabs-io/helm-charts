@@ -124,7 +124,7 @@ prometheus:
   enabled: true
   image:
     repository: blinklabs/handshake-prometheus-exporter
-    tag: v0.0.1
+    tag: 0.0.1
     pullPolicy: IfNotPresent
   refreshSeconds: 1
   banAddressMetrics: true
