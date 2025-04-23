@@ -118,3 +118,27 @@ storage:
 affinity: {}
 nodeSelector: {}
 tolerations: []
+
+# Prometheus exporter configuration
+prometheus:
+  enabled: true
+  image:
+    repository: blinklabs/handshake-prometheus-exporter
+    tag: v0.0.1
+    pullPolicy: IfNotPresent
+  refreshSeconds: 1
+  banAddressMetrics: true
+  logLevel: "INFO"
+  port: 12000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      memory: 256Mi
+  # ServiceMonitor configuration for Prometheus Operator
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: "/"
+    labels: {}

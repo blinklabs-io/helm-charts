@@ -1,0 +1,27 @@
+{{- if and .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "handshake-node.network-fullname" . }}-metrics-monitor
+  labels:
+    app: {{ include "handshake-node.name" . }}
+    {{- include "handshake-node.labels" . | nindent 4 }}
+    {{- with .Values.prometheus.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      handshake_network: {{ include "handshake-node.network" . }}
+      app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: metrics
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.prometheus.serviceMonitor.interval }}
+    path: {{ .Values.prometheus.serviceMonitor.path }}
+    scheme: http
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+{{- end }}

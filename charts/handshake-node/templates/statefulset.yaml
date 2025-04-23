@@ -107,6 +107,40 @@ spec:
         volumeMounts:
         - name: handshake-data-{{ include "handshake-node.network" . }}
           mountPath: /data
+      {{- if .Values.prometheus.enabled }}
+      - name: handshake-prometheus-exporter
+        image: "{{ .Values.prometheus.image.repository }}:{{ .Values.prometheus.image.tag }}"
+        imagePullPolicy: {{ .Values.prometheus.image.pullPolicy | default "IfNotPresent" }}
+        env:
+        - name: HANDSHAKE_RPC_HOST
+          value: "localhost"
+        - name: HANDSHAKE_RPC_USER
+          value: "x"
+        - name: HANDSHAKE_RPC_PASSWORD
+          {{- if .Values.nodeConfig.api.secretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.nodeConfig.api.secretName }}
+              key: {{ .Values.nodeConfig.api.secretKey }}
+          {{- else }}
+          value: ""
+          {{- end }}
+        - name: REFRESH_SECONDS
+          value: {{ .Values.prometheus.refreshSeconds | quote }}
+        - name: BAN_ADDRESS_METRICS
+          value: {{ .Values.prometheus.banAddressMetrics | quote }}
+        - name: LOG_LEVEL
+          value: "{{ .Values.prometheus.logLevel }}"
+        ports:
+        - name: metrics
+          containerPort: {{ .Values.prometheus.port }}
+        readinessProbe:
+          httpGet:
+            path: /
+            port: metrics
+        resources:
+          {{- toYaml .Values.prometheus.resources | nindent 10 }}
+      {{- end }}
   updateStrategy:
     type: OnDelete
   volumeClaimTemplates:
