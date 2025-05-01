@@ -47,7 +47,7 @@ Define Cardano network.
 Common labels
 */}}
 {{- define "cardano-node.labels" -}}
-app.kubernetes.io/name: {{ include "cardano-node.name" . }}
+app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}
 helm.sh/chart: {{ include "cardano-node.chart" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Chart.AppVersion }}
