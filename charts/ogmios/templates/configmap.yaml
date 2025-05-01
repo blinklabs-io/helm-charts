@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+{{ include "ogmios.labels" . | indent 4 }}
+  name: {{ include "ogmios.fullname" . }}-configmap
+data:
+  initContainer-entrypoint: |
+    rm -rf /config/lost+found
+    __dir=/config/network/cardano-node
+    if [ ! -e ${__dir} ]
+    then
+      __url="https://raw.githubusercontent.com/blinklabs-io/docker-cardano-configs/b62855d2727dce904d1c78f270e26d7b12a4543c"
+      mkdir -p ${__dir}
+      case "${OGMIOS_NETWORK}" in
+        "mainnet"|"preview"|"preprod"|"sanchonet")
+          test -e ${__dir}/config.json || curl -sL ${__url}/config/${OGMIOS_NETWORK}/config.json > ${__dir}/config.json
+          for g in byron shelley alonzo conway; do
+            test -e ${__dir}/${g}-genesis.json || curl -sL ${__url}/config/${OGMIOS_NETWORK}/${g}-genesis.json > ${__dir}/${g}-genesis.json
+          done
+        ;;
+      esac
+    fi

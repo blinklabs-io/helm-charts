@@ -1,0 +1,12 @@
+apiVersion: v1
+name: ogmios
+description: Creates an Ogmios API service with SOCAT sidecar
+version: 0.0.1
+appVersion: v6.11.2
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io

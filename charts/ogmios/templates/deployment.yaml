@@ -1,0 +1,107 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+{{ include "ogmios.labels" . | indent 4 }}
+  name: {{ include "ogmios.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      cardano_network: {{ include "ogmios.network" . }}
+      cardano_service: ogmios
+      app.kubernetes.io/name: {{ include "ogmios.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+  template:
+    metadata:
+      labels:
+        cardano_network: {{ include "ogmios.network" . }}
+        cardano_service: ogmios
+{{ include "ogmios.labels" . | indent 8 }}
+    spec:
+      containers:
+      - command:
+        - ogmios
+        - --node-socket
+        - ${CARDANO_NODE_SOCKET_PATH}
+        - --host
+        - ${LISTEN_HOST}
+        - --port
+        - ${LISTEN_PORT}
+        - --log-level
+        - ${LOG_LEVEL}
+        - --node-config
+        - ${CARDANO_CONFIG}
+        env:
+        - name: OGMIOS_NETWORK
+          value: {{ .Values.cardano_network }}
+        - name: CARDANO_CONFIG
+          value: /config/network/cardano-node/config.json
+        - name: LISTEN_HOST
+          value: 0.0.0.0
+        - name: LISTEN_PORT
+          value: "1337"
+        - name: CARDANO_NODE_SOCKET_PATH
+          value: /node-ipc/node.socket
+        - name: LOG_LEVEL
+          value: Info
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        name: ogmios
+        ports:
+        - containerPort: 1337
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /health
+            port: 1337
+        resources: {{ .Values.resources | toYaml | nindent 10 }}
+        volumeMounts:
+        - mountPath: /node-ipc
+          name: node-ipc
+        - mountPath: /config
+          name: ogmios-config
+      - command:
+        - sh
+        - -c
+        - rm -f /ipc/node.socket; socat UNIX-LISTEN:/ipc/node.socket,fork TCP:${CARDANO_NODE_SOCKET_TCP_HOST}:${CARDANO_NODE_SOCKET_TCP_PORT},ignoreeof
+        env:
+        - name: CARDANO_NODE_SOCKET_TCP_HOST
+          value: {{ .Values.cardano_node.host }}
+        - name: CARDANO_NODE_SOCKET_TCP_PORT
+          value: "{{ .Values.cardano_node.port }}"
+        image: alpine/socat
+        name: socat-socket-server
+        volumeMounts:
+        - mountPath: /ipc
+          name: node-ipc
+      initContainers:
+      - command:
+        - sh
+        - /configmap/initContainer-entrypoint
+        env:
+        - name: OGMIOS_NETWORK
+          value: {{ .Values.cardano_network }}
+        image: curlimages/curl
+        imagePullPolicy: IfNotPresent
+        name: configure
+        volumeMounts:
+        - mountPath: /config
+          name: ogmios-config
+        - mountPath: /configmap
+          name: {{ include "ogmios.fullname" . }}-configmap
+      restartPolicy: Always
+      serviceAccountName: ""
+{{- if .Values.tolerations }}
+      tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
+{{- end }}
+      volumes:
+      - emptyDir: {}
+        name: node-ipc
+      - emptyDir: {}
+        name: ogmios-config
+      - configMap:
+          name: {{ include "ogmios.fullname" . }}-configmap
+        name: {{ include "ogmios.fullname" . }}-configmap

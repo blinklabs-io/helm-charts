@@ -1,0 +1,24 @@
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+{{ include "ogmios.labels" . | indent 4 }}
+  name: {{ include "ogmios.fullname" . }}-api
+spec:
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ include "ogmios.fullname" . }}
+            port:
+              number: 1337
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host }}
+{{- end }}

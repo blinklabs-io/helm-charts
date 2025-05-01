@@ -1,0 +1,31 @@
+---
+cardano_network: preview
+cardano_node:
+  host: cardano-node-headless
+  port: 30000
+image:
+  repository: cardanosolutions/ogmios
+  tag: v6.11.2
+replicaCount: 1
+resources: {}
+tolerations:
+- key: kubernetes.io/arch
+  operator: Equal
+  value: arm64
+  effect: NoSchedule
+
+affinity: {}
+
+ingress:
+  enabled: false
+  host: ogmios-api.preview.local
+
+service:
+  enabled: false
+  annotations: {}
+  ports:
+    - name: http
+      port: 1337
+      protocol: TCP
+      targetPort: 1337
+  type: ClusterIP
