@@ -8,10 +8,7 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
-    matchLabels:
-      cardano_network: {{ include "cardano-node.network" . }}
-      app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}
-{{ include "cardano-node.labels" . | indent 6 }}      
+    matchLabels: {{ include "cardano-node.labels" . | nindent 6 }}
   serviceName: {{ include "cardano-node.fullname" . }}-headless
   template:
     metadata:
@@ -19,8 +16,6 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: cardano-node
       labels:
-        cardano_network: {{ include "cardano-node.network" . }}
-        app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}
 {{ include "cardano-node.labels" . | indent 8 }}
     spec:
 {{- if .Values.affinity }}
