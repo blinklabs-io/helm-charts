@@ -15,6 +15,10 @@ spec:
     port: 30000
     protocol: TCP
     targetPort: 30000
+  - name: metrics
+    port: 12798
+    protocol: TCP
+    targetPort: 12798
 {{- if .Values.ports }}
 {{- .Values.ports| toYaml | nindent 2 }}
 {{- end }}

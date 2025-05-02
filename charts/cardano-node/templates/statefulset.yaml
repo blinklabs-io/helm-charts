@@ -17,6 +17,9 @@ spec:
         kubectl.kubernetes.io/default-container: cardano-node
       labels:
 {{ include "cardano-node.labels" . | indent 8 }}
+{{- with .Values.extraPodLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
     spec:
 {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
@@ -37,6 +40,9 @@ spec:
         ports:
         - name: ntn
           containerPort: 3001
+        ports:
+        - name: metrics
+          containerPort: 12798
         resources: {{ .Values.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /data

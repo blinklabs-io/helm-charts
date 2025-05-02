@@ -1,0 +1,19 @@
+---
+{{- if .Values.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "cardano-node.fullname" . }}
+  labels:
+    {{- include "cardano-node.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "cardano-node.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+    {{- toYaml .Values.podMonitor.podMetricsEndpoints | nindent 4 }}
+{{- end }}
