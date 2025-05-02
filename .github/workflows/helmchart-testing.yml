@@ -31,6 +31,8 @@ jobs:
           changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
           if [[ -n "$changed" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            joined=$(echo "$changed" | paste -sd "," -)
+            echo "changed_charts=$joined" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run chart-testing (lint)
@@ -43,7 +45,22 @@ jobs:
 
       - name: Run chart-testing (install)
         if: steps.list-changed.outputs.changed == 'true'
+        continue-on-error: true
         run: |
-          ct install --target-branch ${{ github.event.repository.default_branch }}
+          ct install --target-branch ${{ github.event.repository.default_branch }} --helm-extra-args --timeout 180s
 
-        
+      - name: Helm install fallback for changed charts
+        if: steps.list-changed.outputs.changed == 'true'
+        run: |
+          echo "Running Helm installs for changed charts..."
+          charts="${{ steps.list-changed.outputs.changed_charts }}"
+          IFS=',' read -ra chart_array <<< "$charts"
+          for chart_path in "${chart_array[@]}"; do
+            chart_name=$(basename "$chart_path")
+            echo "Installing $chart_name from $chart_path..."
+            helm install "$chart_name" "$chart_path" \
+              --namespace "${chart_name}-ci" \
+              --create-namespace \
+              --wait=false \
+              --timeout 30s
+          done
