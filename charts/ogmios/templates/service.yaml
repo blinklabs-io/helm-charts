@@ -1,0 +1,20 @@
+{{ if .Values.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  {{- if .Values.service.annotations }}
+  annotations: {{ toYaml .Values.service.annotations | nindent 4 }}
+  {{- end }}
+  labels:
+    cardano_network: {{ .Values.cardano_network }}
+{{ include "ogmios.labels" . | indent 4 }}
+  name: {{ include "ogmios.fullname" . }}
+spec:
+  ports: {{ toYaml .Values.service.ports | nindent 2 }}
+  selector:
+    cardano_network: {{ .Values.cardano_network }}
+    app.kubernetes.io/name: {{ include "ogmios.name" . }}
+  sessionAffinity: ClientIP
+  type: {{ .Values.service.type }}
+{{- end }}
