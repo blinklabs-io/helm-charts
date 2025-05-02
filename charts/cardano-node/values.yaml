@@ -1,5 +1,6 @@
 ---
 cardano_network: preview
+# extraPodLabels: {}
 image:
   repository: ghcr.io/blinklabs-io/cardano-node
   tag: 10.2.1
@@ -17,3 +18,11 @@ tolerations:
   operator: Equal
   value: arm64
   effect: NoSchedule
+
+# Enable the PodMonitor for Prometheus Operator
+podMonitor:
+  enabled: false
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
