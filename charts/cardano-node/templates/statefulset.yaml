@@ -60,7 +60,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: socat-ntc
         ports:
-        - containerPort: 30000
+        - containerPort: {{ .Values.service.ports.socatNtc.targetPort }}
         resources: {}
         volumeMounts:
         - mountPath: /ipc
