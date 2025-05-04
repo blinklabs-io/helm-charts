@@ -8,20 +8,17 @@ metadata:
 spec:
   ports:
   - name: ntn
-    port: 3001
+    port: {{ .Values.service.ports.ntn.port }}
     protocol: TCP
-    targetPort: 3001
+    targetPort: {{ .Values.service.ports.ntn.targetPort }}
   - name: socat-ntc
-    port: 30000
+    port: {{ .Values.service.ports.socatNtc.port }}
     protocol: TCP
-    targetPort: 30000
+    targetPort: {{ .Values.service.ports.socatNtc.targetPort }}
   - name: metrics
-    port: 12798
+    port: {{ .Values.service.ports.metrics.port }}
     protocol: TCP
-    targetPort: 12798
-{{- if .Values.ports }}
-{{- .Values.ports| toYaml | nindent 2 }}
-{{- end }}
+    targetPort: {{ .Values.service.ports.metrics.targetPort }}
   selector:
     cardano_network: {{ include "cardano-node.network" . }}
     app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}

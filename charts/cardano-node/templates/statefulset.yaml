@@ -39,10 +39,10 @@ spec:
         name: cardano-node
         ports:
         - name: ntn
-          containerPort: 3001
+          containerPort: {{ .Values.service.ports.ntn.targetPort }}
         ports:
         - name: metrics
-          containerPort: 12798
+          containerPort: {{ .Values.service.ports.metrics.targetPort }}
         resources: {{ .Values.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /data
@@ -55,7 +55,7 @@ spec:
         - socat TCP-LISTEN:${PORT},fork UNIX-CLIENT:/ipc/node.socket,ignoreeof
         env:
         - name: PORT
-          value: "30000"
+          value: "{{ .Values.service.ports.socatNtc.targetPort }}"
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         name: socat-ntc
