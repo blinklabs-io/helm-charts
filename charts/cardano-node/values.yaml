@@ -3,7 +3,7 @@ cardano_network: preview
 # extraPodLabels: {}
 image:
   repository: ghcr.io/blinklabs-io/cardano-node
-  tag: 10.2.1
+  tag: 10.3.1
 replicaCount: 1
 resources: {}
 service:
