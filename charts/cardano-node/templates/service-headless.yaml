@@ -9,9 +9,9 @@ spec:
   clusterIP: None
   ports:
   - name: ntn
-    port: 3001
+    port: {{ .Values.service.ports.ntn.port }}
     protocol: TCP
-    targetPort: 3001
+    targetPort: {{ .Values.service.ports.ntn.targetPort }}
   selector:
     cardano_network: {{ include "cardano-node.network" . }}
     app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}
