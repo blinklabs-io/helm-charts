@@ -8,7 +8,7 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
-    matchLabels: {{ include "cardano-node.labels" . | nindent 6 }}
+    matchLabels: {{ include "cardano-node.matchLabels" . | nindent 6 }}
   serviceName: {{ include "cardano-node.fullname" . }}-headless
   template:
     metadata:

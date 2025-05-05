@@ -57,3 +57,13 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 cardano_network: {{ include "cardano-node.network" . }}
 cardano_service: cardano-node
 {{- end -}}
+
+{{/*
+Cardano node selector labels
+*/}}
+{{- define "cardano-node.matchLabels" -}}
+app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+cardano_network: {{ include "cardano-node.network" . }}
+cardano_service: cardano-node
+{{- end -}}
