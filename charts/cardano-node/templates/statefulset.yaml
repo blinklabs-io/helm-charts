@@ -34,6 +34,8 @@ spec:
           value: /ipc/node.socket
         - name: NETWORK
           value: {{ .Values.cardano_network }}
+        - name: CARDANO_PORT
+          value: "{{ .Values.service.ports.ntn.targetPort }}"
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         name: cardano-node
