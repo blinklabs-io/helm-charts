@@ -1,0 +1,83 @@
+---
+replicaCount: 1
+
+image:
+  repository: "ghcr.io/blinklabs-io/cdnsd"
+  tag: "0.18.0"
+  pullPolicy: IfNotPresent
+
+annotations: {}
+podAnnotations: {}
+
+environment:
+  DNS_LISTEN_ADDRESS: "0.0.0.0"
+  DNS_LISTEN_PORT: "8053"
+  DNS_LISTEN_TLS_PORT: "8853"
+  # DNS_RECURSION: false
+  # DNS_FALLBACK_SERVERS: "8.8.8.8,8.8.4.4"
+  STATE_DIR: "/data"
+  INDEXER_NETWORK: "preprod"
+  # INDEXER_NETWORK_MAGIC: 1
+  # INDEXER_TCP_ADDRESS: "relays-new.preprod.cardano-testnet.iohkdev.io:3001"
+  # INDEXER_SOCKET_PATH: ""
+  # INDEXER_INTERCEPT_HASH: ""
+  # INDEXER_INTERCEPT_SLOT: ""
+  # INDEXER_VERIFY: true
+  # LOGGING_DEBUG: false
+  # LOGGING_QUERY_LOG: true
+  # METRICS_LISTEN_ADDRESS: ""
+  # METRICS_LISTEN_PORT: 8081
+  # DEBUG_ADDRESS: "localhost"
+  # DEBUG_PORT: 0
+  # TLS_CERT_FILE_PATH: ""
+  # TLS_KEY_FILE_PATH: ""
+  # PROFILES: "ada-preprod,auto-preprod"
+
+affinity: {}
+nodeSelector: {}
+tolerations: []
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  annotations: {}
+
+tcp_service:
+  type: ClusterIP
+  dnsTcp: 53
+  dnsTls: 853
+
+udp_service:
+  type: ClusterIP
+  dns: 53
+
+serviceAccount:
+  create: true
+  name: cdnsd-sa
+  annotations: {}
+
+resources: {}
+#  limits:
+#    cpu: 1000m
+#    memory: 1024Mi
+#  requests:
+#    cpu: 500m
+#    memory: 512Mi
+
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+metrics:
+  enabled: false
+  service:
+    annotations: {}
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+    path: /metrics
+    labels:
+#      app.kubernetes.io/component: metrics
