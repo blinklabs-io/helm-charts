@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openvpn.fullname" . }}
+  labels:
+    {{- include "openvpn.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: ovpn
+      protocol: {{ .Values.service.protocol }}
+      name: ovpn
+  selector:
+    {{- include "openvpn.selectorLabels" . | nindent 4 }}

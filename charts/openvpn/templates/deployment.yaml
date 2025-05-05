@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openvpn.fullname" . }}
+  labels:
+    {{- include "openvpn.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "openvpn.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        config-checksum: {{ toJson .Values.configFiles | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "openvpn.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "openvpn.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          args:
+            # Switch to config dir to make relative paths work
+            - --cd
+            - /etc/openvpn
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: ovpn
+              containerPort: {{ .Values.service.port }}
+              protocol: {{ .Values.service.protocol }}
+          livenessProbe:
+            exec:
+              command:
+              - /usr/bin/pgrep
+              - -x
+              - openvpn
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.configFiles }}
+          volumeMounts:
+            {{- range $idx, $config := .Values.configFiles }}
+            - name: config-{{ $idx }}
+              mountPath: /etc/openvpn/{{ $config.name }}
+              subPath: {{ $config.name }}
+            {{- end }}
+          {{- end }}
+      {{- if .Values.configFiles }}
+      volumes:
+        {{- range $idx, $config := .Values.configFiles }}
+        - name: config-{{ $idx }}
+          {{- if $config.secret | default false }}
+          secret:
+            secretName: {{ include "openvpn.fullname" $ }}-config-{{ $idx }}
+          {{- else }}
+          configMap:
+            name: {{ include "openvpn.fullname" $ }}-config-{{ $idx }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
