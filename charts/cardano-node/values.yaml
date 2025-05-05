@@ -33,6 +33,7 @@ tolerations:
 # Enable the PodMonitor for Prometheus Operator
 podMonitor:
   enabled: false
+  # extraLabels: {}
   podMetricsEndpoints:
     - port: metrics
       path: /metrics
