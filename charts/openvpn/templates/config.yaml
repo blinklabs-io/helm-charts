@@ -1,0 +1,25 @@
+{{- range $idx, $config := .Values.configFiles }}
+{{-   if ($config.secret | default false) }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "openvpn.fullname" $ }}-config-{{ $idx }}
+  labels:
+    {{- include "openvpn.labels" $ | nindent 4 }}
+type: Opaque
+data:
+  "{{ $config.name }}": {{ $config.content | b64enc }}
+{{-   else }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openvpn.fullname" $ }}-config-{{ $idx }}
+  labels:
+    {{- include "openvpn.labels" $ | nindent 4 }}
+data:
+  "{{ $config.name }}": |-
+    {{- $config.content | nindent 4 }}
+{{-   end }}
+{{- end }}
