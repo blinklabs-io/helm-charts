@@ -2,7 +2,7 @@ apiVersion: v2
 name: cdnsd
 description: "A Helm chart for deploying cdnsd"
 version: 0.0.1
-appVersion: "0.18.0"
+appVersion: 0.21.1
 
 sources:
   - https://github.com/blinklabs-io/cdnsd
