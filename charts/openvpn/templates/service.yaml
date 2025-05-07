@@ -9,6 +9,9 @@ spec:
   ports:
     - port: {{ .Values.service.port }}
       targetPort: ovpn
+      {{- with .Values.service.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
       protocol: {{ .Values.service.protocol }}
       name: ovpn
   selector:
