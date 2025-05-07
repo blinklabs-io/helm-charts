@@ -1,0 +1,18 @@
+apiVersion: v2
+name: cdnsd
+description: "A Helm chart for deploying cdnsd"
+version: 0.0.1
+appVersion: 0.21.1
+
+sources:
+  - https://github.com/blinklabs-io/cdnsd
+
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
