@@ -41,6 +41,7 @@ securityContext:
 service:
   type: ClusterIP
   port: 1194
+  # nodePort:
   protocol: TCP
 
 ingress:
