@@ -43,6 +43,8 @@ service:
   port: 1194
   # nodePort:
   protocol: TCP
+  annotations: {}
+  # loadBalancerClass:
 
 ingress:
   enabled: false
