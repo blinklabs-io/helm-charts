@@ -31,11 +31,14 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          args:
-            # Switch to config dir to make relative paths work
-            - --cd
-            - /etc/openvpn
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ENABLE_NAT
+              value: "{{ if .Values.nat.enabled }}1{{ else }}0{{ end }}"
+            - name: NAT_SOURCE
+              value: "{{ .Values.nat.source }}"
+            - name: NAT_DEVICE
+              value: "{{ .Values.nat.device }}"
           ports:
             - name: ovpn
               containerPort: {{ .Values.service.port }}

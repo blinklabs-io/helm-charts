@@ -109,3 +109,11 @@ configFiles: []
   # - name: dh2048.pem
   #   content: |
   #     dh2048.pem content
+
+nat:
+  enabled: true
+  # Source subnet for iptables MASQUERADE rule
+  # This should match the subnet used for the VPN server
+  source: 10.8.0.0/24
+  # Output device
+  device: eth0
