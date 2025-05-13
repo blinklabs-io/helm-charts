@@ -3,7 +3,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/blinklabs-io/dingo
-  tag: "0.8.1"
+  tag: "0.9.0"
   pullPolicy: IfNotPresent
 
 environment:
