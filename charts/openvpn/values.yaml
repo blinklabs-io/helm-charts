@@ -117,3 +117,6 @@ nat:
   source: 10.8.0.0/24
   # Output device
   device: eth0
+
+# Additional startup script content
+startupScript: ''

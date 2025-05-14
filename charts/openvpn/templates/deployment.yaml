@@ -51,15 +51,20 @@ spec:
               - openvpn
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.configFiles }}
+          {{- if (or .Values.configFiles .Values.startupScript) }}
           volumeMounts:
             {{- range $idx, $config := .Values.configFiles }}
             - name: config-{{ $idx }}
               mountPath: /etc/openvpn/{{ $config.name }}
               subPath: {{ $config.name }}
             {{- end }}
+            {{- if .Values.startupScript }}
+            - name: startup-script
+              mountPath: /usr/local/bin/entrypoint-user.sh
+              subPath: entrypoint-user.sh
+            {{- end }}
           {{- end }}
-      {{- if .Values.configFiles }}
+      {{- if (or .Values.configFiles .Values.startupScript) }}
       volumes:
         {{- range $idx, $config := .Values.configFiles }}
         - name: config-{{ $idx }}
@@ -70,6 +75,11 @@ spec:
           configMap:
             name: {{ include "openvpn.fullname" $ }}-config-{{ $idx }}
           {{- end }}
+        {{- end }}
+        {{- if .Values.startupScript }}
+        - name: startup-script
+          configMap:
+            name: {{ include "openvpn.fullname" $ }}-config-startup-script
         {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}

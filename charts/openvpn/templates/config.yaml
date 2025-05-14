@@ -23,3 +23,16 @@ data:
     {{- $config.content | nindent 4 }}
 {{-   end }}
 {{- end }}
+
+{{- if .Values.startupScript }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openvpn.fullname" $ }}-config-startup-script
+  labels:
+    {{- include "openvpn.labels" $ | nindent 4 }}
+data:
+  "entrypoint-user.sh": |-
+    {{- .Values.startupScript | nindent 4 }}
+{{- end }}
