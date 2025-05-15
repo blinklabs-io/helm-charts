@@ -4,9 +4,9 @@ description: A Helm chart for deploying OpenVPN in Kubernetes
 
 type: application
 
-version: 0.3.0
+version: 0.4.0
 
-appVersion: "0.2.0"
+appVersion: "0.3.0"
 
 maintainers:
   - name: aurora

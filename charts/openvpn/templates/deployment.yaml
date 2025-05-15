@@ -51,7 +51,7 @@ spec:
               - openvpn
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if (or .Values.configFiles .Values.startupScript) }}
+          {{- if (or .Values.configFiles .Values.startupScript .Values.metrics.enabled) }}
           volumeMounts:
             {{- range $idx, $config := .Values.configFiles }}
             - name: config-{{ $idx }}
@@ -63,8 +63,30 @@ spec:
               mountPath: /usr/local/bin/entrypoint-user.sh
               subPath: entrypoint-user.sh
             {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - name: status-file-dir
+              mountPath: {{ dir .Values.metrics.statusFile }}
+            {{- end }}
           {{- end }}
-      {{- if (or .Values.configFiles .Values.startupScript) }}
+        {{- if .Values.metrics.enabled }}
+        - name: metrics
+          image: "{{ .Values.metrics.image.repository }}:{{ .Values.metrics.image.tag }}"
+          imagePullPolicy: {{ .Values.metrics.image.imagePullPolicy }}
+          env:
+            - name: OPENVPN_LISTEN_ADDRESS
+              value: ":{{ .Values.metrics.port }}"
+            - name: OPENVPN_STATUS_FILES
+              value: {{ .Values.metrics.statusFile }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          resources: {{- toYaml .Values.metrics.resources | nindent 12 }}
+          volumeMounts:
+            - name: status-file-dir
+              mountPath: {{ dir .Values.metrics.statusFile }}
+        {{- end }}
+      {{- if (or .Values.configFiles .Values.startupScript .Values.metrics.enabled) }}
       volumes:
         {{- range $idx, $config := .Values.configFiles }}
         - name: config-{{ $idx }}
@@ -80,6 +102,11 @@ spec:
         - name: startup-script
           configMap:
             name: {{ include "openvpn.fullname" $ }}-config-startup-script
+            defaultMode: 493 # 0755
+        {{- end }}
+        {{- if .Values.metrics.enabled }}
+        - name: status-file-dir
+          emptyDir: {}
         {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
