@@ -1,0 +1,123 @@
+---
+replicaCount: 1
+
+image:
+  repository: cardanosolutions/kupo
+  tag: "v2.10.0"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+environment: []
+
+connectionMethod:
+  node:
+    enabled: true
+    socat:
+      enabled: true
+      image:
+        repository: "alpine/socat"
+        tag: "latest"
+        pullPolicy: IfNotPresent
+      nodeHost: "" # "cardano-node.default.svc.cluster.local"
+      nodePort: "" # "30000"
+    nodeSocket:
+      path: "" # "/ipc/node.socket"
+    configFetch:
+      enabled: true
+      image:
+        repository: ghcr.io/blinklabs-io/cardano-configs
+        tag: "20250514-1"
+        pullPolicy: IfNotPresent
+      # Network to fetch configs for
+      network: ""  # mainnet, preview, preprod, etc.
+      # Directory where configs will be copied
+      targetDir: "" # /opt/cardano
+    # Specify path to cardano config if not using configFetch
+    nodeConfig:
+      enabled: false
+      path: ""
+  # Ogmios connection settings (if using ogmios connectionMethod)
+  ogmios:
+    enabled: false
+    host: ""
+    port: 1337
+  # Hydra connection settings (if using hydra connectionMethod)
+  hydra:
+    enabled: false
+    host: ""
+    port: 4001
+
+# Kupo settings
+kupo:
+  since: "origin"
+  match: "*"
+  pruneUtxo: true
+  deferDbIndexes: true
+  logLevel: "Info"
+  storage:
+    inMemory: false
+    workDir: "" # "/db/kupo-preview"
+  server:
+    host: "0.0.0.0"
+    port: 1442
+  metrics:
+    enabled: false
+    service:
+      port: 1442
+      path: "/health"
+      labels: {}
+      annotations: {}
+    serviceMonitor:
+      enabled: false
+      interval: 15s
+      path: "/health"
+      port: "http"
+      labels: {}
+      annotations: {}
+
+serviceAccount:
+  create: true
+  annotations: {}
+  labels: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "kupo-sa"
+
+resources: {}
+#  limits:
+#    cpu: 1
+#    memory: 2Gi
+#  requests:
+#    cpu: 500m
+#    memory: 1Gi
+
+labels:
+  cardano_network: ""
+podLabels: {}
+annotations: {}
+podAnnotations: {}
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 20Gi
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 1442
+  labels: {}
+  annotations: {}
+
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
