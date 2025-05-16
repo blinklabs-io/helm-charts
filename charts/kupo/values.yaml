@@ -64,16 +64,19 @@ kupo:
     port: 1442
   metrics:
     enabled: false
-    service:
-      port: 1442
-      path: "/health"
-      labels: {}
-      annotations: {}
     serviceMonitor:
       enabled: false
       interval: 15s
       path: "/health"
       port: "http"
+      labels: {}
+      annotations: {}
+    podMonitor:
+      enabled: false
+      podMetricsEndpoints:
+        - port: http
+          path: /health
+          interval: 15s
       labels: {}
       annotations: {}
 
