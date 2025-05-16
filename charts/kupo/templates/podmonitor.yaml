@@ -1,0 +1,21 @@
+{{- if and .Values.kupo.metrics.enabled .Values.kupo.metrics.podMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kupo.fullname" . }}
+  labels:
+    {{- include "kupo.labels" . | nindent 4 }}
+{{- with .Values.kupo.metrics.podMonitor.labels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kupo.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+    {{- toYaml .Values.kupo.metrics.podMonitor.podMetricsEndpoints | nindent 4 }}
+{{- end }}

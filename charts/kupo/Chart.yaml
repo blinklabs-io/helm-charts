@@ -1,0 +1,18 @@
+apiVersion: v2
+name: kupo
+description: "A Helm chart for deploying Kupo - fast, lightweight & configurable chain-index for Cardano"
+version: 0.0.1
+appVersion: "2.10.0"
+
+sources:
+  - https://github.com/CardanoSolutions/kupo
+
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
