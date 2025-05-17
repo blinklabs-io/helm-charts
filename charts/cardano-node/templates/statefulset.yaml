@@ -37,12 +37,11 @@ spec:
         - name: CARDANO_PORT
           value: "{{ .Values.service.ports.ntn.targetPort }}"
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: cardano-node
         ports:
         - name: ntn
           containerPort: {{ .Values.service.ports.ntn.targetPort }}
-        ports:
         - name: metrics
           containerPort: {{ .Values.service.ports.metrics.targetPort }}
         resources: {{ .Values.resources | toYaml | nindent 10 }}
@@ -63,7 +62,7 @@ spec:
         name: socat-ntc
         ports:
         - containerPort: {{ .Values.service.ports.socatNtc.targetPort }}
-        resources: {}
+        resources: {{ .Values.socat.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /ipc
           name: node-ipc
@@ -71,7 +70,7 @@ spec:
 {{- .Values.sidecars | toYaml | nindent 6 }}
 {{- end }}
       restartPolicy: Always
-      serviceAccountName: ""
+      serviceAccountName: {{ .Values.serviceAccountName }}
 {{- if .Values.tolerations }}
       tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
 {{- end }}
