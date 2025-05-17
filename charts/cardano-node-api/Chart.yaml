@@ -1,8 +1,8 @@
 apiVersion: v2
 name: cardano-node-api
 description: Creates a Cardano Node API deployment
-version: 0.0.9
-appVersion: 0.8.4
+version: 0.0.10
+appVersion: 0.8.5
 maintainers:
   - name: aurora
     email: aurora@blinklabs.io
