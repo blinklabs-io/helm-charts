@@ -3,9 +3,13 @@ cardano_network: preview
 cardano_node:
   host: cardano-node-headless
   port: 30000
+
+extraPodLabels: {}
+
 image:
   repository: cardanosolutions/ogmios
   tag: v6.11.2
+  pullPolicy: IfNotPresent
 replicaCount: 1
 resources: {}
 tolerations:
@@ -29,3 +33,16 @@ service:
       protocol: TCP
       targetPort: 1337
   type: ClusterIP
+
+serviceAccountName: ""
+
+# PodMonitor configuration
+podMonitor:
+  enabled: false
+  extraLabels: {}
+  podMetricsEndpoints:
+    - port: 1337
+      path: /metrics
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 10s

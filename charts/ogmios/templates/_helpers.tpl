@@ -47,7 +47,7 @@ Define Cardano network.
 Common labels
 */}}
 {{- define "ogmios.labels" -}}
-app.kubernetes.io/name: {{ include "ogmios.name" . }}
+app.kubernetes.io/name: {{ include "ogmios.fullname" . }}
 helm.sh/chart: {{ include "ogmios.chart" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Chart.AppVersion }}
@@ -55,4 +55,15 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 cardano_network: {{ include "ogmios.network" . }}
+cardano_service: ogmios
+{{- end -}}
+
+{{/*
+Ogmios selector labels
+*/}}
+{{- define "ogmios.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "ogmios.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+cardano_network: {{ include "ogmios.network" . }}
+cardano_service: ogmios
 {{- end -}}
