@@ -2,38 +2,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  labels:
-{{ include "ogmios.labels" . | indent 4 }}
+  labels: {{ include "ogmios.labels" . | nindent 4 }}
   name: {{ include "ogmios.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
-    matchLabels:
-      cardano_network: {{ include "ogmios.network" . }}
-      cardano_service: ogmios
-      app.kubernetes.io/name: {{ include "ogmios.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
-      app.kubernetes.io/managed-by: {{ .Release.Service }}
+    matchLabels: {{ include "ogmios.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        cardano_network: {{ include "ogmios.network" . }}
-        cardano_service: ogmios
-{{ include "ogmios.labels" . | indent 8 }}
+{{ include "ogmios.selectorLabels" . | indent 8 }}
+{{- with .Values.extraPodLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
     spec:
       containers:
       - command:
         - ogmios
         - --node-socket
-        - ${CARDANO_NODE_SOCKET_PATH}
+        - $(CARDANO_NODE_SOCKET_PATH)
         - --host
-        - ${LISTEN_HOST}
+        - $(LISTEN_HOST)
         - --port
-        - ${LISTEN_PORT}
+        - $(LISTEN_PORT)
         - --log-level
-        - ${LOG_LEVEL}
+        - $(LOG_LEVEL)
         - --node-config
-        - ${CARDANO_CONFIG}
+        - $(CARDANO_CONFIG)
         env:
         - name: OGMIOS_NETWORK
           value: {{ .Values.cardano_network }}
@@ -48,7 +43,7 @@ spec:
         - name: LOG_LEVEL
           value: Info
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: ogmios
         ports:
         - containerPort: 1337
@@ -93,7 +88,7 @@ spec:
         - mountPath: /configmap
           name: {{ include "ogmios.fullname" . }}-configmap
       restartPolicy: Always
-      serviceAccountName: ""
+      serviceAccountName: {{ .Values.serviceAccountName }}
 {{- if .Values.tolerations }}
       tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
 {{- end }}

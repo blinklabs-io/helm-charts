@@ -12,9 +12,7 @@ metadata:
   name: {{ include "ogmios.fullname" . }}
 spec:
   ports: {{ toYaml .Values.service.ports | nindent 2 }}
-  selector:
-    cardano_network: {{ .Values.cardano_network }}
-    app.kubernetes.io/name: {{ include "ogmios.name" . }}
+  selector: {{ include "ogmios.selectorLabels" . | nindent 4 }}
   sessionAffinity: ClientIP
   type: {{ .Values.service.type }}
 {{- end }}
