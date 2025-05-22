@@ -8,11 +8,11 @@ spec:
   type: {{ .Values.tcp_service.type | default "ClusterIP" }}
   ports:
     - name: dns
-      port: {{ .Values.environment.DNS_LISTEN_PORT | default "8053" | int }}
+      port: 53
       targetPort: {{ .Values.environment.DNS_LISTEN_PORT | default "8053" | int }}
       protocol: TCP
     - name: tls
-      port: {{ .Values.environment.DNS_LISTEN_TLS_PORT | default "8853" | int }}
+      port: 853
       targetPort: {{ .Values.environment.DNS_LISTEN_TLS_PORT | default "8853" | int }}
       protocol: TCP
   selector:
