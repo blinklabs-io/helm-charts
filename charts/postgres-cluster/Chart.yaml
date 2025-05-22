@@ -1,0 +1,18 @@
+apiVersion: v2
+name: postgesql-cluster
+description: "A Helm chart to deploy CR postgresql for Zolando PostgresSQL Operator"
+version: 0.0.1
+appVersion: "17"
+
+sources:
+  - https://github.com/zalando/postgres-operator/blob/master/manifests/complete-postgres-manifest.yaml
+
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
