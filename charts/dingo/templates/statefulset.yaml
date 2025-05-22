@@ -1,11 +1,11 @@
----
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "dingo.fullname" . }}
   labels:
     {{- include "dingo.labels" . | nindent 4 }}
 spec:
+  serviceName: {{ include "dingo.fullname" . }}-headless
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
@@ -43,12 +43,18 @@ spec:
           - name: metrics
             containerPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
         volumeMounts:
-          - name: dingo-storage
+          - name: dingo-data
             mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
         {{- if .Values.resources }}
         resources: {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
-      volumes:
-        - name: dingo-storage
-          persistentVolumeClaim:
-            claimName: {{ include "dingo.fullname" . }}-pvc
+  volumeClaimTemplates:
+    - metadata:
+        name: dingo-data
+      spec:
+        accessModes:
+        - {{ .Values.persistence.accessMode }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+        storageClassName: {{ .Values.persistence.storageClass }}
