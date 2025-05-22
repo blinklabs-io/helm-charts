@@ -2,8 +2,8 @@
 apiVersion: v2
 name: dingo
 description: "A Helm chart for deploying Dingo"
-version: 0.0.11
-appVersion: 0.9.0
+version: 0.0.12
+appVersion: 0.10.0
 
 sources:
   - https://github.com/blinklabs-io/dingo
@@ -11,9 +11,9 @@ sources:
 maintainers:
   - name: aurora
     email: aurora@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
   - name: verbotenj
     email: verbotenj@blinklabs.io
   - name: wolf31o2
     email: wolf31o2@blinklabs.io
-  - name: overcookedpanda
-    email: overcookedpanda@blinklabs.io
