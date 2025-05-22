@@ -26,7 +26,7 @@ jobs:
           rm -rf dist
           mkdir dist
           helm package charts/kupo/ -d dist/
-          echo "${TOKEN}" | helm registry login "${REGISTRY}/${REPOSITORY,,}" -u "${USER}" --password-stdin
+          echo "${TOKEN}" | helm registry login "${REGISTRY}" -u "${USER}" --password-stdin
           for file in dist/*; do
             helm push "$file" "oci://${REGISTRY}/${REPOSITORY,,}/charts"
           done
