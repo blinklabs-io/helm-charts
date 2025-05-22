@@ -8,7 +8,7 @@ spec:
   type: {{ .Values.udp_service.type | default "ClusterIP" }}
   ports:
     - name: dns
-      port: 53
+      port: {{ .Values.udp_service.dns | default "8053" | int }}
       targetPort: {{ .Values.environment.DNS_LISTEN_PORT | default "8053" | int }}
       protocol: UDP
   selector:
