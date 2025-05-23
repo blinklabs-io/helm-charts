@@ -1,0 +1,156 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bind9.fullname" . }}-config
+  labels:
+    {{- include "bind9.labels" . | nindent 4 }}
+data:
+  named.conf: |
+    include "/etc/bind/named.conf.options";
+    include "/etc/bind/named.conf.local";
+    {{- if .Values.bind9.defaultZones.enabled }}
+    include "/etc/bind/named.conf.default-zones";
+    {{- end }}
+
+  named.conf.options: |
+    // Statistics server configuration for Prometheus exporter
+    {{- if and .Values.metrics.enabled .Values.metrics.bindStats.enabled }}
+    statistics-channels {
+        inet {{ .Values.metrics.bindStats.listenAddress }} port {{ .Values.metrics.bindStats.port }} allow {
+        {{- range .Values.metrics.bindStats.allowFrom }}
+          {{ . }};
+        {{- end }}
+        };
+    };
+    {{- end }}
+
+    options {
+        directory "{{ .Values.bind9.options.directory }}";
+
+        {{- if .Values.bind9.options.listenOn }}
+        listen-on port {{ .Values.bind9.internalPort }} { {{ .Values.bind9.options.listenOn }}; };
+        {{- end }}
+
+        {{- if .Values.bind9.options.allowQuery }}
+        allow-query { {{ .Values.bind9.options.allowQuery }}; };
+        {{- end }}
+
+        {{- if .Values.bind9.options.validateExcept }}
+        validate-except {
+        {{- range .Values.bind9.options.validateExcept }}
+          "{{ . }}";
+        {{- end }}
+        };
+        {{- end }}
+
+        {{- if .Values.bind9.options.forwarders }}
+        forwarders {
+        {{- range .Values.bind9.options.forwarders }}
+            {{ . }};
+        {{- end }}
+        };
+        {{- end }}
+
+        {{- if not .Values.bind9.options.sendCookie }}
+        send-cookie no;
+        {{- end }}
+
+        {{- if not .Values.bind9.options.dnssecValidation }}
+        dnssec-validation no;
+        {{- end }}
+
+        {{- if eq .Values.bind9.mode "resolver" }}
+        recursion yes;
+        allow-recursion { any; };
+        {{- else }}
+        recursion no;
+        allow-recursion { none; };
+        {{- end }}
+
+        {{- if .Values.logging.queryLog }}
+        querylog yes;
+        {{- end }}
+
+        {{- if .Values.bind9.options.customOptions }}
+        {{ .Values.bind9.options.customOptions | nindent 8 }}
+        {{- end }}
+    };
+
+  named.conf.local: |
+    {{- if .Values.bind9.namedConfLocal }}
+    {{- .Values.bind9.namedConfLocal | nindent 4 }}
+    {{- else if .Values.bind9.localZones }}
+    {{- range .Values.bind9.localZones }}
+    zone "{{ .name }}" {
+        type {{ .type }};
+        {{- if .serverAddresses }}
+        server-addresses {
+        {{- range .serverAddresses }}
+            {{ . }};
+        {{- end }}
+        };
+        {{- end }}
+        {{- if .file }}
+        file "{{ .file }}";
+        {{- end }}
+        {{- if .allowUpdate }}
+        allow-update {
+        {{- range .allowUpdate }}
+            {{ . }};
+        {{- end }}
+        };
+        {{- end }}
+        {{- if .allowTransfer }}
+        allow-transfer {
+        {{- range .allowTransfer }}
+            {{ . }};
+        {{- end }}
+        };
+        {{- end }}
+    };
+    {{- end }}
+    {{- else }}
+    {{- end }}
+
+  {{- if .Values.bind9.defaultZones.enabled }}
+  named.conf.default-zones: |
+    {{- if not .Values.bind9.defaultZones.disableRootZone }}
+    // prime the server with knowledge of the root servers
+    zone "." {
+        type hint;
+        file "/usr/share/dns/root.hints";
+    };
+    {{- else }}
+    // NOTE: disabled in favor of custom forwarders
+    /*
+    zone "." {
+        type hint;
+        file "/usr/share/dns/root.hints";
+    };
+    */
+    {{- end }}
+
+    // be authoritative for the localhost forward and reverse zones, and for
+    // broadcast zones as per RFC 1912
+
+    zone "localhost" {
+        type master;
+        file "/etc/bind/db.local";
+    };
+
+    zone "127.in-addr.arpa" {
+        type master;
+        file "/etc/bind/db.127";
+    };
+
+    zone "0.in-addr.arpa" {
+        type master;
+        file "/etc/bind/db.0";
+    };
+
+    zone "255.in-addr.arpa" {
+        type master;
+        file "/etc/bind/db.255";
+    };
+  {{- end }}

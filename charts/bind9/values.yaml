@@ -1,0 +1,144 @@
+---
+replicaCount: 1
+
+image:
+  repository: ubuntu/bind9
+  pullPolicy: Always
+  tag: "9.18-22.04_beta"
+
+nameOverride: ""
+fullnameOverride: ""
+
+# BIND9 Configuration
+bind9:
+  internalPort: 5053
+
+  # Mode: resolver or authoritative
+  mode: "resolver"
+
+  # Main options configuration
+  options:
+    directory: "/var/cache/bind"
+    listenOn: "any"
+    allowQuery: "any"
+    validateExcept: ["ada"]
+    sendCookie: false
+    dnssecValidation: false
+    forwarders:
+      - "103.196.38.38"
+      - "103.196.38.39"
+      - "103.196.38.40"
+    # Additional custom options (raw BIND configuration)
+    customOptions: ""
+
+  # Default zones
+  defaultZones:
+    enabled: true
+    disableRootZone: true
+
+  # Local zones configuration
+  localZones: []
+
+  # Custom configuration from configmap or secret
+  customConfig:
+    enabled: false
+    # Use either configMap or secret, not both
+    configMap:
+      name: ""
+      key: "named.conf.local"
+    secret:
+      name: ""
+      key: "named.conf.local"
+
+  # Raw named.conf.local content (alternative to customConfig)
+  namedConfLocal: ""
+
+# Service configuration
+service:
+  type: ClusterIP
+  tcp:
+    port: 53
+  udp:
+    port: 53
+  annotations: {}
+
+# Service Account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Pod configuration
+podAnnotations: {}
+podSecurityContext:
+  fsGroup: 101
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  readOnlyRootFilesystem: false
+
+# Resources
+resources: {}
+  # limits:
+  #   cpu: 500m
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 250m
+  #   memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  annotations: {}
+
+# Monitoring and Metrics
+metrics:
+  enabled: false
+  # BIND9 statistics server configuration
+  bindStats:
+    enabled: true
+    port: 8053
+    listenAddress: "127.0.0.1"
+    # Allow queries for statistics
+    allowFrom: ["127.0.0.1"]
+
+  # Prometheus exporter sidecar
+  exporter:
+    enabled: true
+    image:
+      repository: prometheuscommunity/bind-exporter
+      tag: "v0.7.0"
+      pullPolicy: IfNotPresent
+    port: 9119
+    statsUrl: "http://127.0.0.1:8053/"
+    timeout: "10s"
+    resources: {}
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
+      # requests:
+      #   cpu: 50m
+      #   memory: 64Mi
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    path: "/metrics"
+    labels: {}
+    annotations: {}
+  service:
+    enabled: true
+    port: 9119
+    annotations: {}
+
+# Logging
+logging:
+  level: "info"
+  queryLog: false
