@@ -1,7 +1,7 @@
 apiVersion: v2
 name: postgesql-cluster
 description: "A Helm chart to deploy CR postgresql for Zolando PostgresSQL Operator"
-version: 0.0.1
+version: 0.0.2
 appVersion: "17"
 
 sources:
