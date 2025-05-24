@@ -1,0 +1,55 @@
+# fullnameOverride: cardano-db-sync
+# nameOverride: cardano-db-sync
+
+cardano_network: mainnet
+
+cardano_node: {}
+  # host: node-mainet.svc.cluster.local
+  # port: 3001
+
+image:
+  repository: ghcr.io/blinklabs-io/cardano-db-sync
+  tag: 13.6.0.4
+
+common_env:
+  POSTGRES_DB: dbsync_mainnet
+  # POSTGRES_HOST: postgres-dbsync-mainnet.dbsync.svc.cluster.local
+  # POSTGRES_HOST_RO: postgres-dbsync-mainnet-repl.dbsync.svc.cluster.local
+  # POSTGRES_HOST_RW: postgres-dbsync-mainnet.dbsync.svc.cluster.local
+  # POSTGRES_PORT: "5432"
+
+volume:
+  size: 50Gi
+  storageClassName: hyperdisk-balanced
+
+updateStrategy:
+  type: RollingUpdate
+
+metrics:
+  enabled: false
+  # If port is specified it will use port number
+  # instead of the default "metrics" port name.
+  # port: 8080
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+
+affinity: {}
+
+tolerations: {}
+
+postgres:
+  # Super user credentials
+  userSecret:
+    name: postgres.dbsync-mainnet
+    key: username
+  passwordSecret:
+    name: postgres.dbsync-mainnet
+    key: password
+  # Read-only user credentials
+  roUserSecret:
+    name: app.dbsync-mainnet
+    key: username
+  roPasswordSecret:
+    name: app.dbsync-mainnet
+    key: password

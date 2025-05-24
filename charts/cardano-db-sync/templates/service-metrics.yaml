@@ -1,0 +1,17 @@
+{{- if .Values.metrics.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ include "cardano-db-sync.fullname" . }}-{{ .Values.cardano_network }}-metrics
+{{ include "cardano-db-sync.labels" . | indent 4 }}
+  name: {{ include "cardano-db-sync.fullname" . }}-{{ .Values.cardano_network }}-metrics
+spec:
+  selector:
+{{ include "cardano-db-sync.selectorLabels" . | indent 4 }}
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+{{- end }}
