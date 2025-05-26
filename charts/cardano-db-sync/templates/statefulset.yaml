@@ -1,0 +1,121 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+{{ include "cardano-db-sync.labels" . | indent 4 }}
+  name: {{ include "cardano-db-sync.fullname" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{ include "cardano-db-sync.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "cardano-db-sync.fullname" . }}-headless
+  template:
+    metadata:
+      annotations:
+        checksum/common-env: {{ include (print $.Template.BasePath "/common_env.yaml") . | sha256sum }}
+        secret/postgres-password: {{ .Values.postgres.passwordSecret.name | sha256sum }}
+        secret/postgres-user: {{ .Values.postgres.userSecret.name | sha256sum }}
+      labels:
+{{ include "cardano-db-sync.selectorLabels" . | indent 8 }}
+    spec:
+    {{- if .Values.affinity }}
+      affinity: {{ .Values.affinity | toYaml | nindent 8 }}
+    {{- end }}
+    {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+    {{- end }}
+      containers:
+      - env:
+        - name: NETWORK
+          value: {{ .Values.cardano_network }}
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              key: POSTGRES_HOST
+              name: {{ include "cardano-db-sync.fullname" . }}-common-env
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              key: POSTGRES_PORT
+              name: {{ include "cardano-db-sync.fullname" . }}-common-env
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              key: POSTGRES_DB
+              name: {{ include "cardano-db-sync.fullname" . }}-common-env
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: {{ .Values.postgres.userSecret.key }}
+              name: {{ .Values.postgres.userSecret.name }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: {{ .Values.postgres.passwordSecret.key }}
+              name: {{ .Values.postgres.passwordSecret.name }}
+        image: '{{ .Values.image.repository }}:{{ .Values.image.tag }}'
+        imagePullPolicy: IfNotPresent
+        name: cardano-db-sync
+        resources: {}
+        volumeMounts:
+        - mountPath: /node-ipc
+          name: node-ipc
+        - mountPath: /tmp
+          name: node-ipc
+        - mountPath: /run/secrets/common-env
+          name: {{ include "cardano-db-sync.fullname" . }}-common-env
+          readOnly: true
+        - mountPath: /run/secrets/postgres-password
+          name: postgres-password
+          readOnly: true
+        - mountPath: /var/lib/cexplorer
+          name: dbsync-statedir
+        workingDir: /var/lib/cexplorer
+      - command:
+        - sh
+        - -c
+        - rm -f /ipc/node.socket; socat UNIX-LISTEN:/ipc/node.socket,fork TCP:${CARDANO_NODE_SOCKET_TCP_HOST}:${CARDANO_NODE_SOCKET_TCP_PORT},ignoreeof
+        env:
+        - name: CARDANO_NODE_SOCKET_TCP_HOST
+          value: {{ .Values.cardano_node.host }}
+        - name: CARDANO_NODE_SOCKET_TCP_PORT
+          value: {{ .Values.cardano_node.port | quote }}
+        - name: SOCAT_TIMEOUT
+          value: "3600"
+        image: alpine/socat
+        name: socat-socket-server
+        volumeMounts:
+        - mountPath: /ipc
+          name: node-ipc
+      restartPolicy: Always
+      serviceAccountName: ""
+      volumes:
+      - emptyDir: {}
+        name: node-ipc
+      - name: {{ include "cardano-db-sync.fullname" . }}-common-env
+        configMap:
+          name: {{ include "cardano-db-sync.fullname" . }}-common-env
+      - name: postgres-password
+        secret:
+          items:
+          - key: {{ .Values.postgres.passwordSecret.key }}
+            path: POSTGRES_PASSWORD
+          secretName: {{ .Values.postgres.passwordSecret.name }}
+      - name: dbsync-statedir
+        persistentVolumeClaim:
+          claimName: dbsync-statedir
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        cardano_network: {{ .Values.cardano_network }}
+      name: dbsync-statedir
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ .Values.volume.size }}
+      storageClassName: {{ .Values.volume.storageClassName }}

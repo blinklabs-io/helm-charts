@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    {{- include "cardano-db-sync.labels" . | nindent 4 }}
+  name: {{ include "cardano-db-sync.fullname" . }}-common-env
+data:
+  POSTGRES_DB: {{ .Values.common_env.POSTGRES_DB | quote }}
+  POSTGRES_HOST: {{ .Values.common_env.POSTGRES_HOST | quote }}
+  POSTGRES_HOST_RO: {{ .Values.common_env.POSTGRES_HOST_RO | quote }}
+  POSTGRES_HOST_RW: {{ .Values.common_env.POSTGRES_HOST_RW | quote }}
+  POSTGRES_PORT: {{ .Values.common_env.POSTGRES_PORT | quote }}

@@ -1,0 +1,27 @@
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+{{ include "cardano-db-sync.labels" . | indent 4 }}
+  name: {{ include "cardano-db-sync.fullname" . }}-{{ .Values.cardano_network }}-monitor
+{{- if .Values.metrics.serviceMonitor.namespace }}
+  namespace: {{ .Values.metrics.serviceMonitor.namespace }}
+{{- end }}
+spec:
+  endpoints:
+    - interval: 30s
+      path: /
+{{- if .Values.metrics.port }}
+      port: {{ .Values.metrics.port }}
+{{- else }}
+      port: metrics
+{{- end }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+{{ include "cardano-db-sync.selectorLabels" . | indent 6 }}
+{{- end }}
