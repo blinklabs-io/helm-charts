@@ -27,6 +27,12 @@ spec:
     {{- end }}
       containers:
       - env:
+        {{- range $key, $value := .Values.environment }}
+        {{- if $value }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
         - name: NETWORK
           value: {{ .Values.cardano_network }}
         - name: POSTGRES_HOST
