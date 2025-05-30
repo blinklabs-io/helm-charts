@@ -11,6 +11,9 @@ image:
   repository: ghcr.io/blinklabs-io/cardano-db-sync
   tag: 13.6.0.4
 
+environment:
+  # RESTORE_SNAPSHOT: https://update-cardano-mainnet.iohk.io/cardano-db-sync/13.6/db-sync-snapshot-schema-13.6-block-11928793-x86_64.tgz
+
 common_env:
   POSTGRES_DB: dbsync_mainnet
   # POSTGRES_HOST: postgres-dbsync-mainnet.dbsync.svc.cluster.local
