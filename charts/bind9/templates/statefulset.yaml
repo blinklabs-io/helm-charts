@@ -1,0 +1,206 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "bind9.fullname" . }}
+  labels:
+    {{- include "bind9.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "bind9.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bind9.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "bind9.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "bind9.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: bind9
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: dns-tcp
+              containerPort: {{ .Values.bind9.internalPort }}
+              protocol: TCP
+            - name: dns-udp
+              containerPort: {{ .Values.bind9.internalPort }}
+              protocol: UDP
+            {{- if and .Values.metrics.enabled .Values.metrics.bindStats.enabled }}
+            - name: stats
+              containerPort: {{ .Values.metrics.bindStats.port }}
+              protocol: TCP
+            {{- end }}
+          command:
+            - "named"
+            - "-g"
+            - "-c"
+            - "/etc/bind/named.conf"
+            - "-p"
+            - "{{ .Values.bind9.internalPort }}"
+            {{- if eq .Values.logging.level "debug" }}
+            - "-d"
+            - "3"
+            {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.bind9.internalPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  if ! pgrep -f "named.*-p {{ .Values.bind9.internalPort }}" > /dev/null; then
+                    echo "named process not found"
+                    exit 1
+                  fi
+
+                  if ! timeout 3 bash -c "exec 3<>/dev/tcp/127.0.0.1/{{ .Values.bind9.internalPort }} && echo 'test' >&3 && exec 3<&-" 2>/dev/null; then
+                    echo "Cannot connect to DNS port {{ .Values.bind9.internalPort }}"
+                    exit 1
+                  fi
+
+                  {{- if and .Values.metrics.enabled .Values.metrics.bindStats.enabled }}
+                  if ! timeout 3 bash -c "exec 3<>/dev/tcp/127.0.0.1/{{ .Values.metrics.bindStats.port }} && exec 3<&-" 2>/dev/null; then
+                    echo "Cannot connect to statistics port {{ .Values.metrics.bindStats.port }}"
+                    exit 1
+                  fi
+                  {{- end }}
+
+                  echo "All checks passed"
+                  exit 0
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 8
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/bind/named.conf
+              subPath: named.conf
+            - name: config
+              mountPath: /etc/bind/named.conf.options
+              subPath: named.conf.options
+            - name: config
+              mountPath: /etc/bind/named.conf.local
+              subPath: named.conf.local
+            {{- if .Values.bind9.defaultZones.enabled }}
+            - name: config
+              mountPath: /etc/bind/named.conf.default-zones
+              subPath: named.conf.default-zones
+            {{- end }}
+            {{- if .Values.bind9.customConfig.enabled }}
+            {{- if .Values.bind9.customConfig.configMap.name }}
+            - name: custom-config
+              mountPath: /etc/bind/custom
+            {{- else if .Values.bind9.customConfig.secret.name }}
+            - name: custom-config
+              mountPath: /etc/bind/custom
+            {{- end }}
+            {{- end }}
+            - name: cache
+              mountPath: /var/cache/bind
+            - name: run
+              mountPath: /var/run/named
+        {{- if and .Values.metrics.enabled .Values.metrics.exporter.enabled }}
+        - name: bind-exporter
+          image: "{{ .Values.metrics.exporter.image.repository }}:{{ .Values.metrics.exporter.image.tag }}"
+          imagePullPolicy: {{ .Values.metrics.exporter.image.pullPolicy }}
+          args:
+            - "--bind.stats-url={{ .Values.metrics.exporter.statsUrl }}"
+            - "--bind.timeout={{ .Values.metrics.exporter.timeout }}"
+            - "--web.listen-address=:{{ .Values.metrics.exporter.port }}"
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.exporter.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.metrics.exporter.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "bind9.fullname" . }}-config
+        {{- if .Values.bind9.customConfig.enabled }}
+        {{- if .Values.bind9.customConfig.configMap.name }}
+        - name: custom-config
+          configMap:
+            name: {{ .Values.bind9.customConfig.configMap.name }}
+        {{- else if .Values.bind9.customConfig.secret.name }}
+        - name: custom-config
+          secret:
+            secretName: {{ .Values.bind9.customConfig.secret.name }}
+        {{- end }}
+        {{- end }}
+        - name: run
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: cache
+        {{- with .Values.persistence.annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode | quote }}
+        {{- if .Values.persistence.storageClass }}
+        {{- if (eq "-" .Values.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: "{{ .Values.persistence.storageClass }}"
+        {{- end }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | quote }}
+  {{- else }}
+        - name: cache
+          emptyDir: {}
+  {{- end }}
