@@ -1,7 +1,7 @@
 apiVersion: v1
 name: cardano-dbsync
 description: Deploys a Cardano DB Sync service
-version: 0.0.2
+version: 0.0.3
 appVersion: v13.6.0.4
 maintainers:
   - name: aurora
