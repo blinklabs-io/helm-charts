@@ -1,0 +1,25 @@
+{{- if .Values.serviceAccount.create -}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "vpn-indexer.serviceAccountName" . }}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "vpn-indexer.serviceAccountName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "vpn-indexer.serviceAccountName" . }}
+  apiGroup: ""
+roleRef:
+  kind: Role
+  name: {{ include "vpn-indexer.serviceAccountName" . }}
+  apiGroup: ""
+{{- end }}
