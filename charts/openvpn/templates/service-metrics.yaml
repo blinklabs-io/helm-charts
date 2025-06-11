@@ -1,0 +1,26 @@
+{{- if (and .Values.metrics.enabled .Values.metrics.service.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openvpn.fullname" . }}-metrics
+  labels:
+    {{- include "openvpn.labels" . | nindent 4 }}
+  {{- with .Values.metrics.service.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.metrics.service.type }}
+  ports:
+    - port: {{ .Values.metrics.service.port }}
+      targetPort: metrics
+      {{- with .Values.metrics.service.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
+      protocol: {{ .Values.metrics.service.protocol }}
+      name: metrics
+  selector:
+    {{- include "openvpn.selectorLabels" . | nindent 4 }}
+  {{- with .Values.metrics.service.loadBalancerClass }}
+  loadBalancerClass: {{ . }}
+  {{- end }}
+{{- end }}
