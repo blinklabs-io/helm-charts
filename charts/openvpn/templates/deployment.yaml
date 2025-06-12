@@ -72,6 +72,8 @@ spec:
         - name: metrics
           image: "{{ .Values.metrics.image.repository }}:{{ .Values.metrics.image.tag }}"
           imagePullPolicy: {{ .Values.metrics.image.imagePullPolicy }}
+          securityContext:
+            {{- toYaml .Values.metrics.securityContext | nindent 12 }}
           env:
             - name: OPENVPN_LISTEN_ADDRESS
               value: ":{{ .Values.metrics.port }}"
