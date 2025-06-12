@@ -130,6 +130,10 @@ metrics:
   port: 9176
   statusFile: /var/tmp/openvpn/openvpn-status.log
   resources: {}
+  securityContext: {}
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
   service:
     enabled: false
     type: ClusterIP
