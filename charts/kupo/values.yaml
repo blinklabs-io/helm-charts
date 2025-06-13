@@ -3,7 +3,7 @@ replicaCount: 1
 
 image:
   repository: cardanosolutions/kupo
-  tag: "v2.10.0"
+  tag: "v2.11.0"
   pullPolicy: IfNotPresent
 
 nameOverride: ""
