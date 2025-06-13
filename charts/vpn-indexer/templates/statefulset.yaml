@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "vpn-indexer.fullname" . }}
+  labels:
+    {{- include "vpn-indexer.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "vpn-indexer.fullname" . }}-sts
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "vpn-indexer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "vpn-indexer.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "vpn-indexer.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DATABASE_DIR
+              value: /data
+            - name: CA_CERT_FILE
+              value: /secrets/ca.crt
+            - name: CA_KEY_FILE
+              value: /secrets/ca.key
+            {{- with .Values.ca.passphrase }}
+            - name: CA_PASSPHRASE_FILE
+              value: /secrets/ca.passphrase
+            {{- end }}
+            {{- with .Values.crl.configMapNamespace }}
+            - name: CRL_CONFIGMAP_NAMESPACE
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.crl.configMapName }}
+            - name: CRL_CONFIGMAP_NAME
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.crl.configMapKey }}
+            - name: CRL_CONFIGMAP_KEY
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.crl.updateInterval }}
+            - name: CRL_UPDATE_INTERVAL
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.crl.revokeSerials }}
+            - name: CRL_REVOKE_SERIALS
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.crl.revokeTime }}
+            - name: CRL_REVOKE_TIME
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.s3.clientBucket }}
+            - name: S3_CLIENT_BUCKET
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.s3.clientKeyPrefix }}
+            - name: S3_CLIENT_KEY_PREFIX
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.s3.endpoint }}
+            - name: S3_ENDPOINT
+              value: {{ . }}
+            {{- end }}
+            {{- range $k, $v := .Values.extraEnv }}
+            - name: {{ $k }}
+              value: {{ $v }}
+            {{- end }}
+          # TODO
+          #ports:
+          #  - name: http
+          #    containerPort: {{ .Values.service.port }}
+          #    protocol: TCP
+          #livenessProbe:
+          #  httpGet:
+          #    path: /
+          #    port: http
+          #readinessProbe:
+          #  httpGet:
+          #    path: /
+          #    port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: secrets
+              mountPath: /secrets
+      volumes:
+        {{- if not (.Values.persistence.enabled) }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        - name: secrets
+          secret:
+            secretName: {{ include "vpn-indexer.fullname" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      {{- with .Values.persistence.storageClassName }}
+      storageClassName: {{ . }}
+      {{- end }}
+      volumeMode: Filesystem
+      accessModes: {{ toYaml .Values.persistence.accessModes | nindent 8 }}
+      resources: {{ toYaml .Values.persistence.resources | nindent 8 }}
+  {{- end }}

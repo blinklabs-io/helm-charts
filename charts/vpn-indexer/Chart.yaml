@@ -1,0 +1,16 @@
+apiVersion: v2
+name: vpn-indexer
+description: VPN indexer helm chart
+type: application
+
+version: 0.1.0
+
+appVersion: "0.1.0"
+
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
