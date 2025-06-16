@@ -4,7 +4,7 @@ description: A Helm chart for deploying OpenVPN in Kubernetes
 
 type: application
 
-version: 0.6.0
+version: 0.7.0
 
 appVersion: "0.4.0"
 

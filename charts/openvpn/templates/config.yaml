@@ -10,7 +10,7 @@ metadata:
 type: Opaque
 data:
   "{{ $config.name }}": {{ $config.content | b64enc }}
-{{-   else }}
+{{-   else if $config.content }}
 ---
 apiVersion: v1
 kind: ConfigMap
