@@ -1,0 +1,70 @@
+# Default values for balius bane
+fullnameOverride: ""
+nameOverride: "mainnet"
+
+# --- Baliusd Deployment options ---
+balius:
+  network: mainnet
+  image:
+    repository: ghcr.io/demeter-run/ext-balius-instance
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+  containerPort: 3000
+  prometheusPort: 8000
+  postgresHost: "postgres-service"
+  tolerations: []
+  affinity: {}
+  podLabels: {}
+  podAnnotations: {}
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+  env:
+    BALIUSD_CONFIG: /etc/config/baliusd.toml
+  securityContext:
+    fsGroup: 1000
+  # --- Prometheus PodMonitor options ---
+  podmonitor:
+    enabled: false
+    labels: {}
+  # --- Postgres Credentials ---
+  postgres:
+    usernameSecret:
+      name: balius.mydb.credentials.postgresql.acid.zalan.do
+      key: username
+    passwordSecret:
+      name: balius.mydb.credentials.postgresql.acid.zalan.do
+      key: password
+  # --- ServiceAccount ---
+  serviceAccount:
+    create: false
+    annotations: {}
+    labels: {}
+    name: "default"
+  # --- Service ---
+  service:
+    annotations: {}
+    labels: {}
+    type: ClusterIP
+    ports:
+      api: 3000
+      metrics: 8000
+  # --- ConfigMap options ---
+  configMap:
+    utxorpc_url: "http://localhost:1234"
+
+# --- S3 Configuration & secret creation ---
+# Secret will store only AWS_SECRET_ACCESS_KEY
+s3:
+  create: true
+  aws_region: us-west-2
+  aws_access_key_id: "AKIAXXXXXXXX"
+  aws_secret_access_key: "xxxxxxxxxxxxxxxxxxxxxx"

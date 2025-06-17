@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "balius.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/kind: Deployment
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    cardano_network: {{ .Values.balius.network }}
+spec:
+  replicas: {{ .Values.balius.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.balius.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.balius.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels: {{- include "balius.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      name: {{ include "balius.fullname" . }}
+      labels: {{- include "balius.selectorLabels" . | nindent 8 }}
+        {{- with .Values.balius.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- with .Values.balius.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      restartPolicy: Always
+      {{- if .Values.balius.serviceAccount.create }}
+      serviceAccountName: {{ .Values.balius.serviceAccount.name }}
+      {{- end }}
+      securityContext: {{toYaml .Values.balius.securityContext | nindent 6 }}
+      containers:
+        - name: main
+          image: {{ .Values.balius.image.repository }}:{{ .Values.balius.image.tag }}
+          imagePullPolicy: {{ .Values.balius.image.pullPolicy }}
+          env:
+            - name: BALIUSD_CONFIG
+              value: /etc/config/baliusd.toml
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.balius.postgres.usernameSecret.name }}
+                  key: {{ .Values.balius.postgres.usernameSecret.key }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.balius.postgres.passwordSecret.name }}
+                  key: {{ .Values.balius.postgres.passwordSecret.key }}
+            - name: POSTGRES_HOST
+              value: {{ .Values.balius.postgresHost }}
+            - name: BALIUSD_CONNECTION
+              value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/{{ .Values.balius.network | replace "-" "" }}
+            - name: BALIUSD_POD
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: BALIUSD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: AWS_REGION
+              value: {{ .Values.s3.aws_region }}
+            - name: AWS_ACCESS_KEY_ID
+              value: {{ .Values.s3.aws_access_key_id }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "balius.fullname" . }}
+                  key: aws_secret_access_key
+          ports:
+            - name: api
+              containerPort: {{ .Values.balius.containerPort }}
+            - name: metrics
+              containerPort: {{ .Values.balius.prometheusPort }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+          resources:
+            {{- toYaml .Values.balius.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: baliusd-{{ .Values.balius.network }}-config
+      {{- with .Values.balius.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.balius.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
