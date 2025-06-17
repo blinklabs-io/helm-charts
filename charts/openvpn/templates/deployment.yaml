@@ -56,7 +56,11 @@ spec:
             {{- range $idx, $config := .Values.configFiles }}
             - name: config-{{ $idx }}
               mountPath: /etc/openvpn/{{ $config.name }}
+              {{- if $config.configMapName }}
+              subPath: {{ $config.configMapKey }}
+              {{- else }}
               subPath: {{ $config.name }}
+              {{- end }}
             {{- end }}
             {{- if .Values.startupScript }}
             - name: startup-script
@@ -92,7 +96,10 @@ spec:
       volumes:
         {{- range $idx, $config := .Values.configFiles }}
         - name: config-{{ $idx }}
-          {{- if $config.secret | default false }}
+          {{- if $config.configMapName }}
+          configMap:
+            name: {{ $config.configMapName }}
+          {{- else if $config.secret | default false }}
           secret:
             secretName: {{ include "openvpn.fullname" $ }}-config-{{ $idx }}
           {{- else }}

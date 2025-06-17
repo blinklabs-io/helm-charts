@@ -109,6 +109,10 @@ configFiles: []
   # - name: dh2048.pem
   #   content: |
   #     dh2048.pem content
+  #
+  # - name: crl.pem
+  #   configMapName: foo
+  #   configMapKey: bar
 
 nat:
   enabled: true
