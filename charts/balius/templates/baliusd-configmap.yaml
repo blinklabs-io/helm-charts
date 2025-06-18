@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: baliusd-{{ .Values.balius.network }}-config
+  namespace: {{ .Release.Namespace }}
+data:
+  baliusd.toml: |
+    network = "{{ .Values.balius.network }}"
+    lease_name = "balius-chainsync-lease-{{ .Values.balius.network }}"
+    prometheus_addr = "0.0.0.0:{{ .Values.balius.prometheusPort }}"
+
+    [rpc]
+    listen_address = "0.0.0.0:{{ .Values.balius.containerPort }}"
+
+    [ledger]
+    endpoint_url = "{{ .Values.balius.configMap.utxorpc_url }}"
+
+    [chainsync]
+    endpoint_url = "{{ .Values.balius.configMap.utxorpc_url }}"
