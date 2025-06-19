@@ -1,0 +1,49 @@
+replicaCount: 1
+network: preview
+
+# Optional custom peer address. If not set, a default public peer will be used.
+peerAddress: ""
+
+dolos:
+  image: ghcr.io/txpipe/dolos
+  version: latest
+  podAnnotations: {}
+  resources:
+    limits:
+      cpu: "1"
+      memory: "512Mi"
+    requests:
+      cpu: "500m"
+      memory: "256Mi"
+  ports:
+    grpc: 50051
+    ouroboros: 30013
+    # Mini-Blockfrost API
+    minibf: 3001
+
+service:
+  ports:
+    grpc: 15051
+    ouroboros: 13013
+    # Mini-Blockfrost API
+    minibf: 13001
+
+storage:
+  # Mainnet requires at least 500Gi
+  size: 50Gi
+  # storageClassName: gp
+
+tolerations: []
+
+affinity: {}
+# Example:
+# affinity:
+#   podAntiAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#       - labelSelector:
+#           matchExpressions:
+#             - key: "app.kubernetes.io/name"
+#               operator: In
+#               values:
+#                 - dolos
+#         topologyKey: "kubernetes.io/hostname"

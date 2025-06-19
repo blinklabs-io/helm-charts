@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "dolos.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "dolos.fullname" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: dolos
+    app.kubernetes.io/part-of: dolos
+    cardano.demeter.run/network: {{ .Values.network }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "dolos.fullname" . }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "dolos.fullname" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.dolos.podAnnotations }}
+          {{ toYaml .Values.dolos.podAnnotations | nindent 4 }}
+        {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "dolos.fullname" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        cardano.demeter.run/network: {{ .Values.network }}
+    spec:
+      terminationGracePeriodSeconds: 180
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "dolos.fullname" . }}
+      initContainers:
+        - name: init
+          image: ghcr.io/txpipe/dolos:{{ .Values.dolos.version }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - -c
+            - /etc/config/dolos.toml
+            - bootstrap
+            - snapshot
+            - --variant
+            - full
+          resources:
+            {{- toYaml .Values.dolos.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+            - name: data
+              mountPath: /var/data
+      containers:
+        - name: dolos
+          image: {{ .Values.dolos.image }}:{{ .Values.dolos.version }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - -c
+            - /etc/config/dolos.toml
+            - daemon
+          resources:
+            {{- toYaml .Values.dolos.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+            - name: data
+              mountPath: /var/data
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.dolos.ports.grpc }}
+              protocol: TCP
+            - name: ouroboros
+              containerPort: {{ .Values.dolos.ports.ouroboros }}
+              protocol: TCP
+            - name: minibf
+              containerPort: {{ .Values.dolos.ports.minibf }}
+              protocol: TCP
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
+        {{- if .Values.storage.storageClassName }}
+        storageClassName: {{ .Values.storage.storageClassName }}
+        {{- end }}
