@@ -35,6 +35,10 @@ spec:
           env:
             - name: DATABASE_DIR
               value: /data
+            - name: API_LISTEN_PORT
+              value: '{{ .Values.service.port }}'
+            - name: API_LOG_HEALTHCHECK
+              value: 'false'
             - name: CA_CERT_FILE
               value: /secrets/ca.crt
             - name: CA_KEY_FILE
@@ -83,19 +87,18 @@ spec:
             - name: {{ $k }}
               value: {{ $v }}
             {{- end }}
-          # TODO
-          #ports:
-          #  - name: http
-          #    containerPort: {{ .Values.service.port }}
-          #    protocol: TCP
-          #livenessProbe:
-          #  httpGet:
-          #    path: /
-          #    port: http
-          #readinessProbe:
-          #  httpGet:
-          #    path: /
-          #    port: http
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
