@@ -6,7 +6,7 @@ peerAddress: ""
 
 dolos:
   image: ghcr.io/txpipe/dolos
-  version: latest
+  version: 0.25.0
   podAnnotations: {}
   resources:
     limits:
