@@ -4,22 +4,25 @@ network: preview
 # Optional custom peer address. If not set, a default public peer will be used.
 peerAddress: ""
 
-dolos:
-  image: ghcr.io/txpipe/dolos
-  version: 0.25.0
-  podAnnotations: {}
-  resources:
-    limits:
-      cpu: "1"
-      memory: "512Mi"
-    requests:
-      cpu: "500m"
-      memory: "256Mi"
-  ports:
-    grpc: 50051
-    ouroboros: 30013
-    # Mini-Blockfrost API
-    minibf: 3001
+# Dolos configuration
+image:
+  repository: ghcr.io/txpipe/dolos
+  tag: 0.25.0
+  pullPolicy: IfNotPresent
+
+podAnnotations: {}
+resources:
+  limits:
+    cpu: "1"
+    memory: "512Mi"
+  requests:
+    cpu: "500m"
+    memory: "256Mi"
+ports:
+  grpc: 50051
+  ouroboros: 30013
+  # Mini-Blockfrost API
+  minibf: 3001
 
 service:
   ports:
