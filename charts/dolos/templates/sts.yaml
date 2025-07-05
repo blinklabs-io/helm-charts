@@ -20,8 +20,8 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- if .Values.dolos.podAnnotations }}
-          {{ toYaml .Values.dolos.podAnnotations | nindent 4 }}
+        {{- if .Values.podAnnotations }}
+          {{ toYaml .Values.podAnnotations | nindent 4 }}
         {{- end }}
       labels:
         app.kubernetes.io/name: {{ include "dolos.fullname" . }}
@@ -41,8 +41,8 @@ spec:
             name: {{ include "dolos.fullname" . }}
       initContainers:
         - name: init
-          image: ghcr.io/txpipe/dolos:{{ .Values.dolos.version }}
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - -c
             - /etc/config/dolos.toml
@@ -51,7 +51,7 @@ spec:
             - --variant
             - full
           resources:
-            {{- toYaml .Values.dolos.resources | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: config
               mountPath: /etc/config
@@ -59,14 +59,14 @@ spec:
               mountPath: /var/data
       containers:
         - name: dolos
-          image: {{ .Values.dolos.image }}:{{ .Values.dolos.version }}
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - -c
             - /etc/config/dolos.toml
             - daemon
           resources:
-            {{- toYaml .Values.dolos.resources | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: config
               mountPath: /etc/config
@@ -74,13 +74,13 @@ spec:
               mountPath: /var/data
           ports:
             - name: grpc
-              containerPort: {{ .Values.dolos.ports.grpc }}
+              containerPort: {{ .Values.ports.grpc }}
               protocol: TCP
             - name: ouroboros
-              containerPort: {{ .Values.dolos.ports.ouroboros }}
+              containerPort: {{ .Values.ports.ouroboros }}
               protocol: TCP
             - name: minibf
-              containerPort: {{ .Values.dolos.ports.minibf }}
+              containerPort: {{ .Values.ports.minibf }}
               protocol: TCP
   volumeClaimTemplates:
     - metadata:

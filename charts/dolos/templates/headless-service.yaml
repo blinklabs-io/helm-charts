@@ -14,10 +14,10 @@ spec:
   ports:
     - name: grpc
       port: {{ .Values.service.ports.grpc }}
-      targetPort: {{ .Values.dolos.ports.grpc }}
+      targetPort: {{ .Values.ports.grpc }}
     - name: ouroboros
       port: {{ .Values.service.ports.ouroboros }}
-      targetPort: {{ .Values.dolos.ports.ouroboros }}
+      targetPort: {{ .Values.ports.ouroboros }}
     - name: minibf
       port: {{ .Values.service.ports.minibf }}
-      targetPort: {{ .Values.dolos.ports.minibf }}
+      targetPort: {{ .Values.ports.minibf }}

@@ -14,7 +14,7 @@ data:
     network_magic = 2
     {{- end }}
 
-    {{- if .Values.dolos.peerAddress }}
+    {{- if .Values.peerAddress }}
     peer_address = "{{ .Values.peerAddress }}"
     {{- if eq .Values.network "mainnet" }}
     is_testnet = false
@@ -55,7 +55,7 @@ data:
     {{- end }}
 
     [serve.grpc]
-    listen_address = "[::]:{{ .Values.dolos.ports.grpc }}"
+    listen_address = "[::]:{{ .Values.ports.grpc }}"
     permissive_cors = true
 
     [serve.ouroboros]
@@ -69,7 +69,7 @@ data:
     {{- end }}
 
     [serve.minibf]
-    listen_address = "[::]:{{ .Values.dolos.ports.minibf }}"
+    listen_address = "[::]:{{ .Values.ports.minibf }}"
 
     [logging]
     max_level = "debug"
