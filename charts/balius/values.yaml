@@ -1,13 +1,13 @@
 # Default values for balius bane
 fullnameOverride: ""
-nameOverride: "mainnet"
+nameOverride: ""
 
 # --- Baliusd Deployment options ---
 balius:
   network: mainnet
   image:
     repository: ghcr.io/demeter-run/ext-balius-instance
-    tag: latest
+    tag: 33ada013c8d53ac05da21b4adb65a8b4bfe67a59
     pullPolicy: IfNotPresent
   replicas: 1
   resources:
@@ -37,6 +37,7 @@ balius:
     labels: {}
   # --- Postgres Credentials ---
   postgres:
+    database: balius
     usernameSecret:
       name: balius.mydb.credentials.postgresql.acid.zalan.do
       key: username
