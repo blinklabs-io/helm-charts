@@ -32,7 +32,7 @@ spec:
       {{- if .Values.balius.serviceAccount.create }}
       serviceAccountName: {{ .Values.balius.serviceAccount.name }}
       {{- end }}
-      securityContext: {{toYaml .Values.balius.securityContext | nindent 6 }}
+      securityContext: {{toYaml .Values.balius.securityContext | nindent 8 }}
       containers:
         - name: main
           image: {{ .Values.balius.image.repository }}:{{ .Values.balius.image.tag }}
@@ -53,7 +53,7 @@ spec:
             - name: POSTGRES_HOST
               value: {{ .Values.balius.postgresHost }}
             - name: BALIUSD_CONNECTION
-              value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/{{ .Values.balius.network | replace "-" "" }}
+              value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/{{ .Values.balius.postgres.database }}
             - name: BALIUSD_POD
               valueFrom:
                 fieldRef:
