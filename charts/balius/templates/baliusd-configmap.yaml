@@ -6,8 +6,12 @@ metadata:
 data:
   baliusd.toml: |
     network = "{{ .Values.balius.network }}"
-    lease_name = "balius-chainsync-lease-{{ .Values.balius.network }}"
+    shard = "balius-{{ .Values.balius.network }}"
     prometheus_addr = "0.0.0.0:{{ .Values.balius.prometheusPort }}"
+    vault_address = "{{ .Values.vault.address }}"
+    vault_token = "{{ .Values.vault.token }}"
+    vault_token_renew_interval = "{{ .Values.vault.vault_token_renew_interval }}"
+    vault_token_renew_seconds = "{{ .Values.vault.vault_token_renew_seconds }}"
 
     [rpc]
     listen_address = "0.0.0.0:{{ .Values.balius.containerPort }}"

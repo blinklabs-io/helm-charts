@@ -1,13 +1,13 @@
 # Default values for balius bane
 fullnameOverride: ""
-nameOverride: "mainnet"
+nameOverride: ""
 
 # --- Baliusd Deployment options ---
 balius:
   network: mainnet
   image:
     repository: ghcr.io/demeter-run/ext-balius-instance
-    tag: latest
+    tag: 33ada013c8d53ac05da21b4adb65a8b4bfe67a59
     pullPolicy: IfNotPresent
   replicas: 1
   resources:
@@ -19,6 +19,7 @@ balius:
       memory: "256Mi"
   containerPort: 3000
   prometheusPort: 8000
+  # Postgres needs ALLOW_NOSSL set to true
   postgresHost: "postgres-service"
   tolerations: []
   affinity: {}
@@ -37,6 +38,7 @@ balius:
     labels: {}
   # --- Postgres Credentials ---
   postgres:
+    database: balius
     usernameSecret:
       name: balius.mydb.credentials.postgresql.acid.zalan.do
       key: username
@@ -45,10 +47,10 @@ balius:
       key: password
   # --- ServiceAccount ---
   serviceAccount:
-    create: false
+    create: true
     annotations: {}
     labels: {}
-    name: "default"
+    name: "balius"
   # --- Service ---
   service:
     annotations: {}
@@ -59,7 +61,8 @@ balius:
       metrics: 8000
   # --- ConfigMap options ---
   configMap:
-    utxorpc_url: "http://localhost:1234"
+    # Dingo, Dolos or any UTXO RPC url
+    utxorpc_url: "http://dolos.dolos.svc.cluster.local:50051"
 
 # --- S3 Configuration & secret creation ---
 # Secret will store only AWS_SECRET_ACCESS_KEY
@@ -68,3 +71,9 @@ s3:
   aws_region: us-west-2
   aws_access_key_id: "AKIAXXXXXXXX"
   aws_secret_access_key: "xxxxxxxxxxxxxxxxxxxxxx"
+
+vault:
+  address: "http://vault.balius.svc.cluster.local:8200"
+  token: "vault-token-placeholder"
+  vault_token_renew_interval: "24h"
+  vault_token_renew_seconds: "600"
