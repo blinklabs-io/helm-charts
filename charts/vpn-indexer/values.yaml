@@ -39,6 +39,9 @@ securityContext: {}
 service:
   type: ClusterIP
   port: 80
+  # nodePort:
+  annotations: {}
+  # loadBalancerClass:
 
 ingress:
   enabled: false
