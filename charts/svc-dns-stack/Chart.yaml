@@ -1,0 +1,15 @@
+apiVersion: v2
+name: svc-dns-stack
+description: A Helm chart for managing DNS endpoints and services in Kubernetes
+version: 0.0.1
+appVersion: "0.0.1"
+
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
