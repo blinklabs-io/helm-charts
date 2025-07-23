@@ -1,0 +1,55 @@
+# Default values for svc-dns-stack
+fullnameOverride: ""
+nameOverride: ""
+
+# Example services
+services: []
+  # - name: example-service
+  #   namespace: example-namespace
+  #   annotations:
+  #     cloud.google.com/l4-rbs: enabled
+  #     external-dns.alpha.kubernetes.io/hostname: example.hostname.com
+  #   labels:
+  #     cloud.google.com/load-balancer-type: Internal
+  #   spec:
+  #     type: LoadBalancer
+  #     loadBalancerSourceRanges:
+  #       - 127.0.0.1/32
+  #     externalTrafficPolicy: Local
+  #     internalTrafficPolicy: Cluster
+  #     ipFamilies:
+  #       - IPv4
+  #     ipFamilyPolicy: SingleStack
+  #     ports:
+  #       - name: http
+  #         port: 80
+  #         protocol: TCP
+  #     selector:
+  #       app.kubernetes.io/instance: example-instance
+
+# Example DNS endpoints
+dnsEndpoints: []
+  # - name: example-cname
+  #   namespace: example-namespace
+  #   labels:
+  #     app: example-app
+  #   annotations:
+  #     external-dns.alpha.kubernetes.io/ttl: "300"
+  #   endpoints:
+  #     - dnsName: example.cname.domain.com
+  #       providerSpecific:
+  #         - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+  #           value: "false"
+  #       recordType: CNAME
+  #       targets:
+  #         - target.example.com
+  # - name: example-endpoint
+  #   namespace: example-namespace
+  #   endpoints:
+  #     - dnsName: example.a.domain.com
+  #       providerSpecific:
+  #         - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+  #           value: "true"
+  #       recordType: A
+  #       targets:
+  #         - 192.0.2.1

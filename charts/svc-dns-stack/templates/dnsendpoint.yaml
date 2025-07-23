@@ -1,0 +1,28 @@
+{{- range .Values.dnsEndpoints }}
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  {{- if .labels }}
+  labels: {{ toYaml .labels | nindent 4 }}
+  {{- end }}
+  {{- if .annotations }}
+  annotations: {{ toYaml .annotations | nindent 4 }}
+  {{- end }}
+spec:
+  endpoints:
+    {{- range .endpoints }}
+    - dnsName: {{ .dnsName }}
+      {{- if .providerSpecific }}
+      providerSpecific:
+        {{- toYaml .providerSpecific | nindent 8 }}
+      {{- end }}
+      recordType: {{ .recordType }}
+      targets:
+        {{- range .targets }}
+        - {{ . }}
+        {{- end }}
+    {{- end }}
+{{- end }}

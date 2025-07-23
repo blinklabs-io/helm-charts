@@ -1,0 +1,17 @@
+{{- range $data := .Values.services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $data.name | replace "_" "-" }}
+  namespace: {{ $data.namespace | default $.Release.Namespace }}
+  {{- if $data.labels }}
+  labels: {{ toYaml $data.labels | nindent 4 }}
+  {{- end }}
+  {{- if $data.annotations }}
+  annotations: {{ toYaml $data.annotations | nindent 4 }}
+  {{- end }}
+{{ with $data.spec -}}
+spec: {{ toYaml . | nindent 2 }}
+{{ end -}}
+{{- end -}}
