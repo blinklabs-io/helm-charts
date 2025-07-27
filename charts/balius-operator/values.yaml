@@ -1,0 +1,30 @@
+# Balius Operator values
+replicaCount: 1
+image:
+  repository: ghcr.io/demeter-run/ext-balius-operator
+  tag: latest
+prometheusUrl: "http://prometheus-operated.mynamspace.svc.cluster.local:9090/api/v1"
+metricsDelay: "30s"
+extensionDomain: "balius.example.com"
+metricsPort: 9946
+resources:
+  limits:
+    cpu: "100m"
+    memory: "128Mi"
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+tolerations: []
+# Example tolerations:
+# - key: "key"
+#   operator: "Equal"
+#   value: "value"
+#   effect: "NoSchedule"
+affinity: {}
+
+podMonitor:
+  enabled: false
+
+serviceAccount:
+  annotations: {}
+  name: "balius-operator"
