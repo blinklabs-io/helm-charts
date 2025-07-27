@@ -72,8 +72,9 @@ persistence:
   # storageClassName:
   accessModes:
     - ReadWriteOnce
-  requests:
-    storage: 5Gi
+  resources:
+    requests:
+      storage: 5Gi
 
 ca:
   cert: ''
