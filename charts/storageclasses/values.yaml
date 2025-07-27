@@ -1,0 +1,24 @@
+# Default values for storageclasses.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+storageclasses: {}
+  # test-storeage-class:
+  #   labels:
+  #     k8s-app: foo
+  #   annotations:
+  #      myStorageClass: gp3
+  #   provisioner: rancher.io/local-path
+  #   reclaimPolicy: Delete
+  #   volumeBindingMode: WaitForFirstConsumer
+  # ebs-gp3:
+  #   allowVolumeExpansion: true
+  #   provisioner: ebs.csi.aws.com
+  #   reclaimPolicy: Retain
+  #   volumeBindingMode: WaitForFirstConsumer
+  #   parameters:
+  #     encrypted: "true"
+  #     type: gp3
+  #     fsType: ext4
+  #     tagSpecification_1: "cluster_name=foo"
+  #     tagSpecification_2: "env=bar"
