@@ -18,24 +18,27 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
-        - jsonPath: .spec.displayName
-          name: Display Name
+        - name: Active
+          type: boolean
+          jsonPath: .spec.active
+        - name: Display Name
           type: string
-        - jsonPath: .spec.network
-          name: Network
+          jsonPath: .spec.displayName
+        - name: Network
           type: string
-        - jsonPath: .spec.throughputTier
-          name: Throughput Tier
+          jsonPath: .spec.network
+        - name: Throughput Tier
           type: string
-        - jsonPath: .status.endpointUrl
-          name: Endpoint URL
+          jsonPath: .spec.throughputTier
+        - name: Endpoint URL
           type: string
-        - jsonPath: .status.authenticatedEndpointUrl
-          name: Authenticated Endpoint URL
+          jsonPath: .status.endpointUrl
+        - name: Authenticated Endpoint URL
           type: string
-        - jsonPath: .status.authToken
-          name: Auth Token
+          jsonPath: .status.authenticatedEndpointUrl
+        - name: Auth Token
           type: string
+          jsonPath: .status.authToken
       schema:
         openAPIV3Schema:
           title: BaliusWorker
@@ -55,6 +58,9 @@ spec:
                 - url
                 - version
               properties:
+                active:
+                  type: boolean
+                  nullable: true
                 authToken:
                   type: string
                 config:
@@ -84,5 +90,8 @@ spec:
                   nullable: true
                 endpointUrl:
                   type: string
+                error:
+                  type: string
+                  nullable: true
       subresources:
         status: {}

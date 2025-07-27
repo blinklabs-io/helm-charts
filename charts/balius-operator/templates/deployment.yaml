@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "baliusOperator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{ include "baliusOperator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{ include "baliusOperator.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name | default .Release.Name }}
+      containers:
+        - name: main
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ADDR
+              value: "0.0.0.0:{{ .Values.metricsPort }}"
+            - name: K8S_IN_CLUSTER
+              value: "true"
+            - name: PROMETHEUS_URL
+              value: "{{ .Values.prometheusUrl }}"
+            - name: METRICS_DELAY
+              value: "{{ .Values.metricsDelay }}"
+            - name: EXTENSION_DOMAIN
+              value: "{{ .Values.extensionDomain }}"
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metricsPort }}
+              protocol: TCP
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+      {{- end }}

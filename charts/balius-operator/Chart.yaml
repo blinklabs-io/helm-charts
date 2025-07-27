@@ -1,0 +1,18 @@
+apiVersion: v2
+name: balius-operator
+description: Balius operator
+version: 0.0.1
+appVersion: "0.0.1"
+
+sources:
+  - https://github.com/demeter-run/ext-balius
+
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
