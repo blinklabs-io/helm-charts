@@ -1,0 +1,13 @@
+{{- if .Values.proxyCertificate.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.proxyCertificate.secretName }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  dnsNames: {{ .Values.proxyCertificate.dnsNames | toYaml | nindent 4 }}
+  issuerRef:
+    kind: {{ .Values.proxyCertificate.issuerKind }}
+    name: {{ .Values.proxyCertificate.issuerName }}
+  secretName: {{ .Values.proxyCertificate.secretName }}
+{{- end }}

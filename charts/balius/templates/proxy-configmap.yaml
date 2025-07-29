@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxy-{{ .Values.balius.network }}-config
+  namespace: {{ .Release.Namespace }}
+data:
+  tiers.toml: |
+    {{- range $tier := .Values.proxy.tiers }}
+    [[tiers]]
+    name = "{{ $tier.name }}"
+      {{- range $rate := $tier.rates }}
+    [[tiers.rates]]
+    interval = "{{ $rate.interval }}"
+    limit = {{ div $rate.limitPerReplica $.Values.balius.replicas }}
+      {{- end }}
+    {{- end }}

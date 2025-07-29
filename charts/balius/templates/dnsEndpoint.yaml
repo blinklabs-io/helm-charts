@@ -1,0 +1,22 @@
+{{- if .Values.dnsEndpoint.enabled }}
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: {{ .Values.dnsEndpoint.name }}
+  namespace: {{ .Values.dnsEndpoint.namespace }}
+spec:
+  endpoints:
+  {{- range .Values.dnsEndpoint.endpoints }}
+    - dnsName: {{ .dnsName }}
+      recordType: {{ .recordType }}
+      targets:
+        {{- range .targets }}
+        - {{ . }}
+        {{- end }}
+      providerSpecific:
+        {{- range .providerSpecific }}
+        - name: {{ .name }}
+          value: {{ .value | quote }}
+        {{- end }}
+  {{- end }}
+{{- end }}
