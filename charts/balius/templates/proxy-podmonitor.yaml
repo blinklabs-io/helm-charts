@@ -1,0 +1,18 @@
+{{- if .Values.proxy.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "balius.fullname" . }}-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- with .Values.proxy.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      role: {{ .Values.proxy.role }}
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+{{- end }}

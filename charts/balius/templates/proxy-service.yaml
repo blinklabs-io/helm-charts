@@ -1,0 +1,15 @@
+{{- if .Values.proxyService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.proxyService.name | replace "_" "-" }}
+  namespace: {{ .Values.proxyService.namespace | default .Release.Namespace }}
+  {{- with .Values.proxyService.labels }}
+  labels: {{ toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.proxyService.annotations }}
+  annotations: {{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+{{ toYaml .Values.proxyService.spec | nindent 2 }}
+{{- end }}

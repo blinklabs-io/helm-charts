@@ -77,3 +77,114 @@ vault:
   token: "vault-token-placeholder"
   vault_token_renew_interval: "24h"
   vault_token_renew_seconds: "600"
+
+# --- Proxy Configuration ---
+# Proxy is used to limit the number of requests per second
+# and to provide a single entry point for the Balius network
+proxy:
+  namespace: balius
+  role: balius-proxy
+  replicas: 1
+
+  serviceAccountName: "balius"
+
+  image:
+    repository: ghcr.io/demeter-run/ext-balius-proxy
+    tag: "86aa2dbfc2202fe4eeafd961064567255b33daf7"
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+
+  ports:
+    metrics: 8080
+    proxy: 9090
+
+  tolerations: []
+
+  proxyAddr: "0.0.0.0:9090"
+  prometheusAddr: "0.0.0.0:8080"
+  baliusPort: "80"
+  baliusDns: "balius-preview.balius.svc.cluster.local"
+  defaultBaliusVersion: "v2"
+
+  podMonitor:
+    enabled: false
+    labels: {}
+
+  # Proxy Config
+  tiers:
+  - name: "0"
+    rates:
+      - interval: "1m"
+        limitPerReplica: 1    # per second
+      - interval: "1d"
+        limitPerReplica: 80000
+  - name: "1"
+    rates:
+      - interval: "1m"
+        limitPerReplica: 5
+      - interval: "1d"
+        limitPerReplica: 400000
+  - name: "2"
+    rates:
+      - interval: "1m"
+        limitPerReplica: 40
+      - interval: "1d"
+        limitPerReplica: 2000000
+  - name: "3"
+    rates:
+      - interval: "1m"
+        limitPerReplica: 80
+      - interval: "1d"
+        limitPerReplica: 4000000
+
+proxyCertificate:
+  enabled: false
+  secretName: balius-tls
+  dnsNames:
+    - "example.balius.example.com"
+    - "*.example.balius.blinklabs.cloud"
+  issuerKind: ClusterIssuer
+  issuerName: letsencrypt-example-com
+
+# Proxy service configuration LoadBalancer
+proxyService:
+  enabled: false
+  name: balius-proxy
+  namespace: balius
+  labels: {}
+  # Google Cloud Load Balancer labels
+    # cloud.google.com/load-balancer-type: Internal
+  annotations: {}
+  # Google Cloud Load Balancer annotations
+    # cloud.google.com/l4-rbs: enabled
+    # external-dns.alpha.kubernetes.io/hostname: proxy.balius.example.com
+  spec:
+    type: LoadBalancer
+    ports:
+      - name: proxy
+        port: 443
+        targetPort: 9090
+    selector:
+      role: balius-proxy
+
+# Rely on external DNS to create the DNS records
+dnsEndpoint:
+  enabled: false
+  name: balius-cname-preview
+  namespace: kube-system
+  endpoints:
+    - dnsName: my.balius.example.com
+      recordType: CNAME
+      targets:
+        - proxy.balius.example.com
+      providerSpecific: {}
+      # Cloudflare specific annotation
+        # - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          # value: "false"
