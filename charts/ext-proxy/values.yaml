@@ -85,8 +85,7 @@ proxyCertificate:
 proxyService:
   enabled: true
   name: demo-proxy
-  labels:
-    app.kubernetes.io/name: demo-proxy
+  labels: {}
   annotations: {}
   spec:
     type: LoadBalancer
