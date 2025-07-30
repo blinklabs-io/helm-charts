@@ -1,0 +1,113 @@
+# Proxy Configuration
+proxy:
+  role: &proxy_role demo-proxy
+  replicas: 1
+  serviceAccountName: "demo"
+  env:
+    - name: SSL_CRT_PATH
+      value: /certs/tls.crt
+    - name: SSL_KEY_PATH
+      value: /certs/tls.key
+    - name: PROXY_TIERS_PATH
+      value: /configs/tiers.toml
+    - name: PROXY_NAMESPACE
+      value: "DEMO_NAMESPACE"
+    - name: PROXY_ADDR
+      value: "0.0.0.0:8080"
+    - name: PROMETHEUS_ADDR
+      value: "0.0.0.0:9187"
+    - name: DEMO_PORT
+      value: "3000"
+    - name: DEMO_DNS
+      value: "demo.svc.cluster.local"
+    - name: DEFAULT_DEMO_VERSION
+      value: "v2"
+  image:
+    repository: ghcr.io/your-org/your-proxy
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: "50m"
+      memory: "250Mi"
+    requests:
+      cpu: "50m"
+      memory: "250Mi"
+  ports:
+    metrics: 9187
+    proxy: 8080
+  affinity: {}
+  tolerations: []
+
+# Depends on Prometheus CRDs
+podMonitor:
+  enabled: false
+  labels: {}
+
+# Proxy Config
+proxyConfig:
+  tiers:
+  - name: "0"
+    rates:
+      - interval: "1m"
+        limitPerReplica: 1
+      - interval: "1d"
+        limitPerReplica: 80000
+  - name: "1"
+    rates:
+      - interval: "1m"
+        limitPerReplica: 5
+      - interval: "1d"
+        limitPerReplica: 400000
+  - name: "2"
+    rates:
+      - interval: "1m"
+        limitPerReplica: 40
+      - interval: "1d"
+        limitPerReplica: 2000000
+  - name: "3"
+    rates:
+      - interval: "1m"
+        limitPerReplica: 80
+      - interval: "1d"
+        limitPerReplica: 4000000
+
+# Certificates depends on cert-manager CRDs
+proxyCertificate:
+  enabled: false
+  secretName: demo-proxy-tls
+  dnsNames:
+  - "demo.example.com"
+  - "*.demo.example.com"
+  issuerKind: ClusterIssuer
+  issuerName: letsencrypt-dns01
+
+proxyService:
+  enabled: true
+  name: demo-proxy
+  labels:
+    app.kubernetes.io/name: demo-proxy
+  annotations: {}
+  spec:
+    type: LoadBalancer
+    ports:
+      - name: proxy
+        port: 443
+        targetPort: 8080
+    selector:
+      role: *proxy_role
+
+# Rely on external DNS to create the DNS records
+dnsEndpoint:
+  enabled: false
+  name: demo-cname
+  namespace: kube-system
+  endpoints:
+    - dnsName: preview.demo.example.com
+      recordType: CNAME
+      targets:
+        - proxy.preview.demo.example.com
+      providerSpecific:
+        # Example: uncomment and configure as needed for your DNS provider
+        # - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        #   value: "false"
