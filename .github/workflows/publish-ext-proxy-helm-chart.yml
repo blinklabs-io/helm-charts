@@ -1,0 +1,32 @@
+name: publish-ext-proxy-helm-chart
+
+on:
+  push:
+    branches: ['main']
+    paths: ['charts/ext-proxy/**','.github/workflows/publish-ext-proxy-helm-chart.yml']
+
+jobs:
+  build-and-push-ext-proxy-helm-chart:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+      - name: Package and upload chart
+        shell: bash
+        env:
+          REGISTRY: "ghcr.io"
+          REPOSITORY: "${{ github.repository }}"
+          TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          USER: "${{ github.repository_owner }}"
+        run: |
+          rm -rf dist
+          mkdir dist
+          helm package charts/ext-proxy/ -d dist/
+          echo "${TOKEN}" | helm registry login "${REGISTRY}" -u "${USER}" --password-stdin
+          for file in dist/*; do
+            helm push "$file" "oci://${REGISTRY}/${REPOSITORY,,}/charts"
+          done

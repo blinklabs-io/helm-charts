@@ -1,11 +1,8 @@
 apiVersion: v2
-name: balius
-description: Balius server
-version: 0.0.6
+name: ext-proxy
+description: A Helm chart for managing different proxy configurations for https://github.com/demeter-run
+version: 0.0.1
 appVersion: "0.0.1"
-
-sources:
-  - https://github.com/demeter-run/ext-balius
 
 maintainers:
   - name: aurora

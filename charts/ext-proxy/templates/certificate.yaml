@@ -5,7 +5,7 @@ metadata:
   name: {{ .Values.proxyCertificate.secretName }}
   namespace: {{ .Release.Namespace }}
 spec:
-  dnsNames: {{ .Values.proxyCertificate.dnsNames | toYaml | nindent 4 }}
+  dnsNames: {{ .Values.proxyCertificate.dnsNames | toYaml | nindent 2 }}
   issuerRef:
     kind: {{ .Values.proxyCertificate.issuerKind }}
     name: {{ .Values.proxyCertificate.issuerName }}
