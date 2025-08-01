@@ -3,7 +3,7 @@ replicaCount: 1
 
 image:
   repository: "ghcr.io/blinklabs-io/cdnsd"
-  tag: "0.21.1"
+  tag: "0.22.0"
   pullPolicy: IfNotPresent
 
 annotations: {}
