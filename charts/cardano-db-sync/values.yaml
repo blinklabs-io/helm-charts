@@ -3,26 +3,31 @@
 
 cardano_network: mainnet
 
-cardano_node: {}
-  # host: node-mainet.svc.cluster.local
-  # port: 3001
+cardano_node:
+  host: backbone.mainnet.cardanofoundation.org
+  port: 3001
 
 image:
   repository: ghcr.io/blinklabs-io/cardano-db-sync
   tag: 13.6.0.4
 
-environment:
-  # RESTORE_SNAPSHOT: https://update-cardano-mainnet.iohk.io/cardano-db-sync/13.6/db-sync-snapshot-schema-13.6-block-11928793-x86_64.tgz
+environment: {}
+  # Additional environments can be set here
 
 common_env:
+# MAINNET ONLY
+# If set to true it will try to find latest snapshot and restore it on first run
+# https://update-cardano-mainnet.iohk.io/cardano-db-sync/index.html#
+  RESTORE_SNAPSHOT: false
   POSTGRES_DB: dbsync_mainnet
   # POSTGRES_HOST: postgres-dbsync-mainnet.dbsync.svc.cluster.local
   # POSTGRES_HOST_RO: postgres-dbsync-mainnet-repl.dbsync.svc.cluster.local
   # POSTGRES_HOST_RW: postgres-dbsync-mainnet.dbsync.svc.cluster.local
   # POSTGRES_PORT: "5432"
 
+# https://github.com/IntersectMBO/cardano-db-sync/tree/master?tab=readme-ov-file#storage
 volume:
-  size: 50Gi
+  size: 350Gi
   storageClassName: hyperdisk-balanced
 
 updateStrategy:
@@ -36,6 +41,14 @@ metrics:
   serviceMonitor:
     enabled: true
     namespace: monitoring
+
+resources: {}
+  # limits:
+  #   cpu: 2000m
+  #   memory: 4Gi
+  # requests:
+  #   cpu: 100m
+  #   memory: 2Gi
 
 affinity: {}
 

@@ -19,12 +19,110 @@ spec:
       labels:
 {{ include "cardano-db-sync.selectorLabels" . | indent 8 }}
     spec:
-    {{- if .Values.affinity }}
+      initContainers:
+      - name: dbsync-snapshot-restore
+        image: debian:bookworm-slim
+        workingDir: /var/lib/cexplorer
+        volumeMounts:
+        - mountPath: /var/lib/cexplorer
+          name: dbsync-statedir
+        env:
+        {{- range $key, $value := .Values.environment }}
+        {{- if $value }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              key: POSTGRES_HOST
+              name: {{ include "cardano-db-sync.fullname" . }}-common-env
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              key: POSTGRES_PORT
+              name: {{ include "cardano-db-sync.fullname" . }}-common-env
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              key: POSTGRES_DB
+              name: {{ include "cardano-db-sync.fullname" . }}-common-env
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: {{ .Values.postgres.userSecret.key }}
+              name: {{ .Values.postgres.userSecret.name }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: {{ .Values.postgres.passwordSecret.key }}
+              name: {{ .Values.postgres.passwordSecret.name }}
+        - name: RESTORE_SNAPSHOT
+          value: "{{ .Values.common_env.RESTORE_SNAPSHOT }}"
+        - name: CARDANO_NETWORK
+          value: {{ .Values.cardano_network }}
+        command:
+          - bash
+          - -c
+          - |
+            set -euo pipefail
+            apt-get update
+            DEBIAN_FRONTEND=noninteractive apt-get install -y curl postgresql-client awscli
+            # Set Postgres password for psql
+            export PGPASSWORD="${POSTGRES_PASSWORD}"
+            # Wait for DB and check for 'epoch' table
+            if [ "${RESTORE_SNAPSHOT:-false}" = "true" ]; then
+              # Wait until we can list tables (DB is up)
+              until psql -P pager=off -U "${POSTGRES_USER}" -h "${POSTGRES_HOST}" -c '\dt' "${POSTGRES_DB}"; do
+                sleep 1
+              done
+              # If the 'epoch' table is not found, proceed to restore
+              if ! psql -U "${POSTGRES_USER}" -h "${POSTGRES_HOST}" -d "${POSTGRES_DB}" -tAc "SELECT 1 FROM pg_tables WHERE tablename='epoch'" | grep -q 1; then
+                echo "Database is ready and 'epoch' table not found, proceeding..."
+              else
+                echo "'epoch' table found, skipping restore."
+                # TODO: Optional: Add a flag to force re-restore
+                # add --create --clean to pg_restore this will drop and recreate the database
+                exit 0
+              fi
+            fi
+            # List all .tgz files, sort by blocknumber, get the latest
+            LATEST_SNAPSHOT=$(aws s3 ls s3://update-cardano-mainnet.iohk.io/cardano-db-sync/13 --recursive --no-sign-request | awk '{print $4}' | grep '\.tgz$' | sort | tail -n1)
+            LATEST_SNAPSHOT_URL="https://update-cardano-mainnet.iohk.io/${LATEST_SNAPSHOT}"
+            LATEST_SNAPSHOT="${LATEST_SNAPSHOT##*/}"
+            echo "Downloading $LATEST_SNAPSHOT_URL"
+            curl -LOC - "$LATEST_SNAPSHOT_URL"
+            curl -LO "${LATEST_SNAPSHOT_URL}.sha256sum"
+            # Verify SHA256 checksum
+            if sha256sum --check --status < "${LATEST_SNAPSHOT}.sha256sum"; then
+              echo "Checksum passed. Proceeding with restore."
+              rm -f /var/lib/cexplorer/*.lstate
+              # It's not real gzip but xz compression with .tgz extension
+              tar xvf "${LATEST_SNAPSHOT}"
+              echo "Restoring to $POSTGRES_DB at $POSTGRES_HOST:$POSTGRES_PORT as $POSTGRES_USER"
+              pg_restore -v \
+                --host="${POSTGRES_HOST}" \
+                --port="${POSTGRES_PORT}" \
+                --username="${POSTGRES_USER}" \
+                --dbname="${POSTGRES_DB}" \
+                --schema=public \
+                --no-owner \
+                --exit-on-error \
+                --jobs=4 \
+                db/
+              rm -f "${LATEST_SNAPSHOT}" "${LATEST_SNAPSHOT}.sha256sum"
+              chown -R root: /var/lib/cexplorer
+            else
+              echo "[!] sha256sum check error for ${LATEST_SNAPSHOT_URL}"
+              exit 1
+            fi
+      {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
-    {{- end }}
-    {{- if .Values.tolerations }}
+      {{- end }}
+      {{- if .Values.tolerations }}
       tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
-    {{- end }}
+      {{- end }}
       containers:
       - env:
         {{- range $key, $value := .Values.environment }}
@@ -63,18 +161,12 @@ spec:
         image: '{{ .Values.image.repository }}:{{ .Values.image.tag }}'
         imagePullPolicy: IfNotPresent
         name: cardano-db-sync
-        resources: {}
+        resources: {{- toYaml .Values.resources | nindent 10 }}
         volumeMounts:
         - mountPath: /node-ipc
           name: node-ipc
         - mountPath: /tmp
           name: node-ipc
-        - mountPath: /run/secrets/common-env
-          name: {{ include "cardano-db-sync.fullname" . }}-common-env
-          readOnly: true
-        - mountPath: /run/secrets/postgres-password
-          name: postgres-password
-          readOnly: true
         - mountPath: /var/lib/cexplorer
           name: dbsync-statedir
         workingDir: /var/lib/cexplorer
@@ -102,12 +194,6 @@ spec:
       - name: {{ include "cardano-db-sync.fullname" . }}-common-env
         configMap:
           name: {{ include "cardano-db-sync.fullname" . }}-common-env
-      - name: postgres-password
-        secret:
-          items:
-          - key: {{ .Values.postgres.passwordSecret.key }}
-            path: POSTGRES_PASSWORD
-          secretName: {{ .Values.postgres.passwordSecret.name }}
       - name: dbsync-statedir
         persistentVolumeClaim:
           claimName: dbsync-statedir
