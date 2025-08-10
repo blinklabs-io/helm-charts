@@ -67,25 +67,27 @@ spec:
           - -c
           - |
             set -euo pipefail
+            if [ "${RESTORE_SNAPSHOT:-false}" != "true" ]; then
+              echo "RESTORE_SNAPSHOT=false - skipping snapshot restore"
+              exit 0
+            fi
             apt-get update
-            DEBIAN_FRONTEND=noninteractive apt-get install -y curl postgresql-client awscli
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl postgresql-client awscli
             # Set Postgres password for psql
             export PGPASSWORD="${POSTGRES_PASSWORD}"
-            # Wait for DB and check for 'epoch' table
-            if [ "${RESTORE_SNAPSHOT:-false}" = "true" ]; then
-              # Wait until we can list tables (DB is up)
-              until psql -P pager=off -U "${POSTGRES_USER}" -h "${POSTGRES_HOST}" -c '\dt' "${POSTGRES_DB}"; do
-                sleep 1
-              done
-              # If the 'epoch' table is not found, proceed to restore
-              if ! psql -U "${POSTGRES_USER}" -h "${POSTGRES_HOST}" -d "${POSTGRES_DB}" -tAc "SELECT 1 FROM pg_tables WHERE tablename='epoch'" | grep -q 1; then
-                echo "Database is ready and 'epoch' table not found, proceeding..."
+            # Wait until we can list tables (DB is up)
+            until psql -P pager=off -U "${POSTGRES_USER}" -h "${POSTGRES_HOST}" -c '\dt' "${POSTGRES_DB}"; do
+              echo "Waiting for database to be ready..."
+              sleep 1
+            done
+            # If the 'epoch' table is not found, proceed to restore
+            if ! psql -U "${POSTGRES_USER}" -h "${POSTGRES_HOST}" -d "${POSTGRES_DB}" -tAc "SELECT 1 FROM pg_tables WHERE tablename='epoch'" | grep -q 1; then
+              echo "Database is ready and 'epoch' table not found, proceeding..."
               else
                 echo "'epoch' table found, skipping restore."
                 # TODO: Optional: Add a flag to force re-restore
                 # add --create --clean to pg_restore this will drop and recreate the database
                 exit 0
-              fi
             fi
             # List all .tgz files, sort by blocknumber, get the latest
             LATEST_SNAPSHOT=$(aws s3 ls s3://update-cardano-mainnet.iohk.io/cardano-db-sync/13 --recursive --no-sign-request | awk '{print $4}' | grep '\.tgz$' | sort | tail -n1)
