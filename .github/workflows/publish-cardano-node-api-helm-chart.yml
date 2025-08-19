@@ -3,7 +3,7 @@ name: publish-cardano-node-api-helm-chart
 on:
   push:
     branches: ['main']
-    paths: ['charts/cardano-node-api-/**','.github/workflows/publish-cardano-node-api-helm-chart.yml']
+    paths: ['charts/cardano-node-api/**','.github/workflows/publish-cardano-node-api-helm-chart.yml']
 
 jobs:
   build-and-push-cardano-node-api-helm-chart:
