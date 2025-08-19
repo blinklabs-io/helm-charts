@@ -12,6 +12,10 @@ spec:
     port: {{ .Values.service.ports.ntn.port }}
     protocol: TCP
     targetPort: {{ .Values.service.ports.ntn.targetPort }}
+  - name: ntc
+    port: {{ .Values.service.ports.socatNtc.targetPort }}
+    protocol: TCP
+    targetPort: {{ .Values.service.ports.socatNtc.targetPort }}
   selector:
     cardano_network: {{ include "cardano-node.network" . }}
     app.kubernetes.io/name: {{ include "cardano-node.fullname" . }}
