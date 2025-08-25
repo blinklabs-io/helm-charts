@@ -7,7 +7,7 @@ peerAddress: ""
 # Dolos configuration
 image:
   repository: ghcr.io/txpipe/dolos
-  tag: v0.30.2
+  tag: v0.31.0
   pullPolicy: IfNotPresent
 
 podAnnotations: {}
