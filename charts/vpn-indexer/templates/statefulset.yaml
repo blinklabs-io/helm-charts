@@ -83,6 +83,18 @@ spec:
             - name: S3_ENDPOINT
               value: {{ . }}
             {{- end }}
+            {{- with .Values.vpn.domain }}
+            - name: VPN_DOMAIN
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.vpn.region }}
+            - name: VPN_REGION
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.vpn.port }}
+            - name: VPN_PORT
+              value: {{ . }}
+            {{- end }}
             {{- range $k, $v := .Values.extraEnv }}
             - name: {{ $k }}
               value: {{ $v }}
