@@ -1,19 +1,22 @@
+{{- if .Values.service.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  labels:
-    app: {{ include "tx-submit-api.fullname" . }}
-{{ include "tx-submit-api.labels" . | indent 4 }}
+  labels: {{ include "tx-submit-api.selectorLabels" . | nindent 4 }}
   name: {{ include "tx-submit-api.fullname" . }}
 spec:
   ports:
-  - name: tx-submit-api
-    port: 8090
+  - name: api
+    port: {{ .Values.service.apiPort }}
     protocol: TCP
     targetPort: 8090
-  selector:
-    cardano_network: {{ .Values.cardano_network }}
-    app.kubernetes.io/name: {{ include "tx-submit-api.fullname" . }}
+  - name: metrics
+    port: {{ .Values.service.metricsPort }}
+    protocol: TCP
+    targetPort: 8081
+  selector: {{ include "tx-submit-api.selectorLabels" . | nindent 4 }}
   sessionAffinity: ClientIP
-  type: ClusterIP
+  type: {{ .Values.service.type }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+{{- end }}

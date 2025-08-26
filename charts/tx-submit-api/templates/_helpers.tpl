@@ -31,7 +31,6 @@ Create chart name and version as used by the chart label.
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-
 {{/*
 Define Cardano network.
 */}}
@@ -54,6 +53,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+cardano_network: {{ include "tx-submit-api.network" . }}
+cardano_service: tx-submit-api
+{{- end -}}
+
+{{/*
+tx-submit-api selector labels
+*/}}
+{{- define "tx-submit-api.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "tx-submit-api.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 cardano_network: {{ include "tx-submit-api.network" . }}
 cardano_service: tx-submit-api
 {{- end -}}

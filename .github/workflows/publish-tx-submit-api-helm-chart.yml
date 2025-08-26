@@ -3,7 +3,7 @@ name: publish-tx-submit-api-helm-chart
 on:
   push:
     branches: ['main']
-    paths: ['charts/tx-submit-api-/**','.github/workflows/publish-tx-submit-api-helm-chart.yml']
+    paths: ['charts/tx-submit-api/**','.github/workflows/publish-tx-submit-api-helm-chart.yml']
 
 jobs:
   build-and-push-tx-submit-api-helm-chart:
