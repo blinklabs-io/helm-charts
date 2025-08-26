@@ -1,19 +1,29 @@
 ---
 cardano_network: preview
 cardano_node:
-  host: cardano-node-headless
-  port: 30000
+  host: preview-node.play.dev.cardano.org:3001
+  port: 3001
   skip_check: true
 image:
   repository: ghcr.io/blinklabs-io/tx-submit-api
   tag: 0.20.7
-ingress:
-  enabled: false
-  host: submit-api.preview.local
 replicaCount: 1
 resources: {}
-tolerations:
-- key: kubernetes.io/arch
-  operator: Equal
-  value: arm64
-  effect: NoSchedule
+
+affinity: {}
+
+tolerations: []
+
+ingress:
+  enabled: false
+  annotations: {}
+  host: submit-api.preview.local
+  secretName: submit-api-preview-local-tls
+
+service:
+  enabled: false
+  apiPort: 8090
+  metricsPort: 8081
+  annotations: {}
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
