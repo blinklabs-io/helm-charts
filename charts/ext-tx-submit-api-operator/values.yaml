@@ -1,0 +1,48 @@
+# Ext Tx Submit API Operator values
+replicaCount: 1
+image:
+  repository: ghcr.io/demeter-run/ext-cardano-submitapi-operator
+  tag: 414d79bfa36292404bb5ed93f6750fa5d43e434f
+  pullPolicy: IfNotPresent
+
+# Configuration variables
+metricsDelay: 40
+metricsPort: 9946
+prometheusUrl: "http://prometheus-operated.mynamspace.svc.cluster.local:9090/api/v1"
+defaultSubmitApiVersion: v3
+apiKeySalt: "tx-api-key-salt"
+dnsZone: "example.com"
+
+# extraEnv:
+#   - name: EXRTRA_VAR
+#     value: extraVarValue
+
+# DCU per request configuration
+dcuPerRequest:
+  mainnet: "0"
+  preprod: "0"
+  preview: "0"
+  vectorTestnet: "0"
+
+resources:
+  limits:
+    cpu: "100m"
+    memory: "128Mi"
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+
+tolerations: []
+# Example tolerations:
+# - key: "key"
+#   operator: "Equal"
+#   value: "value"
+#   effect: "NoSchedule"
+affinity: {}
+
+podMonitor:
+  enabled: false
+
+serviceAccount:
+  annotations: {}
+  name: "txsubmitapi-operator"
