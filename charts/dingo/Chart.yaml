@@ -2,8 +2,8 @@
 apiVersion: v2
 name: dingo
 description: "A Helm chart for deploying Dingo"
-version: 0.0.20
-appVersion: 0.15.1
+version: 0.0.21
+appVersion: 0.16.0
 
 sources:
   - https://github.com/blinklabs-io/dingo
