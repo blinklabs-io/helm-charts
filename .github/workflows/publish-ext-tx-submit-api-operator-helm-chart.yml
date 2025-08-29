@@ -3,7 +3,7 @@ name: publish-ext-tx-submit-api-helm-chart
 on:
   push:
     branches: ['main']
-    paths: ['charts/ext-tx-submit-api/**','.github/workflows/publish-ext-tx-submit-api-helm-chart.yml']
+    paths: ['charts/ext-tx-submit-api-operator/**','.github/workflows/publish-ext-tx-submit-api-operator-helm-chart.yml']
 
 jobs:
   build-and-push-ext-tx-submit-api-helm-chart:
@@ -25,7 +25,7 @@ jobs:
         run: |
           rm -rf dist
           mkdir dist
-          helm package charts/ext-tx-submit-api/ -d dist/
+          helm package charts/ext-tx-submit-api-operator/ -d dist/
           echo "${TOKEN}" | helm registry login "${REGISTRY}" -u "${USER}" --password-stdin
           for file in dist/*; do
             helm push "$file" "oci://${REGISTRY}/${REPOSITORY,,}/charts"
