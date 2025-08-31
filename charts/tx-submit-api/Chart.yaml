@@ -1,11 +1,13 @@
 apiVersion: v2
 name: tx-submit-api
 description: Creates a Cardano Tx Submit API deployment
-version: 0.1.17
+version: 0.1.18
 appVersion: 0.20.9
 maintainers:
   - name: aurora
     email: aurora@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
   - name: verbotenj
     email: verbotenj@blinklabs.io
   - name: wolf31o2
