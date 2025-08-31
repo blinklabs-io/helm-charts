@@ -4,8 +4,15 @@ apiVersion: v1
 kind: Service
 metadata:
   labels: {{ include "tx-submit-api.selectorLabels" . | nindent 4 }}
+  {{- if .Values.service.labels }}{{ .Values.service.labels | toYaml | nindent 4 }}{{- end }}
+  {{- if .Values.service.annotations }}
+  annotations: {{ .Values.service.annotations | toYaml | nindent 4 }}
+  {{- end }}
   name: {{ include "tx-submit-api.fullname" . }}
 spec:
+  {{- if .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges: {{ .Values.service.loadBalancerSourceRanges | toYaml | nindent 4 }}
+  {{- end }}
   ports:
   - name: api
     port: {{ .Values.service.apiPort }}
