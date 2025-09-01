@@ -90,9 +90,17 @@ crl: {}
   # revokeTime:
 
 s3: {}
+  # accessKey:
+  # secretKey:
+  # region:
   # clientBucket:
   # clientKeyPrefix:
   # endpoint:
+
+tx: {}
+  # kupoUrl
+  # ogmiosUrl
+  # submitUrl
 
 vpn: {}
   # domain:
