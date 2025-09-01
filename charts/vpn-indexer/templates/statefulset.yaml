@@ -99,35 +99,35 @@ spec:
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "vpn-indexer.fullname" . }}
+                  name: {{ include "vpn-indexer.fullname" $ }}
                   key: aws_access_key_id
             {{- end }}
             {{- with .Values.s3.secretKey }}
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "vpn-indexer.fullname" . }}
+                  name: {{ include "vpn-indexer.fullname" $ }}
                   key: aws_secret_access_key
             {{- end }}
             {{- with .Values.tx.kupoUrl }}
             - name: TXBUILDER_KUPO_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "vpn-indexer.fullname" . }}
+                  name: {{ include "vpn-indexer.fullname" $ }}
                   key: kupo_url
             {{- end }}
             {{- with .Values.tx.ogmiosUrl }}
             - name: TXBUILDER_OGMIOS_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "vpn-indexer.fullname" . }}
+                  name: {{ include "vpn-indexer.fullname" $ }}
                   key: ogmios_url
             {{- end }}
             {{- with .Values.tx.submitUrl }}
             - name: TXBUILDER_SUBMIT_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "vpn-indexer.fullname" . }}
+                  name: {{ include "vpn-indexer.fullname" $ }}
                   key: submit_url
             {{- end }}
             {{- range $k, $v := .Values.extraEnv }}
