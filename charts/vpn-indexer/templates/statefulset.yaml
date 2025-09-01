@@ -95,6 +95,41 @@ spec:
             - name: VPN_PORT
               value: {{ . }}
             {{- end }}
+            {{- with .Values.s3.accessKey }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: aws_access_key_id
+            {{- end }}
+            {{- with .Values.s3.secretKey }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: aws_secret_access_key
+            {{- end }}
+            {{- with .Values.tx.kupoUrl }}
+            - name: TXBUILDER_KUPO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: kupo_url
+            {{- end }}
+            {{- with .Values.tx.ogmiosUrl }}
+            - name: TXBUILDER_OGMIOS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: ogmios_url
+            {{- end }}
+            {{- with .Values.tx.submitUrl }}
+            - name: TXBUILDER_SUBMIT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: submit_url
+            {{- end }}
             {{- range $k, $v := .Values.extraEnv }}
             - name: {{ $k }}
               value: {{ $v }}
