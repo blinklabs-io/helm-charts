@@ -3,7 +3,7 @@ name: vpn-indexer
 description: VPN indexer helm chart
 type: application
 
-version: 0.5.2
+version: 0.5.3
 
 appVersion: "0.5.0"
 
