@@ -1,0 +1,8 @@
+apiVersion: v2
+name: ergo-node
+description: Ergo protocol description & reference client implementation
+version: 0.1.0
+appVersion: "latest"
+maintainers:
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io

@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ergo-node.fullname" . }}
+  labels:
+    {{- include "ergo-node.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: ergo
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          command: ["java"]
+          args:
+            - "-jar"
+            - "/home/ergo/ergo.jar"
+            - "--{{ include "ergo-node.network" . }}"
+            - "-c"
+            - "/ergo/ergo.conf"
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms{{ .Values.ergo.heapInitial }} -Xmx{{ .Values.ergo.heap }}"
+            - name: _JAVA_OPTIONS
+              value: ""
+          ports:
+            - name: p2p
+              containerPort: {{ .Values.service.p2pPort | default 9030 }}
+            - name: api
+              containerPort: {{ .Values.service.apiPort | default 9053 }}
+          volumeMounts:
+            - name: config
+              mountPath: /ergo/ergo.conf
+              subPath: ergo.conf
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /home/ergo/.ergo
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ergo-node.fullname" . }}-config
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "ergo-node.fullname" . }}-data
+        {{- end }}

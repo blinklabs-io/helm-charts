@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+{{- include "ergo-node.labels" . | nindent 4 }}
+  name: {{ include "ergo-node.fullname" . }}
+spec:
+  type: {{ .Values.service.type | default "NodePort" }}
+  ports:
+    - name: api
+      port: {{ .Values.service.apiPort | default 9053 }}
+      targetPort: api
+      protocol: TCP
+    - name: p2p
+      port: {{ .Values.service.p2pPort | default 9030 }}
+      targetPort: p2p
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
