@@ -36,6 +36,8 @@ spec:
           value: {{ .Values.cardano_network }}
         - name: CARDANO_PORT
           value: "{{ .Values.service.ports.ntn.targetPort }}"
+        - name: CARDANO_TOPOLOGY
+          value: "/opt/cardano/config/{{ .Values.cardano_network }}/topology.json"
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: cardano-node
@@ -50,6 +52,11 @@ spec:
           name: node-db
         - mountPath: /ipc
           name: node-ipc
+{{- if .Values.topology.enabled }}
+        - name: topology
+          mountPath: /opt/cardano/config/{{ .Values.cardano_network }}/topology.json
+          subPath: topology.json
+{{- end }}
       - command:
         - sh
         - -c
