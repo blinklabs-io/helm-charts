@@ -19,7 +19,24 @@ service:
     metrics:
       port: 12798
       targetPort: 12798
-
+topology:
+  enabled: false
+#  config:
+#    bootstrapPeers:
+#      - address: "preview-node.play.dev.cardano.org"
+#        port: 3001
+#    localRoots:
+#      - accessPoints:
+#        - address: "preview-node.play.dev.cardano.org"
+#          port: 3001
+#        advertise: false
+#        trustable: false
+#        valency: 1
+#    peerSnapshotFile: "peer-snapshot.json"
+#    publicRoots:
+#      - accessPoints: []
+#        advertise: false
+#    useLedgerAfterSlot: 83116868
 storage:
 # Suitable for preview and preprod, 250+ for mainnet
   size: "24Gi"
