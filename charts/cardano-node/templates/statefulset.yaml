@@ -25,22 +25,30 @@ spec:
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
 {{- end }}
       containers:
-      - env:
-        - name: CARDANO_NODE_SOCKET_PATH
-          value: /ipc/node.socket
+      - name: cardano-node
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: NETWORK
+          value: {{ .Values.cardano_network }}
         - name: CARDANO_DATABASE_PATH
           value: /data/db
         - name: CARDANO_SOCKET_PATH
           value: /ipc/node.socket
-        - name: NETWORK
-          value: {{ .Values.cardano_network }}
         - name: CARDANO_PORT
           value: "{{ .Values.service.ports.ntn.targetPort }}"
         - name: CARDANO_TOPOLOGY
-          value: "/opt/cardano/config/{{ .Values.cardano_network }}/topology.json"
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        name: cardano-node
+          value: "{{ .Values.cardano_config_base }}/{{ .Values.cardano_network }}/topology.json"
+{{- if .Values.blockProducer.enabled }}
+        - name: CARDANO_BLOCK_PRODUCER
+          value: "true"
+        - name: CARDANO_SHELLEY_KES_KEY
+          value: "{{ .Values.cardano_config_base }}/keys/kes.skey"
+        - name: CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE
+          value: "{{ .Values.cardano_config_base }}/keys/node.cert"
+        - name: CARDANO_SHELLEY_VRF_KEY
+          value: "{{ .Values.cardano_config_base }}/keys/vrf.skey"
+{{- end }}
         ports:
         - name: ntn
           containerPort: {{ .Values.service.ports.ntn.targetPort }}
@@ -54,19 +62,23 @@ spec:
           name: node-ipc
 {{- if .Values.topology.enabled }}
         - name: topology
-          mountPath: /opt/cardano/config/{{ .Values.cardano_network }}/topology.json
+          mountPath: {{ .Values.cardano_config_base }}/{{ .Values.cardano_network }}/topology.json
           subPath: topology.json
 {{- end }}
-      - command:
+{{- if .Values.blockProducer.enabled }}
+        - name: block-producer-keys
+          mountPath: {{ .Values.cardano_config_base }}/keys
+{{- end }}
+      - name: socat-ntc
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        command:
         - sh
         - -c
         - socat TCP-LISTEN:${PORT},fork UNIX-CLIENT:/ipc/node.socket,ignoreeof
         env:
         - name: PORT
           value: "{{ .Values.service.ports.socatNtc.targetPort }}"
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        imagePullPolicy: IfNotPresent
-        name: socat-ntc
         ports:
         - containerPort: {{ .Values.service.ports.socatNtc.targetPort }}
         resources: {{ .Values.socat.resources | toYaml | nindent 10 }}
@@ -85,8 +97,20 @@ spec:
       - name: node-db
         persistentVolumeClaim:
           claimName: node-db
-      - emptyDir: {}
-        name: node-ipc
+      - name: node-ipc
+        emptyDir: {}
+{{- if .Values.topology.enabled }}
+      - name: topology
+        configMap:
+          name: {{ include "cardano-node.fullname" . }}-topology
+          defaultMode: 0644
+{{- end }}
+{{- if .Values.blockProducer.enabled }}
+      - name: block-producer-keys
+        secret:
+          secretName: {{ .Release.Name }}.secret
+          defaultMode: 0600
+{{- end }}
   updateStrategy:
     type: OnDelete
   volumeClaimTemplates:
