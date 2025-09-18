@@ -64,7 +64,7 @@ spec:
           name: node-ipc
 {{- if .Values.topology.enabled }}
         - name: topology
-          mountPath: {{ .Values.cardano_config_base }}/{{ .Values.cardano_network }}/topology.json
+          mountPath: /opt/cardano/config/{{ .Values.cardano_network }}/topology.json
           subPath: topology.json
 {{- end }}
 {{- if .Values.blockProducer.enabled }}
