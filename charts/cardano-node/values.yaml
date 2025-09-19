@@ -36,24 +36,34 @@ blockProducer:
 #      description: VRF Signing Key
 #      cborHex: 5840823318989cf48897044629a22a27c8bf975215fe28161fc90cc42e9446a331be96a37ee0c4060a46ee0bf99fcba3460be133e7e343dd7d4144f67f2a6402e886
 
+# Custom topology. When disabled the image will load the default topology for chosen cardano_network
 topology:
   enabled: false
-#  config:
-#    bootstrapPeers:
-#      - address: "preview-node.play.dev.cardano.org"
-#        port: 3001
-#    localRoots:
-#      - accessPoints:
-#        - address: "preview-node.play.dev.cardano.org"
+#  bootstrapPeers:
+#    - address: preview-node.play.dev.cardano.org
+#      port: 3001
+#  localRoots:
+#    - accessPoints:
+#        - name: Example
+#          address: preview-node.play.dev.cardano.org
 #          port: 3001
-#        advertise: false
-#        trustable: false
-#        valency: 1
-#    peerSnapshotFile: "peer-snapshot.json"
-#    publicRoots:
-#      - accessPoints: []
-#        advertise: false
-#    useLedgerAfterSlot: 83116868
+#      advertise: false
+#      trustable: true
+#      valency: 1
+#    - accessPoints:
+#        - name: Example
+#          address: preview-node.play.dev.cardano.org
+#          port: 3001
+#        - name: Example
+#          address: preview-node.play.dev.cardano.org
+#          port: 3001
+#      advertise: true
+#      trustable: false
+#      valency: 2
+#  publicRoots:
+#    - advertise: true
+#  # useLedgerAfterSlot: -1 to disable ledger peer discovery
+#  useLedgerAfterSlot: 83116868
 
 storage:
 # Suitable for preview and preprod, 250+ for mainnet
