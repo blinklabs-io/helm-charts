@@ -1,8 +1,12 @@
+---
 {{- if .Values.topology.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "cardano-node.fullname" . }}-topology
+  namespace: {{ .Release.Namespace | default "default" }}
+  labels:
+{{ include "cardano-node.labels" . | nindent 4 }}
 data:
   topology.json: |
     {
