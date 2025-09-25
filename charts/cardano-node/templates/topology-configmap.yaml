@@ -8,6 +8,53 @@ metadata:
   labels:
 {{ include "cardano-node.labels" . | nindent 4 }}
 data:
-  topology.json: |-
-{{ toJson .Values.topology.config | indent 4 }}
+  topology.json: |
+    {
+      "bootstrapPeers": [{{- range $i, $peer := .Values.topology.bootstrapPeers }}
+        {{- if $i }},{{ end }}
+        { "address": "{{ $peer.address }}", "port": {{ $peer.port }} }
+      {{- end }}],
+      "localRoots": [
+      {{- range $i, $local := .Values.topology.localRoots }}
+        {{- if $i }},{{ end }}
+        {
+          "accessPoints": [
+          {{- range $j, $peer := $local.accessPoints }}
+            {{- if $j }},{{ end }}
+            { "address": "{{ $peer.address }}", "port": {{ $peer.port }}, "name": "{{ $peer.name }}" }
+          {{- end }}
+          ],
+          "advertise": {{ $local.advertise | toJson }},
+          "trustable": {{ $local.trustable | default false | toJson }},
+          "valency": {{ $local.valency }}
+        }
+      {{- end }}
+      ]
+      {{- with .Values.topology.peerSnapshotFile }},
+      "peerSnapshotFile": "{{ . }}"
+      {{- end }},
+      "publicRoots": [{{- $hasPublicRoots := false }}
+      {{- range $public := .Values.topology.publicRoots }}
+        {{- if and (hasKey $public "accessPoints") (gt (len $public.accessPoints) 0) }}
+          {{- $hasPublicRoots = true }}
+        {{- end }}
+      {{- end }}
+      {{- if $hasPublicRoots }}
+        {{- range $i, $public := .Values.topology.publicRoots }}
+          {{- if and (hasKey $public "accessPoints") (gt (len $public.accessPoints) 0) }}
+            {{- if $i }},{{ end }}
+            {
+              "accessPoints": [
+              {{- range $j, $peer := $public.accessPoints }}
+                {{- if $j }},{{ end }}
+                { "address": "{{ $peer.address }}", "port": {{ $peer.port }}, "name": "{{ $peer.name }}" }
+              {{- end }}
+              ],
+              "advertise": {{ $public.advertise | default false | toJson }}
+            }
+          {{- end }}
+        {{- end }}
+      {{- end }}],
+      "useLedgerAfterSlot": {{ .Values.topology.useLedgerAfterSlot | int }}
+    }
 {{- end }}
