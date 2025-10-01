@@ -44,14 +44,11 @@ persistence:
   size: 5Gi
   annotations: {}
 
-tcp_service:
+service:
   type: ClusterIP
   dnsTcp: 53
   dnsTls: 853
-
-udp_service:
-  type: ClusterIP
-  dns: 53
+  dnsUdp: 53
 
 serviceAccount:
   create: true
