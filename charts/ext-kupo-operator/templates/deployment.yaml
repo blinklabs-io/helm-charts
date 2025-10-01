@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "extKupoOperator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{ include "extKupoOperator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{ include "extKupoOperator.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name | default .Release.Name }}
+      containers:
+        - name: main
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ADDR
+              value: "0.0.0.0:9946"
+            - name: PROMETHEUS_URL
+              value: {{ .Values.prometheusUrl | quote }}
+            - name: METRICS_DELAY
+              value: {{ .Values.metricsDelay | quote }}
+            - name: DCU_PER_REQUEST
+              value: "mainnet={{ .Values.perRequestDcus.mainnet }},preprod={{ .Values.perRequestDcus.default }},preview={{ .Values.perRequestDcus.default }},sanchonet={{ .Values.perRequestDcus.default }}"
+            - name: API_KEY_SALT
+              value: {{ .Values.apiKeySalt | quote }}
+            - name: DEFAULT_KUPO_VERSION
+              value: {{ .Values.defaultKupoVersion | quote }}
+            - name: EXTENSION_SUBDOMAIN
+              value: {{ .Values.extensionSubdomain | quote }}
+            - name: DNS_ZONE
+              value: {{ .Values.dnsZone | quote }}
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+          ports:
+            - name: metrics
+              containerPort: 9946
+              protocol: TCP
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
