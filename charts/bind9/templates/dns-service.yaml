@@ -1,0 +1,25 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "bind9.fullname" . }}
+  labels:
+    {{- include "bind9.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.tcp.port }}
+      targetPort: {{ .Values.bind9.internalPort }}
+      protocol: TCP
+      name: dns-tcp
+    - port: {{ .Values.service.udp.port }}
+      targetPort: {{ .Values.bind9.internalPort }}
+      protocol: UDP
+      name: dns-udp
+  selector:
+    {{- include "bind9.selectorLabels" . | nindent 4 }}
+
