@@ -1,0 +1,83 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kupoports.demeter.run
+spec:
+  group: demeter.run
+  scope: Namespaced
+  names:
+    kind: KupoPort
+    plural: kupoports
+    singular: kupoport
+    shortNames:
+      - kpts
+    categories:
+      - demeter-port
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Network
+          jsonPath: .spec.network
+          type: string
+        - name: Pruned
+          jsonPath: .spec.pruneUtxo
+          type: boolean
+        - name: Throughput Tier
+          jsonPath: .spec.throughputTier
+          type: string
+        - name: Endpoint URL
+          jsonPath: .status.endpointUrl
+          type: string
+        - name: Authenticated Endpoint URL
+          jsonPath: .status.authenticatedEndpointUrl
+          type: string
+        - name: Auth Token
+          jsonPath: .status.authToken
+          type: string
+      schema:
+        openAPIV3Schema:
+          title: KupoPort
+          description: Auto-generated derived type for KupoPortSpec via `CustomResource`
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - network
+                - pruneUtxo
+                - throughputTier
+              properties:
+                authToken:
+                  type: string
+                  nullable: true
+                kupoVersion:
+                  type: string
+                  nullable: true
+                network:
+                  type: string
+                operatorVersion:
+                  type: string
+                pruneUtxo:
+                  type: boolean
+                throughputTier:
+                  type: string
+            status:
+              type: object
+              nullable: true
+              required:
+                - authToken
+                - endpointUrl
+              properties:
+                authToken:
+                  type: string
+                authenticatedEndpointUrl:
+                  type: string
+                  nullable: true
+                endpointUrl:
+                  type: string
+      subresources:
+        status: {}
