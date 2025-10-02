@@ -1,0 +1,46 @@
+# Ogmios Operator values
+replicaCount: 1
+image:
+  repository: ghcr.io/demeter-run/ext-cardano-ogmios-operator
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Environment configuration
+prometheusUrl: "http://prometheus-operated.mynamspace.svc.cluster.local:9090/api/v1"
+metricsDelay: "60"
+
+# Changing the salt will trigger reconciliation for ogmios CRs
+apiKeySalt: "change-me"
+dnsZone: "example.com"
+extensionName: "ogmios"
+
+# DCU per frame configuration
+perFrameDcus:
+  mainnet: "10"
+  preprod: "5"
+  preview: "5"
+  sanchonet: "5"
+  default: "5"
+
+resources:
+  limits:
+    cpu: "100m"
+    memory: "128Mi"
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+tolerations: []
+# Example tolerations:
+# - key: "key"
+#   operator: "Equal"
+#   value: "value"
+#   effect: "NoSchedule"
+affinity: {}
+
+podMonitor:
+  enabled: false
+  labels: {}
+
+serviceAccount:
+  annotations: {}
+  name: "ogmios-operator"
