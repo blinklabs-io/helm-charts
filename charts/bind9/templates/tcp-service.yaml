@@ -11,6 +11,9 @@ metadata:
   {{- end }}
 spec:
   type: {{ .Values.service.tcp.type }}
+{{- if and (eq .Values.service.tcp.type "LoadBalancer") (hasKey .Values.service.tcp "loadBalancerIP") }}
+  loadBalancerIP: {{ .Values.service.tcp.loadBalancerIP }}
+{{- end }}
   ports:
     - port: {{ .Values.service.tcp.port }}
       targetPort: {{ .Values.bind9.internalPort }}

@@ -11,6 +11,9 @@ metadata:
   {{- end }}
 spec:
   type: {{ .Values.service.udp.type }}
+{{- if and (eq .Values.service.udp.type "LoadBalancer") (hasKey .Values.service.udp "loadBalancerIP") }}
+  loadBalancerIP: {{ .Values.service.udp.loadBalancerIP }}
+{{- end }}
   ports:
     - port: {{ .Values.service.udp.port }}
       targetPort: {{ .Values.bind9.internalPort }}
