@@ -1,7 +1,7 @@
 apiVersion: v2
 name: bind9
 description: "A Helm chart for deploying BIND9 DNS resolver"
-version: 0.0.3
+version: 0.0.4
 appVersion: "9.18"
 
 sources:
