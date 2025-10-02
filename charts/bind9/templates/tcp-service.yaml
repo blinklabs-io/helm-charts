@@ -5,12 +5,12 @@ metadata:
   name: {{ include "bind9.fullname" . }}-tcp
   labels:
     {{- include "bind9.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
+  {{- with .Values.service.tcp.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.service.tcp.type }}
   ports:
     - port: {{ .Values.service.tcp.port }}
       targetPort: {{ .Values.bind9.internalPort }}

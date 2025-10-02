@@ -5,12 +5,12 @@ metadata:
   name: {{ include "bind9.fullname" . }}-udp
   labels:
     {{- include "bind9.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
+  {{- with .Values.service.udp.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.service.udp.type }}
   ports:
     - port: {{ .Values.service.udp.port }}
       targetPort: {{ .Values.bind9.internalPort }}
