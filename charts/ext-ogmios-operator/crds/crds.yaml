@@ -1,0 +1,80 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: ogmiosports.demeter.run
+spec:
+  group: demeter.run
+  scope: Namespaced
+  names:
+    kind: OgmiosPort
+    plural: ogmiosports
+    singular: ogmiosport
+    shortNames:
+      - opt
+    categories:
+      - demeter-port
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Network
+          jsonPath: .spec.network
+          type: string
+        - name: Version
+          jsonPath: .spec.version
+          type: number
+        - name: Endpoint URL
+          jsonPath: .status.endpointUrl
+          type: string
+        - name: Authenticated Endpoint URL
+          jsonPath: .status.authenticatedEndpointUrl
+          type: string
+        - name: Auth Token
+          jsonPath: .status.authToken
+          type: string
+        - name: Throughput Tier
+          jsonPath: .spec.throughputTier
+          type: string
+      schema:
+        openAPIV3Schema:
+          title: OgmiosPort
+          description: Auto-generated derived type for OgmiosPortSpec via `CustomResource`
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - network
+                - throughputTier
+                - version
+              properties:
+                authToken:
+                  type: string
+                  nullable: true
+                network:
+                  type: string
+                throughputTier:
+                  type: string
+                version:
+                  type: integer
+                  format: uint8
+                  minimum: 0
+            status:
+              type: object
+              nullable: true
+              required:
+                - authToken
+                - authenticatedEndpointUrl
+                - endpointUrl
+              properties:
+                authToken:
+                  type: string
+                authenticatedEndpointUrl:
+                  type: string
+                endpointUrl:
+                  type: string
+      subresources:
+        status: {}
