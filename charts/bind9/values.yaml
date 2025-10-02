@@ -55,12 +55,16 @@ bind9:
 
 # Service configuration
 service:
+  annotations: {}
   type: ClusterIP
   tcp:
+    annotations: {}
     port: 53
+    type: ClusterIP
   udp:
+    annotations: {}
     port: 53
-  annotations: {}
+    type: ClusterIP
 
 # Service Account
 serviceAccount:
