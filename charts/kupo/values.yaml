@@ -96,11 +96,10 @@ resources: {}
 #    cpu: 500m
 #    memory: 1Gi
 
-labels:
-  cardano_network: ""
-podLabels: {}
+# Kupo statefulset pod settings
 annotations: {}
 podAnnotations: {}
+podLabels: {}
 
 persistence:
   enabled: true

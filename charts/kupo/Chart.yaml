@@ -1,7 +1,7 @@
 apiVersion: v2
 name: kupo
 description: "A Helm chart for deploying Kupo - fast, lightweight & configurable chain-index for Cardano"
-version: 0.0.2
+version: 0.0.3
 appVersion: "2.11.0"
 
 sources:
