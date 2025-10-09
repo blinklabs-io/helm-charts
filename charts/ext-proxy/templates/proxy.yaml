@@ -19,7 +19,8 @@ spec:
       serviceAccountName: {{ .Values.proxy.serviceAccountName }}
       initContainers:
         - name: wait-for-secret
-          image: bitnami/kubectl:1.29
+          image: {{ .Values.init.image.repository }}:{{ .Values.init.image.tag }}
+          imagePullPolicy: {{ .Values.init.image.pullPolicy }}
           command:
             - /bin/sh
             - -c
