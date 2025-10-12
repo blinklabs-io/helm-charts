@@ -1,7 +1,7 @@
 apiVersion: v2
 name: cardano-node
 description: Creates a Cardano node deployment with SOCAT sidecar
-version: 0.4.1
+version: 0.5.0
 appVersion: 10.5.1
 maintainers:
   - name: aurora
