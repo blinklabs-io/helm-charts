@@ -57,7 +57,9 @@ spec:
             - name: config-{{ $idx }}
               mountPath: /etc/openvpn/{{ $config.name }}
               {{- if $config.configMapName }}
+              {{-   if $config.configMapKey }}
               subPath: {{ $config.configMapKey }}
+              {{-   end }}
               {{- else }}
               subPath: {{ $config.name }}
               {{- end }}
