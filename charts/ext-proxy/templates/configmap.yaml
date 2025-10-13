@@ -8,9 +8,14 @@ data:
     {{- range $tier := .Values.proxyConfig.tiers }}
     [[tiers]]
     name = "{{ $tier.name }}"
-      {{- range $rate := $tier.rates }}
+    {{- if $tier.maxConnections }}
+    max_connections = {{ $tier.maxConnections }}
+    {{- end }}
+    {{- if $tier.rates }}
+    {{- range $rate := $tier.rates }}
     [[tiers.rates]]
     interval = "{{ $rate.interval }}"
     limit = {{ div $rate.limitPerReplica $.Values.proxy.replicas }}
-      {{- end }}
+    {{- end }}
+    {{- end }}
     {{- end }}
