@@ -1,7 +1,7 @@
 apiVersion: v2
 name: ext-proxy
 description: A Helm chart for managing different proxy configurations for https://github.com/demeter-run
-version: 0.0.3
+version: 0.0.4
 appVersion: "0.0.1"
 
 maintainers:

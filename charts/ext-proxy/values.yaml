@@ -55,6 +55,8 @@ podMonitor:
 proxyConfig:
   tiers:
   - name: "0"
+    # Optional depends on ext-proxy version
+    maxConnections: 100
     rates:
       - interval: "1m"
         limitPerReplica: 1
