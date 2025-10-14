@@ -1,8 +1,8 @@
 apiVersion: v2
 name: adder
 description: "A Helm chart for deploying Adder"
-version: 0.0.8
-appVersion: 0.32.1
+version: 0.0.9
+appVersion: 0.32.6
 
 sources:
   - https://github.com/blinklabs-io/adder
