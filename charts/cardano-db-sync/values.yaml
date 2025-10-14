@@ -9,7 +9,7 @@ cardano_node:
 
 image:
   repository: ghcr.io/blinklabs-io/cardano-db-sync
-  tag: 13.6.0.4
+  tag: 13.6.0.5
 
 environment: {}
   # Additional environments can be set here
