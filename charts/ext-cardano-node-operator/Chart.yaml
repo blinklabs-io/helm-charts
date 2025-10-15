@@ -1,0 +1,18 @@
+apiVersion: v2
+name: ext-cardano-node-operator
+description: Extention Cardano Node operator
+version: 0.0.1
+appVersion: "0.0.1"
+
+sources:
+  - https://github.com/demeter-run/ext-cardano-node
+
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io

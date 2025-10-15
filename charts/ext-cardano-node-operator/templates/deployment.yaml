@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "extCardanoNodeOperator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{ include "extCardanoNodeOperator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{ include "extCardanoNodeOperator.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name | default .Release.Name }}
+      containers:
+        - name: main
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ADDR
+              value: "{{ .Values.addr }}:{{ .Values.addrPort }}"
+            - name: PROMETHEUS_URL
+              value: {{ .Values.prometheusUrl | quote }}
+            - name: API_KEY_SALT
+              value: {{ .Values.apiKeySalt | quote }}
+            - name: EXTENSION_NAME
+              value: {{ .Values.extensionName | quote }}
+            - name: DNS_ZONE
+              value: {{ .Values.dnsZone | quote }}
+            - name: METRICS_DELAY
+              value: {{ .Values.metricsDelay | quote }}
+            - name: DCU_PER_SECOND
+              value: "mainnet={{ .Values.perSecondDcus.mainnet }},preprod={{ .Values.perSecondDcus.preprod }},preview={{ .Values.perSecondDcus.preview }},sanchonet={{ .Values.perSecondDcus.sanchonet }},vector-testnet={{ .Values.perSecondDcus.vectorTestnet }}"
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.addrPort }}
+              protocol: TCP
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
