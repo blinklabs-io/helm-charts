@@ -1,0 +1,49 @@
+# cardano-node Operator values
+replicaCount: 1
+image:
+  repository: ghcr.io/demeter-run/ext-cardano-node-operator
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Environment configuration
+# Metrics address and port
+addr: "0.0.0.0"
+addrPort: 8080
+prometheusUrl: "http://prometheus-operated.mynamspace.svc.cluster.local:9090/api/v1"
+metricsDelay: "60"
+extensionName: "cnode-m1"
+
+apiKeySalt: "change-me"
+dnsZone: "example.com"
+extensionSubdomain: "cardano-node.example.com"
+
+# DCU per request configuration
+perSecondDcus:
+  mainnet: "1"
+  preprod: "1"
+  preview: "1"
+  sanchonet: "1"
+  vectorTestnet: "1"
+
+resources:
+  limits:
+    cpu: "100m"
+    memory: "128Mi"
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+tolerations: []
+# Example tolerations:
+# - key: "key"
+#   operator: "Equal"
+#   value: "value"
+#   effect: "NoSchedule"
+affinity: {}
+
+podMonitor:
+  enabled: false
+  labels: {}
+
+serviceAccount:
+  annotations: {}
+  name: "cardano-node-operator"
