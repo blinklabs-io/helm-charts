@@ -1,8 +1,8 @@
 apiVersion: v1
 name: ogmios
 description: Creates an Ogmios API service with SOCAT sidecar
-version: 0.0.4
-appVersion: v6.13.0
+version: 0.0.5
+appVersion: v6.14.0
 maintainers:
   - name: aurora
     email: aurora@blinklabs.io
