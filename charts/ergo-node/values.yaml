@@ -7,8 +7,10 @@ replicaCount: 1
 
 ergo_network: "mainnet"
 ergo:
-  heapInitial: "8G"   #JVM starting heap
-  heap: "12G"         #JVM max heap
+  heapInitial: "8G"
+  # JVM starting heap
+  heap: "12G"
+  # JVM max heap
   node:
     mining: false
     extraIndex: true
@@ -26,9 +28,11 @@ ergo:
 scorex:
   restApi:
     publicUrl: ""
-    apiKeyHash: "324dcf027dd4a30a932c441f365a25e86b173defa4b8e58948253471b81b72cf" # Ergo default 'hello'
+    # Ergo default 'hello'
+    apiKeyHash: "324dcf027dd4a30a932c441f365a25e86b173defa4b8e58948253471b81b72cf"
     cors:
-      - "*" # for local/dev add hostnames for production
+    # for local/dev add hostnames for production
+      - "*"
   network:
     declaredAddress: ""
     nodeName: "k8s-ergo-node"
@@ -39,7 +43,7 @@ scorex:
 #      - "54.38.153.112:29031"
 
 service:
-  type: NodePort
+  type: ClusterIP
   apiPort: 9053
   p2pPort: 9030
 
