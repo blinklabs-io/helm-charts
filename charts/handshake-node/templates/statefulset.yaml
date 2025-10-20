@@ -64,6 +64,9 @@ spec:
         - --ssl-cert={{ .Values.nodeConfig.sslCert }}
         - --ssl-key={{ .Values.nodeConfig.sslKey }}
         {{- end }}
+        {{- if not .Values.nodeConfig.walletEnabled }}
+        - --no-wallet
+        {{- end }}
         - --ns-host={{ .Values.nodeConfig.nsHost }}
         - --ns-port={{ include "handshake-node.ns-port" . }}
         - --rs-host={{ .Values.nodeConfig.rsHost }}
@@ -76,7 +79,7 @@ spec:
             secretKeyRef:
               name: {{ .Values.nodeConfig.api.secretName }}
               key: {{ .Values.nodeConfig.api.secretKey }}
-        {{ end }}
+        {{- end }}
         - name: HSD_NETWORK
           value: "{{ include "handshake-node.network" . }}"
         - name: HSD_PREFIX
