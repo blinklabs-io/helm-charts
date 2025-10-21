@@ -132,7 +132,7 @@ spec:
             {{- end }}
             {{- range $k, $v := .Values.extraEnv }}
             - name: {{ $k }}
-              value: {{ $v }}
+              value: {{ toYaml $v }}
             {{- end }}
           ports:
             - name: http
