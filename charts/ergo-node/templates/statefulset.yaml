@@ -55,9 +55,9 @@ spec:
             value: ""
         ports:
           - name: p2p
-            containerPort: {{ .Values.service.p2pPort | default 9030 }}
+            containerPort: {{ .Values.service.p2pPort }}
           - name: api
-            containerPort: {{ .Values.service.apiPort | default 9053 }}
+            containerPort: {{ .Values.service.apiPort }}
         {{- if .Values.resources }}
         resources: {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}

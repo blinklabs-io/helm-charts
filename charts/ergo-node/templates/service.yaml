@@ -5,6 +5,10 @@ metadata:
   labels:
 {{- include "ergo-node.labels" . | nindent 4 }}
   name: {{ include "ergo-node.fullname" . }}
+  {{- with .Values.service.annotation }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -16,6 +20,5 @@ spec:
       port: {{ .Values.service.p2pPort }}
       targetPort: p2p
       protocol: TCP
-  selector:
   selector:
     {{- include "ergo-node.matchLabels" . | nindent 4 }}
