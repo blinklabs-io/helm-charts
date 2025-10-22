@@ -38,32 +38,35 @@ spec:
           configMap:
             name: {{ include "ergo-node.fullname" . }}-config
       containers:
-        - name: ergo-node
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
-          command: ["java"]
-          args:
-            - "-jar"
-            - "/home/ergo/ergo.jar"
-            - "--{{ include "ergo-node.network" . }}"
-            - "-c"
-            - "/ergo/ergo.conf"
-          env:
-            - name: JAVA_TOOL_OPTIONS
-              value: "-Xms{{ .Values.ergo.heapInitial }} -Xmx{{ .Values.ergo.heap }}"
-            - name: _JAVA_OPTIONS
-              value: ""
-          ports:
-            - name: p2p
-              containerPort: {{ .Values.service.p2pPort | default 9030 }}
-            - name: api
-              containerPort: {{ .Values.service.apiPort | default 9053 }}
-          volumeMounts:
-            - name: config
-              mountPath: /ergo/ergo.conf
-              subPath: ergo.conf
-            - name: ergo-data-{{ include "ergo-node.network" . }}
-              mountPath: /home/ergo/.ergo
+      - name: ergo-node
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+        command: ["java"]
+        args:
+          - "-jar"
+          - "/home/ergo/ergo.jar"
+          - "--{{ include "ergo-node.network" . }}"
+          - "-c"
+          - "/ergo/ergo.conf"
+        env:
+          - name: JAVA_TOOL_OPTIONS
+            value: "-Xms{{ .Values.ergo.heapInitial }} -Xmx{{ .Values.ergo.heap }}"
+          - name: _JAVA_OPTIONS
+            value: ""
+        ports:
+          - name: p2p
+            containerPort: {{ .Values.service.p2pPort | default 9030 }}
+          - name: api
+            containerPort: {{ .Values.service.apiPort | default 9053 }}
+        {{- if .Values.resources }}
+        resources: {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+        volumeMounts:
+          - name: config
+            mountPath: /ergo/ergo.conf
+            subPath: ergo.conf
+          - name: ergo-data-{{ include "ergo-node.network" . }}
+            mountPath: /home/ergo/.ergo
   updateStrategy:
     type: OnDelete
   volumeClaimTemplates:

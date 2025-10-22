@@ -31,7 +31,7 @@ Network-aware fullname
 {{- define "ergo-node.network-fullname" -}}
 {{- $name := include "ergo-node.fullname" . -}}
 {{- $network := include "ergo-node.network" . -}}
-{{- printf "%s-%s" $name $network -}}
+{{- printf "%s-%s" $name $network | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 
@@ -58,7 +58,7 @@ mainnet
 Common labels
 */}}
 {{- define "ergo-node.labels" -}}
-app.kubernetes.io/name: {{ include "ergo-node.fullname" . }}
+app.kubernetes.io/name: {{ include "ergo-node.name" . }}
 helm.sh/chart: {{ include "ergo-node.chart" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Chart.AppVersion }}
@@ -73,7 +73,7 @@ ergo_service: ergo-node
 ergo node selector labels
 */}}
 {{- define "ergo-node.matchLabels" -}}
-app.kubernetes.io/name: {{ include "ergo-node.fullname" . }}
+app.kubernetes.io/name: {{ include "ergo-node.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 ergo_network: {{ include "ergo-node.network" . }}
 ergo_service: ergo-node
