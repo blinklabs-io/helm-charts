@@ -17,6 +17,5 @@ spec:
       targetPort: p2p
       protocol: TCP
   selector:
-    app.kubernetes.io/name: {{ include "ergo-node.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    ergo_network: {{ include "ergo-node.network" . }}
+  selector:
+    {{- include "ergo-node.matchLabels" . | nindent 4 }}
