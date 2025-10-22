@@ -50,7 +50,7 @@ Define ergo network.
 {{- if .Values.ergo_network -}}
 {{ .Values.ergo_network }}
 {{- else -}}
-"mainnet"
+mainnet
 {{- end -}}
 {{- end -}}
 
