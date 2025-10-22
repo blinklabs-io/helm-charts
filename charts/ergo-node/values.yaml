@@ -43,12 +43,16 @@ scorex:
 #      - "54.38.153.112:29031"
 
 service:
+  annotations: {}
   type: ClusterIP
   apiPort: 9053
   p2pPort: 9030
 
 persistence:
-  enabled: true
   size: 200Gi
-  accessModes:
-    - ReadWriteOnce
+  storageClassName: ""
+
+# Pod scheduling configuration
+affinity: {}
+nodeSelector: {}
+tolerations: []

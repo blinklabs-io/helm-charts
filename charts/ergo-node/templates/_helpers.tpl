@@ -26,6 +26,16 @@ If release name contains chart name it will be used as a full name.
 
 
 {{/*
+Network-aware fullname
+*/}}
+{{- define "ergo-node.network-fullname" -}}
+{{- $name := include "ergo-node.fullname" . -}}
+{{- $network := include "ergo-node.network" . -}}
+{{- printf "%s-%s" $name $network -}}
+{{- end -}}
+
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "ergo-node.chart" -}}

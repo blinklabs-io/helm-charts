@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    {{- include "ergo-node.labels" . | nindent 4 }}
+  name: {{ include "ergo-node.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      ergo_network: {{ include "ergo-node.network" . }}
+      app.kubernetes.io/name: {{ include "ergo-node.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  serviceName: {{ include "ergo-node.network-fullname" . }}
+  template:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        kubectl.kubernetes.io/default-container: ergo-node
+    metadata:
+      labels:
+        ergo_network: {{ include "ergo-node.network" . }}
+        app.kubernetes.io/name: {{ include "ergo-node.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "ergo-node.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.affinity }}
+      affinity: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ergo-node.fullname" . }}-config
+      containers:
+        - name: ergo-node
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          command: ["java"]
+          args:
+            - "-jar"
+            - "/home/ergo/ergo.jar"
+            - "--{{ include "ergo-node.network" . }}"
+            - "-c"
+            - "/ergo/ergo.conf"
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms{{ .Values.ergo.heapInitial }} -Xmx{{ .Values.ergo.heap }}"
+            - name: _JAVA_OPTIONS
+              value: ""
+          ports:
+            - name: p2p
+              containerPort: {{ .Values.service.p2pPort | default 9030 }}
+            - name: api
+              containerPort: {{ .Values.service.apiPort | default 9053 }}
+          volumeMounts:
+            - name: config
+              mountPath: /ergo/ergo.conf
+              subPath: ergo.conf
+            - name: ergo-data-{{ include "ergo-node.network" . }}
+              mountPath: /home/ergo/.ergo
+  updateStrategy:
+    type: OnDelete
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        ergo_network: {{ include "ergo-node.network" . }}
+      name: ergo-data-{{ include "ergo-node.network" . }}
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      {{- if .Values.persistence.storageClassName }}
+      storageClassName: {{ .Values.persistence.storageClassName }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.size }}
