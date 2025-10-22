@@ -8,9 +8,7 @@ spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      ergo_network: {{ include "ergo-node.network" . }}
-      app.kubernetes.io/name: {{ include "ergo-node.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- include "ergo-node.matchLabels" . | nindent 6 }}
   serviceName: {{ include "ergo-node.fullname" . }}
   template:
     metadata:
@@ -19,9 +17,6 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: ergo-node
       labels:
-        ergo_network: {{ include "ergo-node.network" . }}
-        app.kubernetes.io/name: {{ include "ergo-node.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
         {{- include "ergo-node.labels" . | nindent 8 }}
     spec:
       {{- with .Values.affinity }}
@@ -82,4 +77,4 @@ spec:
       {{- end }}
       resources:
         requests:
-          storage: {{ .Values.persistence.size }}
+          storage: {{ .Values.persistence.size | default "20Gi" }}
