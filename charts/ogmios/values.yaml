@@ -12,6 +12,21 @@ image:
   pullPolicy: IfNotPresent
 replicaCount: 1
 resources: {}
+
+# Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 1337
+    scheme: HTTP
+
+# Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 1337
+    scheme: HTTP
+
 tolerations:
 - key: kubernetes.io/arch
   operator: Equal

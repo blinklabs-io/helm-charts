@@ -47,11 +47,14 @@ spec:
         name: ogmios
         ports:
         - containerPort: 1337
+        {{- with .Values.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.readinessProbe }}
         readinessProbe:
-          httpGet:
-            scheme: HTTP
-            path: /health
-            port: 1337
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         resources: {{ .Values.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /node-ipc
