@@ -11,7 +11,7 @@ spec:
       ergo_network: {{ include "ergo-node.network" . }}
       app.kubernetes.io/name: {{ include "ergo-node.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
-  serviceName: {{ include "ergo-node.network-fullname" . }}
+  serviceName: {{ include "ergo-node.fullname" . }}
   template:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
