@@ -5,17 +5,20 @@ metadata:
   labels:
 {{- include "ergo-node.labels" . | nindent 4 }}
   name: {{ include "ergo-node.fullname" . }}
+  {{- with .Values.service.annotation }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  type: {{ .Values.service.type | default "NodePort" }}
+  type: {{ .Values.service.type }}
   ports:
     - name: api
-      port: {{ .Values.service.apiPort | default 9053 }}
+      port: {{ .Values.service.apiPort }}
       targetPort: api
       protocol: TCP
     - name: p2p
-      port: {{ .Values.service.p2pPort | default 9030 }}
+      port: {{ .Values.service.p2pPort }}
       targetPort: p2p
       protocol: TCP
   selector:
-    app.kubernetes.io/name: {{ .Chart.Name }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "ergo-node.matchLabels" . | nindent 4 }}

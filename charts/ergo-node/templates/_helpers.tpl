@@ -26,6 +26,16 @@ If release name contains chart name it will be used as a full name.
 
 
 {{/*
+Network-aware fullname
+*/}}
+{{- define "ergo-node.network-fullname" -}}
+{{- $name := include "ergo-node.fullname" . -}}
+{{- $network := include "ergo-node.network" . -}}
+{{- printf "%s-%s" $name $network | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "ergo-node.chart" -}}
@@ -40,7 +50,7 @@ Define ergo network.
 {{- if .Values.ergo_network -}}
 {{ .Values.ergo_network }}
 {{- else -}}
-"mainnet"
+mainnet
 {{- end -}}
 {{- end -}}
 
@@ -48,7 +58,7 @@ Define ergo network.
 Common labels
 */}}
 {{- define "ergo-node.labels" -}}
-app.kubernetes.io/name: {{ include "ergo-node.fullname" . }}
+app.kubernetes.io/name: {{ include "ergo-node.name" . }}
 helm.sh/chart: {{ include "ergo-node.chart" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Chart.AppVersion }}
@@ -63,7 +73,7 @@ ergo_service: ergo-node
 ergo node selector labels
 */}}
 {{- define "ergo-node.matchLabels" -}}
-app.kubernetes.io/name: {{ include "ergo-node.fullname" . }}
+app.kubernetes.io/name: {{ include "ergo-node.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 ergo_network: {{ include "ergo-node.network" . }}
 ergo_service: ergo-node

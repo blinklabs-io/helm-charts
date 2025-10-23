@@ -1,7 +1,7 @@
 ---
 image:
   repository: ergoplatform/ergo
-  tag: latest
+  tag: v6.1.0
   pullPolicy: IfNotPresent
 replicaCount: 1
 
@@ -9,7 +9,7 @@ ergo_network: "mainnet"
 ergo:
   heapInitial: "8G"
   # JVM starting heap
-  heap: "12G"
+  heap: "8G"
   # JVM max heap
   node:
     mining: false
@@ -24,6 +24,8 @@ ergo:
     nipopow:
       nipopowBootstrap: false
       p2pNipopows: 2
+
+resources: {}
 
 scorex:
   restApi:
@@ -43,12 +45,16 @@ scorex:
 #      - "54.38.153.112:29031"
 
 service:
+  annotations: {}
   type: ClusterIP
   apiPort: 9053
   p2pPort: 9030
 
 persistence:
-  enabled: true
   size: 200Gi
-  accessModes:
-    - ReadWriteOnce
+  storageClassName: ""
+
+# Pod scheduling configuration
+affinity: {}
+nodeSelector: {}
+tolerations: []
