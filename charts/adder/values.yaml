@@ -3,7 +3,7 @@ replicaCount: 1
 
 image:
   repository: "ghcr.io/blinklabs-io/adder"
-  tag: "0.32.6"
+  tag: "0.33.0"
   pullPolicy: IfNotPresent
 
 annotations: {}
