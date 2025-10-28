@@ -26,7 +26,7 @@ service:
   api: 8080
 
 serviceAccount:
-  name: adder-sa
+  # name: adder-sa
   annotations: {}
 
 config: |
