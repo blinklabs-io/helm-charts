@@ -24,7 +24,7 @@ spec:
         {{- toYaml .Values.podAnnotations | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ .Values.serviceAccount.name }}
+      serviceAccountName: {{ include "adder.serviceAccountName" . }}
       containers:
         - name: adder
           command: ["adder", "-config", "/adder/config.yaml"]
