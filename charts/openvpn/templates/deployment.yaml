@@ -97,7 +97,7 @@ spec:
         {{- if .Values.bind.enabled }}
         - name: bind
           image: "{{ .Values.bind.image.repository }}:{{ .Values.bind.image.tag }}"
-          imagePullPolicy: {{ .Values.bind.image.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.bind.image.pullPolicy }}
           env:
             - name: POD_IP
               valueFrom:
