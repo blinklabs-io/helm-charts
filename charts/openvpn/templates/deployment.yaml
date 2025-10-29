@@ -94,6 +94,34 @@ spec:
             - name: status-file-dir
               mountPath: {{ dir .Values.metrics.statusFile }}
         {{- end }}
+        {{- if .Values.bind.enabled }}
+        - name: bind
+          image: "{{ .Values.bind.image.repository }}:{{ .Values.bind.image.tag }}"
+          imagePullPolicy: {{ .Values.bind.image.imagePullPolicy }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: ALLOW_QUERY
+              value: $(POD_IP)/32,127.0.0.1,10.8.0.0/24
+            - name: ALLOW_RECURSION
+              value: $(POD_IP)/32,127.0.0.1,10.8.0.0/24
+            {{- if .Values.bind.env.dns_forwarder }}
+            - name: DNS_FORWARDER
+              value: {{ .Values.bind.env.dns_forwarder }}
+            {{- end }}
+            {{- if .Values.bind.env.extra_hosts }}
+            - name: DNS_A
+              value: {{ .Values.bind.env.extra_hosts }}
+            {{- end }}
+          ports:
+            - containerPort: 53
+              protocol: TCP
+            - containerPort: 53
+              protocol: UDP
+          resources: {{- toYaml .Values.bind.resources | nindent 12 }}
+      {{- end }}
       {{- if (or .Values.configFiles .Values.startupScript .Values.metrics.enabled) }}
       volumes:
         {{- range $idx, $config := .Values.configFiles }}
