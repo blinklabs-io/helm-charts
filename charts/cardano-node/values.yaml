@@ -19,6 +19,8 @@ service:
     metrics:
       port: 12798
       targetPort: 12798
+# Mithril
+restoreSnapshot: true
 blockProducer:
   enabled: false
 # These are placeholder keys used as an example. You will need to generate your own.

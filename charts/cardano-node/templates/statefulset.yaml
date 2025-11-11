@@ -40,6 +40,8 @@ spec:
           value: /ipc/node.socket
         - name: CARDANO_TOPOLOGY
           value: "/opt/cardano/config/{{ .Values.cardano_network }}/topology.json"
+        - name: RESTORE_SNAPSHOT
+          value: "{{ .Values.restoreSnapshot }}"   
 {{- if .Values.blockProducer.enabled }}
         - name: CARDANO_BLOCK_PRODUCER
           value: "true"
