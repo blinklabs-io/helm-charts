@@ -39,8 +39,7 @@ spec:
         - name: CARDANO_SOCKET_PATH
           value: /ipc/node.socket
         - name: CARDANO_TOPOLOGY
-          value: {{ .Values.cardano_topology | default "/opt/cardano/config/{{ .Values.cardano_network }}/topology.json" }}
- {{- if .Values.restoreSnapshot }}
+          value: "/opt/cardano/config/{{ .Values.cardano_network }}/topology.json"
         - name: RESTORE_SNAPSHOT
           value: "true"
 {{- else }}
