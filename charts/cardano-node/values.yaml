@@ -19,7 +19,7 @@ service:
     metrics:
       port: 12798
       targetPort: 12798
-# Mithril      
+# Mithril
 restoreSnapshot: true
 blockProducer:
   enabled: false
