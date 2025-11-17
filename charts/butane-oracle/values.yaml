@@ -1,0 +1,117 @@
+---
+# Override the name of the chart
+nameOverride: ""
+
+# Override the full name of the app
+fullnameOverride: ""
+
+image:
+  repository: "sundae/oracle"
+  tag: "v0.25.1"
+  pullPolicy: IfNotPresent
+
+command: ["./oracles", "-c", "/data/config.yaml"]
+
+# Ports
+ports:
+  http: 8080
+  p2p: 31415
+  health: 18000
+
+# Service
+service:
+  enabled: true
+  annotations: {}
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: p2p
+    port: 31415
+    targetPort: p2p
+    protocol: TCP
+  - name: health
+    port: 18000
+    targetPort: health
+    protocol: TCP
+
+# PodMonitor for Prometheus
+podMonitor:
+  enabled: false
+  extraLabels: {}
+  podMetricsEndpoints:
+  - port: health
+    path: /metrics
+    interval: 30s
+
+# ConfigMap content for config.yaml
+config:
+  enabled: true
+  configYaml: |
+    logs:
+      json: false
+      level: info
+
+secrets:
+  fxrates:
+    # If enabled it creates a secret for fxrates api key
+    enabled: true
+    name: fxrates-api
+    # Data for the secret
+    data:
+    - key: "fxrates-api.txt"
+      value: "FXRATESAPI_API_KEY=123123123"
+    mountPath: /data/butane
+  keys:
+    # If enabled it creates a secret for butane keys
+    enabled: true
+    name: butane-keys
+    mountPathApp: /app/keys
+    defaultMode: 0755
+    # Data for the secret
+    data:
+    - key: "public.pem"
+      value: "value"
+    - key: "private.pem"
+      value: "value"
+    - key: "another.vkey"
+      path: "another/another.vkey"
+      value: "value"
+
+# Environment
+env: {}
+  # TEST_ENV_VAR: "value"
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 25m
+    memory: 32Mi
+
+# Pod security context
+securityContext: {}
+  # fsGroup: 0
+  # runAsUser: 0
+  # runAsNonRoot: false
+
+affinity: {}
+nodeSelector: {}
+tolerations: []
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3

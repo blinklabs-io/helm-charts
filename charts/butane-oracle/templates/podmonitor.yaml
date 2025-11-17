@@ -1,0 +1,20 @@
+---
+{{- if .Values.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "butane-oracle.fullname" . }}
+  labels:
+    {{- include "butane-oracle.labels" . | nindent 4 }}
+{{- with .Values.podMonitor.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+spec:
+  selector:
+    matchLabels: {{- include "butane-oracle.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+    {{- toYaml .Values.podMonitor.podMetricsEndpoints | nindent 4 }}
+{{- end }}
