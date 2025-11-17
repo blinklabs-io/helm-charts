@@ -1,0 +1,13 @@
+---
+{{- if .Values.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels: {{- include "butane-oracle.labels" . | nindent 4 }}
+  name: {{ include "butane-oracle.fullname" . }}-config
+  annotations:
+    checksum/config: {{ .Values.config.configYaml | sha256sum }}
+data:
+  config.yaml: |
+{{ .Values.config.configYaml | indent 4 }}
+{{- end }}

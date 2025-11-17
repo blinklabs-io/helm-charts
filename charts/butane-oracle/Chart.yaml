@@ -1,0 +1,15 @@
+apiVersion: v2
+name: butane-oracle
+description: Helm chart for SundaeSwap butane-oracle
+version: 0.1.0
+appVersion: "v0.25.1"
+type: application
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: overcookedpanda
+    email: overcookedpanda@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io

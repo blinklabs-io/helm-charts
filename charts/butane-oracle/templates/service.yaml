@@ -1,0 +1,15 @@
+{{ if .Values.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  {{- if .Values.service.annotations }}
+  annotations: {{ toYaml .Values.service.annotations | nindent 4 }}
+  {{- end }}
+  labels: {{- include "butane-oracle.labels" . | nindent 4 }}
+  name: {{ include "butane-oracle.fullname" . }}
+spec:
+  ports: {{ toYaml .Values.service.ports | nindent 2 }}
+  selector: {{ include "butane-oracle.selectorLabels" . | nindent 4 }}
+  type: {{ .Values.service.type }}
+{{- end }}

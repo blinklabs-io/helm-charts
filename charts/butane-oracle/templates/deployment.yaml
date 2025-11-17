@@ -1,0 +1,111 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "butane-oracle.fullname" . }}
+  labels:
+    {{- include "butane-oracle.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "butane-oracle.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "butane-oracle.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.securityContext }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: butane-oracle
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        workingDir: /app
+        command: {{ toJson .Values.command }}
+        env:
+        {{- range $k, $v := .Values.env }}
+        - name: {{ $k }}
+          value: "{{ $v }}"
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.ports.http }}
+        - name: p2p
+          containerPort: {{ .Values.ports.p2p }}
+        - name: health
+          containerPort: {{ .Values.ports.health }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.probes.readiness.path }}
+            port: health
+          initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.probes.liveness.path }}
+            port: health
+          initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+        volumeMounts:
+        {{- if .Values.config.enabled }}
+        - name: config
+          mountPath: /data/config.yaml
+          readOnly: true
+        {{- end }}
+        {{- if and .Values.secrets.fxrates.enabled .Values.secrets.fxrates.name }}
+        - name: fxrates
+          mountPath: {{ .Values.secrets.fxrates.mountPath }}
+          readOnly: true
+        {{- end }}
+        {{- if and .Values.secrets.keys.enabled .Values.secrets.keys.name }}
+        - name: keys-app
+          mountPath: {{ .Values.secrets.keys.mountPathApp }}
+          readOnly: true
+        {{- end }}
+        resources: {{ toYaml .Values.resources | nindent 10 }}
+      volumes:
+      {{- if .Values.config.enabled }}
+      - name: config
+        configMap:
+          name: {{ include "butane-oracle.fullname" . }}-config
+      {{- end }}
+      {{- if and .Values.secrets.fxrates.enabled .Values.secrets.fxrates.name }}
+      - name: fxrates
+        secret:
+          secretName: {{ .Values.secrets.fxrates.name }}
+          items:
+          {{- range .Values.secrets.fxrates.data }}
+          - key: {{ .key }}
+            path: {{ .path | default .key }}
+          {{- end }}
+      {{- end }}
+      {{- if and .Values.secrets.keys.enabled .Values.secrets.keys.name }}
+      - name: keys-app
+        secret:
+          secretName: {{ .Values.secrets.keys.name }}
+          defaultMode: {{ .Values.secrets.keys.defaultMode }}
+          items:
+          {{- range .Values.secrets.keys.data }}
+          - key: {{ .key }}
+            path: {{ .path | default .key }}
+          {{- end }}
+      {{- end }}
