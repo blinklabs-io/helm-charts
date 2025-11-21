@@ -29,7 +29,11 @@ spec:
         - run
         env:
         - name: CARDANO_CONFIG
-          value: {{ .Values.cardano_config | default "/opt/cardano/config/{{ .Values.cardano_network }}/config.json" }}
+{{- if .Values.cardano_config }}
+          value: {{ .Values.cardano_config }}
+{{- else }}
+          value: "/opt/cardano/config/{{ .Values.cardano_network }}/config.json"
+{{- end }}
         - name: CARDANO_DATABASE_PATH
           value: /data/db
         - name: CARDANO_NETWORK
