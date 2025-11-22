@@ -38,6 +38,8 @@ spec:
           value: /data/db
         - name: CARDANO_NETWORK
           value: "{{ .Values.cardano_network }}"
+        - name: CARDANO_NODE_SOCKET_PATH
+          value: /ipc/node.socket
         - name: CARDANO_PORT
           value: "{{ .Values.service.ports.ntn.targetPort }}"
         - name: CARDANO_SOCKET_PATH
