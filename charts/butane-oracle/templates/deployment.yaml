@@ -68,7 +68,7 @@ spec:
         volumeMounts:
         {{- if .Values.config.enabled }}
         - name: config
-          mountPath: /data/config.yaml
+          mountPath: /data
           readOnly: true
         {{- end }}
         {{- if and .Values.secrets.fxrates.enabled .Values.secrets.fxrates.name }}

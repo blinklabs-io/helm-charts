@@ -6,7 +6,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  repository: "sundae/oracle"
+  repository: "sundaeswap/butane-oracle"
   tag: "v0.25.1"
   pullPolicy: IfNotPresent
 
