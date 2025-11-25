@@ -46,9 +46,11 @@ spec:
           livenessProbe:
             exec:
               command:
-              - /usr/bin/pgrep
-              - -x
-              - openvpn
+              - /bin/sh
+              - -c
+              - grep -q openvpn /proc/1/cmdline
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if (or .Values.configFiles .Values.startupScript .Values.metrics.enabled) }}
