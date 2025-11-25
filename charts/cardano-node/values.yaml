@@ -8,6 +8,9 @@ image:
 replicaCount: 1
 resources: {}
 service:
+# Optional annotations for the Service
+# annotations:
+#   external-dns.alpha.kubernetes.io/hostname: "my-service.example.com"
   type: ClusterIP
   ports:
     ntn:
