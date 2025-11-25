@@ -5,6 +5,10 @@ metadata:
   labels:
 {{ include "cardano-node.labels" . | indent 4 }}
   name: {{ include "cardano-node.fullname" . }}
+  {{- with .Values.service.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+  {{- end }}
 spec:
   ports:
   - name: ntn
