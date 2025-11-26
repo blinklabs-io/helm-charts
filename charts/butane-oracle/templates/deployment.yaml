@@ -66,29 +66,20 @@ spec:
           timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
           failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
         volumeMounts:
-        {{- if .Values.config.enabled }}
         - name: config
           mountPath: /data
           readOnly: true
-        {{- end }}
-        {{- if and .Values.secrets.fxrates.enabled .Values.secrets.fxrates.name }}
         - name: fxrates
           mountPath: {{ .Values.secrets.fxrates.mountPath }}
           readOnly: true
-        {{- end }}
-        {{- if and .Values.secrets.keys.enabled .Values.secrets.keys.name }}
         - name: keys-app
           mountPath: {{ .Values.secrets.keys.mountPathApp }}
           readOnly: true
-        {{- end }}
         resources: {{ toYaml .Values.resources | nindent 10 }}
       volumes:
-      {{- if .Values.config.enabled }}
       - name: config
         configMap:
           name: {{ include "butane-oracle.fullname" . }}-config
-      {{- end }}
-      {{- if and .Values.secrets.fxrates.enabled .Values.secrets.fxrates.name }}
       - name: fxrates
         secret:
           secretName: {{ .Release.Name }}-fxrates
@@ -97,8 +88,6 @@ spec:
           - key: {{ .key }}
             path: {{ .path | default .key }}
           {{- end }}
-      {{- end }}
-      {{- if and .Values.secrets.keys.enabled .Values.secrets.keys.name }}
       - name: keys-app
         secret:
           secretName: {{ .Release.Name }}-keys
@@ -108,4 +97,3 @@ spec:
           - key: {{ .key }}
             path: {{ .path | default .key }}
           {{- end }}
-      {{- end }}
