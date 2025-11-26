@@ -48,7 +48,6 @@ podMonitor:
 
 # ConfigMap content for config.yaml
 config:
-  enabled: true
   configYaml: |
     logs:
       json: false
@@ -56,16 +55,12 @@ config:
 
 secrets:
   fxrates:
-    # If enabled it creates a secret for fxrates api key
-    enabled: true
     # Data for the secret
     data:
     - key: "fxrates-api.txt"
       value: "FXRATESAPI_API_KEY=123123123"
     mountPath: /data/butane
   keys:
-    # If enabled it creates a secret for butane keys
-    enabled: true
     mountPathApp: /app/keys
     defaultMode: 0755
     # Data for the secret
