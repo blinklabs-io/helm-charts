@@ -58,7 +58,6 @@ secrets:
   fxrates:
     # If enabled it creates a secret for fxrates api key
     enabled: true
-    name: fxrates-api
     # Data for the secret
     data:
     - key: "fxrates-api.txt"
@@ -67,7 +66,6 @@ secrets:
   keys:
     # If enabled it creates a secret for butane keys
     enabled: true
-    name: butane-keys
     mountPathApp: /app/keys
     defaultMode: 0755
     # Data for the secret
