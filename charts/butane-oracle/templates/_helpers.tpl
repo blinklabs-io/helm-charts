@@ -42,6 +42,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 butane-oracle selector labels
 */}}
 {{- define "butane-oracle.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "butane-oracle.fullname" . }}
+app.kubernetes.io/name: {{ include "butane-oracle.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
