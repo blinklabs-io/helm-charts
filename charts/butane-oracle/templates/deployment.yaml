@@ -91,7 +91,7 @@ spec:
       {{- if and .Values.secrets.fxrates.enabled .Values.secrets.fxrates.name }}
       - name: fxrates
         secret:
-          secretName: {{ .Values.secrets.fxrates.name }}
+          secretName: {{ .Release.Name }}-fxrates
           items:
           {{- range .Values.secrets.fxrates.data }}
           - key: {{ .key }}
@@ -101,7 +101,7 @@ spec:
       {{- if and .Values.secrets.keys.enabled .Values.secrets.keys.name }}
       - name: keys-app
         secret:
-          secretName: {{ .Values.secrets.keys.name }}
+          secretName: {{ .Release.Name }}-keys
           defaultMode: {{ .Values.secrets.keys.defaultMode }}
           items:
           {{- range .Values.secrets.keys.data }}
