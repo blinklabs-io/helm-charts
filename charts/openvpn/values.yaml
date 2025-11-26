@@ -8,6 +8,7 @@ image:
   repository: blinklabs/openvpn
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
+  # For security, consider using digest pinning: tag: "0.4.0@sha256:..."
   tag: ""
 
 imagePullSecrets: []
@@ -32,11 +33,10 @@ securityContext:
   capabilities:
     add:
       - NET_ADMIN
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+  allowPrivilegeEscalation: false
+  # readOnlyRootFilesystem: true  # May not be feasible for VPN operations
+  # runAsNonRoot: true  # Not possible with NET_ADMIN capability
+  runAsUser: 0  # Explicitly run as root for initial setup, container drops to nobody
 
 service:
   type: ClusterIP
@@ -67,18 +67,53 @@ resources: {}
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # Recommended for OpenVPN: requests cpu: 100m, memory: 128Mi; limits cpu: 500m, memory: 512Mi
   # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
+  #   cpu: 500m
+  #   memory: 512Mi
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
 
 nodeSelector: {}
+  # Example for secure nodes: kubernetes.io/os: linux
 
 tolerations: []
+  # Example for tolerating secure node taints:
+  # - key: "secure"
+  #   operator: "Equal"
+  #   value: "vpn"
+  #   effect: "NoSchedule"
 
 affinity: {}
+  # podAntiAffinity:
+  #   preferredDuringSchedulingIgnoredDuringExecution:
+  #   - weight: 100
+  #     podAffinityTerm:
+  #       labelSelector:
+  #         matchLabels:
+  #           {{- include "openvpn.selectorLabels" . | nindent 12 }}
+  #       topologyKey: kubernetes.io/hostname
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+readinessProbe:
+  exec:
+    command:
+    - /bin/sh
+    - -c
+    - grep -q openvpn /proc/1/cmdline
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+networkPolicy:
+  enabled: false
+  # Allow ingress from specific sources (leave empty for all)
+  allowedIngressSources: []
+  # Additional egress rules (e.g., for DNS, NTP)
+  additionalEgressRules: []
 
 configFiles: []
   # - name: openvpn.conf
@@ -87,17 +122,28 @@ configFiles: []
   #     proto tcp
   #     dev tun
   #     server 10.8.0.0 255.255.255.0
-  #     dh dh2048.pem
+  #     dh none
+  #     ecdh-curve secp384r1
   #     ca ca.crt
   #     cert server.crt
   #     key server.key
   #     topology subnet
+  #     tls-version-min 1.3
+  #     cipher AES-256-GCM
+  #     auth SHA256
+  #     comp-lzo no
+  #     compress
+  #     block-outside-dns
+  #     verb 0
+  #     mlock
   #
   # - name: ca.crt
+  #   secret: true
   #   content: |
   #     ca.crt content
   #
   # - name: server.crt
+  #   secret: true
   #   content: |
   #     server.crt content
   #

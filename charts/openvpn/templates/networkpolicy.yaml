@@ -1,0 +1,43 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "openvpn.fullname" . }}
+  labels:
+    {{- include "openvpn.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "openvpn.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    {{- if .Values.networkPolicy.allowedIngressSources }}
+    {{- toYaml .Values.networkPolicy.allowedIngressSources | nindent 4 }}
+    {{- end }}
+    ports:
+    - protocol: {{ .Values.service.protocol }}
+      port: {{ .Values.service.port }}
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow NTP
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 123
+  {{- if .Values.networkPolicy.additionalEgressRules }}
+  {{- toYaml .Values.networkPolicy.additionalEgressRules | nindent 2 }}
+  {{- end }}
+{{- end }}

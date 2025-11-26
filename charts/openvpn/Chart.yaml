@@ -2,8 +2,8 @@ apiVersion: v2
 name: openvpn
 description: A Helm chart for deploying OpenVPN in Kubernetes with an optional BIND sidecar
 type: application
-version: 0.8.1
-appVersion: "0.4.0"
+version: 0.9.0
+appVersion: "2.6.3"
 
 maintainers:
   - name: aurora
