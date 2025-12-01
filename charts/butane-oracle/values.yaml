@@ -7,7 +7,7 @@ fullnameOverride: ""
 
 image:
   repository: "sundaeswap/butane-oracle"
-  tag: "v0.25.1"
+  tag: "v0.25.4"
   pullPolicy: IfNotPresent
 
 command: ["./oracles", "-c", "/data/config.yaml"]
@@ -97,13 +97,15 @@ tolerations: []
 
 probes:
   liveness:
-    path: /health
+    tcpSocket:
+      port: health
     initialDelaySeconds: 10
     periodSeconds: 10
     timeoutSeconds: 10
     failureThreshold: 3
   readiness:
-    path: /health
+    tcpSocket:
+      port: health
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 10
