@@ -49,22 +49,8 @@ spec:
           containerPort: {{ .Values.ports.p2p }}
         - name: health
           containerPort: {{ .Values.ports.health }}
-        readinessProbe:
-          httpGet:
-            path: {{ .Values.probes.readiness.path }}
-            port: health
-          initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
-          timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
-          failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
-        livenessProbe:
-          httpGet:
-            path: {{ .Values.probes.liveness.path }}
-            port: health
-          initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
-          timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
-          failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+        readinessProbe: {{ toYaml .Values.probes.readiness | nindent 10 }}
+        livenessProbe: {{ toYaml .Values.probes.liveness | nindent 10 }}
         volumeMounts:
         - name: config
           mountPath: /data
