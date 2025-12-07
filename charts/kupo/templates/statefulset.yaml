@@ -121,7 +121,7 @@ spec:
                 - -c
                 - |
                   URL='http://localhost:1442/health';
-                  METRICS=$(wget -qO- --header="Accept: text/plain" $URL);
+                  METRICS=$(timeout 20 wget -qO- --header="Accept: text/plain" $URL);
                   NODE_TIP=$(echo "$METRICS" | grep 'kupo_most_recent_node_tip' | awk '{print $NF}' | tr -d '"');
                   CHECKPOINT=$(echo "$METRICS" | grep 'kupo_most_recent_checkpoint' | awk '{print $NF}' | tr -d '"');
                   if [ -z "$NODE_TIP" ] || [ -z "$CHECKPOINT" ]; then
@@ -138,7 +138,7 @@ spec:
                     exit 1;
                   fi
             initialDelaySeconds: 5
-            timeoutSeconds: 1
+            timeoutSeconds: 25
             periodSeconds: 30
             successThreshold: 1
             failureThreshold: 3
