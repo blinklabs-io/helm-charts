@@ -20,10 +20,10 @@ connectionMethod:
         repository: "alpine/socat"
         tag: "latest"
         pullPolicy: IfNotPresent
-      nodeHost: ""  # "cardano-node.default.svc.cluster.local"
-      nodePort: ""  # "30000"
+      nodeHost: "cardano-node.default.svc.cluster.local"
+      nodePort: "3001"
     nodeSocket:
-      path: ""  # "/ipc/node.socket"
+      path: "/ipc/node.socket"
     configFetch:
       enabled: true
       image:
@@ -31,9 +31,9 @@ connectionMethod:
         tag: "20250514-1"
         pullPolicy: IfNotPresent
       # Network to fetch configs for
-      network: ""  # mainnet, preview, preprod, etc.
+      network: "mainnet"  # mainnet, preview, preprod, etc.
       # Directory where configs will be copied
-      targetDir: ""  # /opt/cardano
+      targetDir: "/opt/cardano"
     # Specify path to cardano config if not using configFetch
     nodeConfig:
       enabled: false
@@ -58,7 +58,7 @@ kupo:
   logLevel: "Info"
   storage:
     inMemory: false
-    workDir: ""  # "/db/kupo-preview"
+    workDir: "/db"
   server:
     host: "0.0.0.0"
     port: 1442
