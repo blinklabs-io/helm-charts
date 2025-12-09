@@ -27,9 +27,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      {{- if .Values.serviceAccount.create }}
-      serviceAccountName: {{ .Values.serviceAccount.name | default (include "kupo.fullname" .) }}
-      {{- end }}
+      readinessGates:
+        - conditionType: KupoReady
+      serviceAccountName: {{ include "kupo.serviceAccountName" . }}
       {{- with .Values.securityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -114,34 +114,6 @@ spec:
             {{- end }}
             - name: db
               mountPath: {{ .Values.kupo.storage.workDir }}
-          readinessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  URL='http://localhost:1442/health';
-                  METRICS=$(timeout 20 wget -qO- --header="Accept: text/plain" $URL);
-                  NODE_TIP=$(echo "$METRICS" | grep 'kupo_most_recent_node_tip' | awk '{print $NF}' | tr -d '"');
-                  CHECKPOINT=$(echo "$METRICS" | grep 'kupo_most_recent_checkpoint' | awk '{print $NF}' | tr -d '"');
-                  if [ -z "$NODE_TIP" ] || [ -z "$CHECKPOINT" ]; then
-                    echo 'Error: NODE_TIP or CHECKPOINT is null.';
-                    exit 1;
-                  fi;
-                  if [ "$NODE_TIP" = '0' ] || [ "$CHECKPOINT" = '0' ]; then
-                    echo 'Error: NODE_TIP or CHECKPOINT is 0.';
-                    exit 1;
-                  fi;
-                  if [ "$NODE_TIP" = "$CHECKPOINT" ]; then
-                    exit 0;
-                  else
-                    exit 1;
-                  fi
-            initialDelaySeconds: 5
-            timeoutSeconds: 25
-            periodSeconds: 30
-            successThreshold: 1
-            failureThreshold: 3
         {{- if eq .Values.connectionMethod.node.enabled true }}
         - name: socat
           image: "{{ .Values.connectionMethod.node.socat.image.repository }}:{{ .Values.connectionMethod.node.socat.image.tag }}"
@@ -154,6 +126,40 @@ spec:
             - name: cardanoipc
               mountPath: /ipc
         {{- end }}
+        - name: readiness-check
+          image: "{{ .Values.readinessCheck.image.repository }}:{{ .Values.readinessCheck.image.tag }}"
+          imagePullPolicy: {{ .Values.readinessCheck.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              URL='http://localhost:{{ .Values.kupo.server.port }}/health'
+              TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+              POD_NAME=$HOSTNAME
+              CA_CERT='/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
+              LAST_READY='False'
+              while true; do
+                READY='False'
+                if METRICS=$(curl -sf --max-time {{ .Values.readinessCheck.maxTime }} --header "Accept: text/plain" "$URL"); then
+                  NODE_TIP=$(echo "$METRICS" | grep 'kupo_most_recent_node_tip' | awk '{print $NF}' | tr -d '"')
+                  CHECKPOINT=$(echo "$METRICS" | grep 'kupo_most_recent_checkpoint' | awk '{print $NF}' | tr -d '"')
+                  if [ -n "$NODE_TIP" ] && [ -n "$CHECKPOINT" ] && [ "$NODE_TIP" != '0' ] && [ "$CHECKPOINT" != '0' ] && [ "$NODE_TIP" = "$CHECKPOINT" ]; then
+                    READY='True'
+                  fi
+                fi
+                if [ "$READY" != "$LAST_READY" ]; then
+                  echo "Kupo readiness changed: $READY"
+                  LAST_READY="$READY"
+                  TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+                  PATCH_BODY=$(printf '{"status":{"conditions":[{"type":"KupoReady","status":"%s","lastTransitionTime":"%s"}]}}' "$READY" "$TIMESTAMP")
+                  curl -s --cacert "$CA_CERT" -X PATCH \
+                    -H "Authorization: Bearer $TOKEN" \
+                    -H "Content-Type: application/merge-patch+json" \
+                    https://kubernetes.default.svc/api/v1/namespaces/$NAMESPACE/pods/$POD_NAME/status \
+                    -d "$PATCH_BODY" || true
+                fi
+                sleep {{ .Values.readinessCheck.sleepInterval }}
+              done
       volumes:
         {{- if eq .Values.connectionMethod.node.enabled true }}
         - name: cardanoipc

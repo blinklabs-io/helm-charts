@@ -54,9 +54,5 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the name of the service account to use
 */}}
 {{- define "kupo.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "kupo.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
+{{- printf "%s-sa" .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- end }}
