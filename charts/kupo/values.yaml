@@ -6,6 +6,15 @@ image:
   tag: "v2.11.0"
   pullPolicy: IfNotPresent
 
+# Readiness gate / liveness probe settings
+readinessCheck:
+  image:
+    repository: curlimages/curl
+    tag: latest
+    pullPolicy: IfNotPresent
+  maxTime: 20
+  sleepInterval: 30
+
 nameOverride: ""
 fullnameOverride: ""
 
@@ -28,7 +37,7 @@ connectionMethod:
       enabled: true
       image:
         repository: ghcr.io/blinklabs-io/cardano-configs
-        tag: "20250514-1"
+        tag: "20251128-1"
         pullPolicy: IfNotPresent
       # Network to fetch configs for
       network: "mainnet"  # mainnet, preview, preprod, etc.
@@ -81,12 +90,8 @@ kupo:
       annotations: {}
 
 serviceAccount:
-  create: true
   annotations: {}
   labels: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: "kupo-sa"
 
 resources: {}
 #  limits:
