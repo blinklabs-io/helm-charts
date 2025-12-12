@@ -44,7 +44,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels
 */}}
 {{- define "dolos.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "dolos.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-cardano_network: {{ .Values.dolos.network }}
+app.kubernetes.io/name: {{ include "dolos.name" . }}
+cardano_network: {{ .Values.network }}
 {{- end }}

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "dolos.fullname" . }}
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
 data:
   dolos.toml: |
@@ -30,9 +30,9 @@ data:
     {{- end }}
 
     [storage]
-    version = "v1"
+    version = "{{ .Values.configmap.storage.version }}"
     path = "/var/data/{{ .Values.network }}/db"
-    wal_size = 1000
+    wal_size = {{ .Values.configmap.storage.wal_size }}
 
     [genesis]
     byron_path = "/etc/genesis/{{ .Values.network }}/byron.json"
@@ -41,10 +41,10 @@ data:
     conway_path = "/etc/genesis/{{ .Values.network }}/conway.json"
 
     [sync]
-    pull_batch_size = 100
+    pull_batch_size = {{ .Values.configmap.sync.pull_batch_size }}
 
     [submit]
-    prune_height = 200
+    prune_height = {{ .Values.configmap.submit.prune_height }}
 
     [mithril]
     aggregator = "https://aggregator.release-{{ .Values.network }}.api.mithril.network/aggregator"
@@ -72,9 +72,9 @@ data:
     listen_address = "[::]:{{ .Values.ports.minibf }}"
 
     [logging]
-    max_level = "debug"
-    include_tokio = false
-    include_pallas = false
-    include_grpc = true
-    include_trp = false
-    include_minibf = false
+    max_level = "{{ .Values.configmap.logging.max_level }}"
+    include_tokio = {{ .Values.configmap.logging.include_tokio }}
+    include_pallas = {{ .Values.configmap.logging.include_pallas }}
+    include_grpc = {{ .Values.configmap.logging.include_grpc }}
+    include_trp = {{ .Values.configmap.logging.include_trp }}
+    include_minibf = {{ .Values.configmap.logging.include_minibf }}
