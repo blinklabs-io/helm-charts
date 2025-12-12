@@ -1,21 +1,17 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "dolos.fullname" . }}
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ include "dolos.fullname" . }}
+    app.kubernetes.io/name: {{ include "dolos.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: dolos
-    app.kubernetes.io/part-of: dolos
     cardano.demeter.run/network: {{ .Values.network }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  serviceName: {{ include "dolos.fullname" . }}
+  serviceName: {{ .Values.service.name | default .Release.Name }}
   selector:
-    matchLabels:
-      app.kubernetes.io/name: {{ include "dolos.fullname" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+    matchLabels: {{- include "dolos.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -23,10 +19,10 @@ spec:
         {{- if .Values.podAnnotations }}
           {{ toYaml .Values.podAnnotations | nindent 4 }}
         {{- end }}
-      labels:
-        app.kubernetes.io/name: {{ include "dolos.fullname" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
-        cardano.demeter.run/network: {{ .Values.network }}
+      labels: {{- include "dolos.selectorLabels" . | nindent 8 -}}
+        {{- if .Values.podLabels }}
+          {{- toYaml .Values.podLabels | nindent 8 -}}
+        {{- end }}
     spec:
       terminationGracePeriodSeconds: 180
       {{- if .Values.tolerations }}
@@ -38,7 +34,9 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "dolos.fullname" . }}
+            name: {{ .Release.Name }}
+        - name: dolos-ipc
+          emptyDir: {}
       initContainers:
         - name: init
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -57,6 +55,8 @@ spec:
               mountPath: /etc/config
             - name: data
               mountPath: /var/data
+            - name: dolos-ipc
+              mountPath: /ipc
       containers:
         - name: dolos
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -72,16 +72,33 @@ spec:
               mountPath: /etc/config
             - name: data
               mountPath: /var/data
+            - name: dolos-ipc
+              mountPath: /ipc
           ports:
             - name: grpc
               containerPort: {{ .Values.ports.grpc }}
               protocol: TCP
-            - name: ouroboros
-              containerPort: {{ .Values.ports.ouroboros }}
-              protocol: TCP
             - name: minibf
               containerPort: {{ .Values.ports.minibf }}
               protocol: TCP
+        - name: socat-ntc
+          image: "{{ .Values.socat.image.repository }}:{{ .Values.socat.image.tag }}"
+          imagePullPolicy: {{ .Values.socat.image.pullPolicy | default "IfNotPresent" }}
+          env:
+            - name: PORT
+              value: "{{ .Values.ports.ouroboros }}"
+          command:
+            - sh
+            - -c
+            - socat TCP-LISTEN:${PORT},fork UNIX-CLIENT:/ipc/dolos.socket,ignoreeof
+          ports:
+            - name: socat-ntc
+              containerPort: {{ .Values.ports.ouroboros }}
+          resources:
+            {{- toYaml .Values.socat.resources | nindent 12 }}
+          volumeMounts:
+            - name: dolos-ipc
+              mountPath: /ipc
   volumeClaimTemplates:
     - metadata:
         name: data

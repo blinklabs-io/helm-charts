@@ -11,6 +11,8 @@ image:
   pullPolicy: IfNotPresent
 
 podAnnotations: {}
+podLabels: {}
+
 resources:
   limits:
     cpu: "1"
@@ -25,6 +27,8 @@ ports:
   minibf: 3001
 
 service:
+  # Optional custom service name. If not set, release name will be used.
+  name: ""
   ports:
     grpc: 15051
     ouroboros: 13013
@@ -50,3 +54,28 @@ affinity: {}
 #               values:
 #                 - dolos
 #         topologyKey: "kubernetes.io/hostname"
+
+# Socat sidecar configuration
+socat:
+  image:
+    repository: "alpine/socat"
+    tag: "1.8.0.3"
+    pullPolicy: IfNotPresent
+  resources: {}
+
+# Dolos specific configuration values
+configmap:
+  logging:
+    max_level: "debug"
+    include_tokio: false
+    include_pallas: false
+    include_grpc: true
+    include_trp: false
+    include_minibf: false
+  storage:
+    version: "v1"
+    wal_size: 1000
+  submit:
+    prune_height: 200
+  sync:
+    pull_batch_size: 100
