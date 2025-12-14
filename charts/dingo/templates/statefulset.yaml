@@ -17,9 +17,146 @@ spec:
         app.kubernetes.io/name: {{ include "dingo.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      serviceAccountName: {{ .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Release.Name }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.mithril.enabled }}
+      initContainers:
+      # Download Cardano snapshot using mithril-client
+      - name: mithril-snapshot
+        image: {{ .Values.mithril.image.repository }}:{{ .Values.mithril.image.tag }}
+        imagePullPolicy: {{ .Values.mithril.image.pullPolicy }}
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -e
+            if [ "$DEBUG_INIT" = "true" ]; then
+              echo "DEBUG: Checking mithril data directory..."
+              ls -la /mithril-data/ || true
+              echo "DEBUG: Checking for db subdirectory..."
+              ls -la /mithril-data/db/ || true
+            fi
+
+            # Check if snapshot was successfully downloaded (marker file indicates complete download)
+            if [ -f "/mithril-data/.download-complete" ] && [ "$FORCE_REDOWNLOAD" != "true" ]; then
+              echo "Mithril snapshot already exists at /mithril-data/db/ (verified by marker file)"
+              exit 0
+            fi
+
+            # Remove existing data if force redownload is enabled
+            if [ "$FORCE_REDOWNLOAD" = "true" ]; then
+              echo "Force redownload enabled, removing existing mithril data..."
+              rm -rf /mithril-data/*
+            fi
+
+            echo "Starting mithril snapshot download..."
+            if mithril-client cardano-db download {{ .Values.mithril.snapshotDigest | default "latest" }} \
+              --download-dir /mithril-data \
+              --json; then
+              # Create marker file to indicate successful download
+              touch /mithril-data/.download-complete
+              echo "Mithril snapshot download complete"
+            else
+              echo "ERROR: Mithril snapshot download failed"
+              exit 1
+            fi
+        env:
+          - name: AGGREGATOR_ENDPOINT
+            value: {{ .Values.mithril.aggregatorEndpoint | quote }}
+          - name: GENESIS_VERIFICATION_KEY
+            value: {{ .Values.mithril.genesisVerificationKey | quote }}
+          - name: FORCE_REDOWNLOAD
+            value: {{ .Values.mithril.forceRedownload | quote }}
+          - name: DEBUG_INIT
+            value: {{ .Values.mithril.debugInit | quote }}
+        volumeMounts:
+          - name: dingo-data
+            mountPath: /mithril-data
+            subPath: mithril
+        {{- if .Values.resources }}
+        resources: {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+      # Load blocks from immutable DB into Dingo's database
+      - name: dingo-load
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -e
+            if [ "$DEBUG_INIT" = "true" ]; then
+              echo "DEBUG: Listing CARDANO_DATABASE_PATH..."
+              ls -la {{ .Values.environment.CARDANO_DATABASE_PATH }} || true
+              echo "DEBUG: Listing mithril data directory..."
+              ls -la /mithril-data/ || true
+              echo "DEBUG: Listing mithril db subdirectory..."
+              ls -la /mithril-data/db/ || true
+              # echo "DEBUG: Checking for immutable directory..."
+              # ls -la /mithril-data/db/immutable/ || true
+            fi
+
+            # Check if force reload is enabled
+            if [ "$FORCE_RELOAD" = "true" ]; then
+              echo "Force reload enabled, removing existing Dingo database..."
+              rm -rf {{ .Values.environment.CARDANO_DATABASE_PATH }}/blob/* \
+                     {{ .Values.environment.CARDANO_DATABASE_PATH }}/db/* \
+                     {{ .Values.environment.CARDANO_DATABASE_PATH }}/metadata.sqlite* 2>/dev/null || true
+              rmdir {{ .Values.environment.CARDANO_DATABASE_PATH }}/blob \
+                    {{ .Values.environment.CARDANO_DATABASE_PATH }}/db 2>/dev/null || true
+            fi
+
+            # Check if Dingo database already initialized (dingo creates blob/, db/, and metadata.sqlite)
+            if [ -f "{{ .Values.environment.CARDANO_DATABASE_PATH }}/metadata.sqlite" ]; then
+              echo "Dingo database already initialized, skipping load"
+              exit 0
+            fi
+
+            # Check if immutable data exists (mithril downloads to db/ subdirectory)
+            if [ ! -d "/mithril-data/db/immutable" ] || [ "$(ls -A /mithril-data/db/immutable 2>/dev/null | wc -l)" -eq 0 ]; then
+              echo "ERROR: No immutable data found at /mithril-data/db/immutable"
+              exit 1
+            fi
+
+            echo "Loading immutable data into Dingo database..."
+            cd {{ .Values.environment.CARDANO_DATABASE_PATH }}
+            dingo load /mithril-data/db/immutable
+            echo "Dingo load complete"
+
+            # Cleanup mithril data to reclaim storage space (if configured)
+            if [ "$CLEANUP_AFTER_LOAD" = "true" ]; then
+              echo "Cleaning up mithril snapshot data to reclaim storage..."
+              rm -rf /mithril-data/*
+              echo "Cleanup complete - reclaimed storage space."
+            else
+              echo "Keeping mithril snapshot data for potential reloads"
+            fi
+        env:
+          {{- range $key, $value := .Values.environment }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+          {{- end }}
+          - name: FORCE_RELOAD
+            value: {{ .Values.mithril.forceReload | quote }}
+          - name: CLEANUP_AFTER_LOAD
+            value: {{ .Values.mithril.cleanupAfterLoad | quote }}
+          - name: DEBUG_INIT
+            value: {{ .Values.mithril.debugInit | quote }}
+        volumeMounts:
+          - name: dingo-data
+            mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
+          - name: dingo-data
+            mountPath: /mithril-data
+            subPath: mithril
+        {{- if .Values.resources }}
+        resources: {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
       {{- end }}
       containers:
       - name: dingo
@@ -57,4 +194,6 @@ spec:
         resources:
           requests:
             storage: {{ .Values.persistence.size }}
+        {{- if .Values.persistence.storageClass }}
         storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}

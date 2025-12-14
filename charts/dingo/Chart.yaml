@@ -2,7 +2,7 @@
 apiVersion: v2
 name: dingo
 description: "A Helm chart for deploying Dingo"
-version: 0.0.23
+version: 0.0.24
 appVersion: 0.18.0
 
 sources:

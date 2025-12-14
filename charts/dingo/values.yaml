@@ -3,8 +3,47 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/blinklabs-io/dingo
-  tag: "0.18.0"
+  tag: "0.19.0"
   pullPolicy: IfNotPresent
+
+mithril:
+  enabled: true
+  image:
+    repository: ghcr.io/blinklabs-io/mithril-client
+    tag: "0.12.33"
+    pullPolicy: IfNotPresent
+  # Mithril aggregator URL
+  # All network configurations (aggregator endpoints, genesis keys, etc.) are documented at:
+  # https://github.com/input-output-hk/mithril/blob/main/networks.json
+  #
+  # Aggregator endpoints:
+  # Mainnet: https://aggregator.release-mainnet.api.mithril.network/aggregator
+  # Preprod: https://aggregator.release-preprod.api.mithril.network/aggregator
+  # Preview (pre-release): https://aggregator.pre-release-preview.api.mithril.network/aggregator
+  # Preview (testing): https://aggregator.testing-preview.api.mithril.network/aggregator
+  aggregatorEndpoint: "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
+  # Genesis verification key for the network
+  # Fetch from networks.json genesis.verification-key.url for each network
+  # Mainnet: curl -sL https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey
+  # Preprod: curl -sL https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey
+  # Preview: curl -sL https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey
+  genesisVerificationKey: "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
+  # Specific snapshot digest to download (leave empty for latest)
+  snapshotDigest: ""
+  # Force re-download of mithril snapshot even if data exists
+  # Useful for updating to a newer snapshot
+  # WARNING: This will delete existing mithril data
+  forceRedownload: false
+  # Force re-load of Dingo database from immutable data even if database exists
+  # Useful for rebuilding database from existing snapshot without re-downloading
+  # WARNING: This will delete existing Dingo database
+  forceReload: false
+  # Cleanup mithril snapshot data after loading to reclaim storage space
+  # WARNING: If forceReload is true and this is true, subsequent restarts won't be able to reload
+  # Recommended: false if forceReload is true, true otherwise to save storage
+  cleanupAfterLoad: false
+  # Enable debug logging in init containers (shows directory listings, etc.)
+  debugInit: false
 
 environment:
   CARDANO_NETWORK: "preview"
@@ -36,8 +75,8 @@ tolerations: []
 
 persistence:
   accessMode: ReadWriteOnce
-  size: 40Gi
-  storageClass: ""
+  size: 60Gi
+  # storageClass: "hyperdisk-balanced"
 
 service:
   annotations: {}
@@ -49,5 +88,4 @@ service:
     metrics: 12789
 
 serviceAccount:
-  name: dingo-sa
   annotations: {}
