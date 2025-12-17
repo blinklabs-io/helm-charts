@@ -52,11 +52,11 @@ spec:
         - name: CARDANO_BLOCK_PRODUCER
           value: "true"
         - name: CARDANO_SHELLEY_KES_KEY
-          value: "/opt/cardano/config/keys/kes.skey"
+          value: "/keys/kes.skey"
         - name: CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE
-          value: "/opt/cardano/config/keys/node.cert"
+          value: "/keys/node.cert"
         - name: CARDANO_SHELLEY_VRF_KEY
-          value: "/opt/cardano/config/keys/vrf.skey"
+          value: "/keys/vrf.skey"
 {{- end }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -80,7 +80,7 @@ spec:
 {{- if .Values.blockProducer.enabled }}
 {{- range .Values.blockProducer.keys }}
         - name: block-producer-keys
-          mountPath: /opt/cardano/config/keys/{{ .name }}
+          mountPath: /keys/{{ .name }}
           subPath: {{ .name }}
 {{- end }}
 {{- end }}
