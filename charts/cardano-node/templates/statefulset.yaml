@@ -78,8 +78,11 @@ spec:
           subPath: topology.json
 {{- end }}
 {{- if .Values.blockProducer.enabled }}
-        - mountPath: /opt/cardano/config/keys
-          name: block-producer-keys
+{{- range .Values.blockProducer.keys }}
+        - name: block-producer-keys
+          mountPath: /opt/cardano/config/keys/{{ .name }}
+          subPath: {{ .name }}
+{{- end }}
 {{- end }}
       - name: socat-ntc
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
