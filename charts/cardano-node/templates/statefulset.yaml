@@ -25,6 +25,9 @@ spec:
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
 {{- end }}
       hostNetwork: {{ .Values.hostNetwork }}
+{{- if .Values.hostNetwork }}
+      dnsPolicy: ClusterFirstWithHostNet
+{{- end }}
       containers:
       - args:
         - run
