@@ -95,3 +95,6 @@ serviceAccountName: ""
 # Allow to define resources for the socat container
 socat:
   resources: {}
+
+# Enable host networking for the pods
+hostNetwork: false
