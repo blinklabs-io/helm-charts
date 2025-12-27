@@ -24,13 +24,14 @@ spec:
 {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
 {{- else if .Values.hostNetwork }}
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
               matchLabels:
 {{ include "cardano-node.matchLabels" . | indent 16 }}
-            topologyKey: kubernetes.io/hostname
+      topologyKey: kubernetes.io/hostname
 {{- end }}
       hostNetwork: {{ .Values.hostNetwork }}
 {{- if .Values.hostNetwork }}
