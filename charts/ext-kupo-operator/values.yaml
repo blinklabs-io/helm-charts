@@ -14,14 +14,6 @@ defaultKupoVersion: "v2"
 dnsZone: "example.com"
 extensionSubdomain: "kupo.example.com"
 
-# DCU per request configuration
-perRequestDcus:
-  mainnet: "10"
-  preprod: "5"
-  preview: "5"
-  sanchonet: "5"
-  default: "5"
-
 resources:
   limits:
     cpu: "100m"
