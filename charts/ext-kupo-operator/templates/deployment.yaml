@@ -24,8 +24,6 @@ spec:
               value: {{ .Values.prometheusUrl | quote }}
             - name: METRICS_DELAY
               value: {{ .Values.metricsDelay | quote }}
-            - name: DCU_PER_REQUEST
-              value: "mainnet={{ .Values.perRequestDcus.mainnet }},preprod={{ .Values.perRequestDcus.default }},preview={{ .Values.perRequestDcus.default }},sanchonet={{ .Values.perRequestDcus.default }}"
             - name: API_KEY_SALT
               value: {{ .Values.apiKeySalt | quote }}
             - name: DEFAULT_KUPO_VERSION
