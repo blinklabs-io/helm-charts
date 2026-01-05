@@ -22,8 +22,35 @@ service:
     metrics:
       port: 12798
       targetPort: 12798
-# Mithril
-restoreSnapshot: true
+
+# Mithril snapshot restoration in the main container
+restoreSnapshot: false
+
+# Mithril snapshot restoration via initContainer
+mithril:
+  # Enable Mithril snapshot download via initContainer (recommended)
+  # Runs mithril-client in initContainer before the main cardano-node container starts
+  enabled: true
+  # Genesis and ancillary keys - read from image config files by default
+  # These are fallbacks if /opt/cardano/config/{network}/*.vkey files don't exist
+  genesisVerificationKey: ""  # Optional: fallback if image doesn't have genesis.vkey
+  ancillaryVerificationKey: ""  # Optional: fallback if image doesn't have ancillary.vkey
+  snapshotDigest: ""  # Specific snapshot digest to download (leave empty for latest)
+  # Force re-download of mithril snapshot even if data exists
+  # Useful for updating to a newer snapshot
+  # WARNING: This will delete existing database data
+  forceRedownload: false
+  # Enable debug logging in init container (shows directory listings, etc.)
+  debugInit: false
+  # Optional resource limits for the mithril initContainer
+  resources: {}
+    # limits:
+    #   cpu: 2
+    #   memory: 4Gi
+    # requests:
+    #   cpu: 1
+    #   memory: 2Gi
+
 blockProducer:
   enabled: false
 # These are placeholder keys used as an example. You will need to generate your own.
