@@ -24,6 +24,129 @@ spec:
 {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
 {{- end }}
+{{- if .Values.mithril.enabled }}
+      initContainers:
+      # Download Cardano snapshot using mithril-client
+      - name: mithril-snapshot
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -e
+            NETWORK="{{ .Values.cardano_network }}"
+
+            if [ "$DEBUG_INIT" = "true" ]; then
+              echo "DEBUG: Network: ${NETWORK}"
+              echo "DEBUG: Checking data directory..."
+              ls -la /data/ || true
+              echo "DEBUG: Checking for db subdirectory..."
+              ls -la /data/db/ || true
+            fi
+
+            if ! command -v jq >/dev/null 2>&1; then
+              echo "ERROR: jq is required but not found in the image"
+              exit 1
+            fi
+            if ! command -v mithril-client >/dev/null 2>&1; then
+              echo "ERROR: mithril-client is required but not found in the image"
+              exit 1
+            fi
+
+            # Check if database already exists (skip mithril if db exists)
+            if test -e /data/db/protocolMagicId && [ "$FORCE_REDOWNLOAD" != "true" ]; then
+              echo "Database already exists at /data/db/ (protocolMagicId found), skipping mithril download"
+              exit 0
+            fi
+
+            # Remove existing data if force redownload is enabled
+            if [ "$FORCE_REDOWNLOAD" = "true" ]; then
+              echo "Force redownload enabled, removing existing data..."
+              rm -rf /data/db/* 2>/dev/null || true
+            fi
+
+            # Determine aggregator path based on network
+            case ${NETWORK} in
+              mainnet|preprod) __path=release-${NETWORK} ;;
+              preview) __path=pre-release-${NETWORK} ;;
+              *) echo "Mithril not supported on ${NETWORK}... skipping"; exit 0 ;;
+            esac
+
+            if [ "$DEBUG_INIT" = "true" ]; then
+              echo "DEBUG: Checking for config files in /opt/cardano/config/${NETWORK}/"
+              ls -la /opt/cardano/config/${NETWORK}/ || true
+              echo "DEBUG: Contents of genesis.vkey:"
+              cat /opt/cardano/config/${NETWORK}/genesis.vkey || true
+              echo "DEBUG: Contents of ancillary.vkey:"
+              cat /opt/cardano/config/${NETWORK}/ancillary.vkey || true
+            fi
+
+            # Read keys from image config files if they exist, otherwise use values from helm chart
+            if [ -f "/opt/cardano/config/${NETWORK}/genesis.vkey" ] && [ -s "/opt/cardano/config/${NETWORK}/genesis.vkey" ]; then
+              GENESIS_VERIFICATION_KEY=$(cat /opt/cardano/config/${NETWORK}/genesis.vkey)
+              export GENESIS_VERIFICATION_KEY
+            elif [ -n "{{ .Values.mithril.genesisVerificationKey }}" ]; then
+              export GENESIS_VERIFICATION_KEY="{{ .Values.mithril.genesisVerificationKey }}"
+            else
+              echo "ERROR: Genesis verification key not found in image or values.yaml"
+              echo "Please set mithril.genesisVerificationKey in values.yaml"
+              exit 1
+            fi
+
+            if [ -f "/opt/cardano/config/${NETWORK}/ancillary.vkey" ] && [ -s "/opt/cardano/config/${NETWORK}/ancillary.vkey" ]; then
+              ANCILLARY_VERIFICATION_KEY=$(cat /opt/cardano/config/${NETWORK}/ancillary.vkey)
+              export ANCILLARY_VERIFICATION_KEY
+            elif [ -n "{{ .Values.mithril.ancillaryVerificationKey }}" ]; then
+              export ANCILLARY_VERIFICATION_KEY="{{ .Values.mithril.ancillaryVerificationKey }}"
+            else
+              echo "No ancillary verification key found (optional - skipping fast bootstrap)"
+            fi
+
+            export AGGREGATOR_ENDPOINT=https://aggregator.${__path}.api.mithril.network/aggregator
+
+            if [ "$DEBUG_INIT" = "true" ]; then
+              echo "DEBUG: GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}"
+              echo "DEBUG: ANCILLARY_VERIFICATION_KEY=${ANCILLARY_VERIFICATION_KEY}"
+              echo "DEBUG: AGGREGATOR_ENDPOINT=${AGGREGATOR_ENDPOINT}"
+            fi
+
+            # Get snapshot digest (use configured value or fetch latest)
+            if [ -n "{{ .Values.mithril.snapshotDigest }}" ]; then
+              SNAPSHOT_DIGEST="{{ .Values.mithril.snapshotDigest }}"
+              echo "Using configured snapshot digest: ${SNAPSHOT_DIGEST}"
+            else
+              echo "Fetching latest snapshot digest from ${AGGREGATOR_ENDPOINT}..."
+              SNAPSHOT_DIGEST=$(mithril-client cardano-db snapshot list --json | jq -r '.[0].hash')
+              echo "Latest snapshot digest: ${SNAPSHOT_DIGEST}"
+            fi
+
+            mkdir -p /data
+            cd /data
+            echo "Starting mithril snapshot download..."
+            echo "Command: mithril-client cardano-db download ${SNAPSHOT_DIGEST} ${ANCILLARY_VERIFICATION_KEY:+--include-ancillary}"
+            echo "(This could take a while...)"
+            # Handle SIGTERM during download
+            trap 'kill -TERM $(pidof mithril-client) 2>/dev/null' TERM
+            # Run mithril-client in the background so we can capture the PID and wait
+            mithril-client cardano-db download "${SNAPSHOT_DIGEST}" ${ANCILLARY_VERIFICATION_KEY:+--include-ancillary} &
+            _mithril_pid=$!
+            wait $_mithril_pid || exit $?
+            # Reset signal handler and wait again (to avoid race condition)
+            trap - TERM
+            wait $_mithril_pid || exit $?
+            echo "Mithril snapshot download complete"
+        env:
+          - name: FORCE_REDOWNLOAD
+            value: {{ .Values.mithril.forceRedownload | quote }}
+          - name: DEBUG_INIT
+            value: {{ .Values.mithril.debugInit | quote }}
+        volumeMounts:
+          - name: node-db
+            mountPath: /data
+        {{- if .Values.mithril.resources }}
+        resources: {{- toYaml .Values.mithril.resources | nindent 12 }}
+        {{- end }}
+{{- end }}
       containers:
       - args:
         - run
@@ -46,8 +169,10 @@ spec:
           value: /ipc/node.socket
         - name: CARDANO_TOPOLOGY
           value: "/opt/cardano/config/{{ .Values.cardano_network }}/topology.json"
+{{- if not .Values.mithril.enabled }}
         - name: RESTORE_SNAPSHOT
-          value: "{{ .Values.restoreSnapshot }}"   
+          value: {{ .Values.restoreSnapshot | quote }}
+{{- end }}
 {{- if .Values.blockProducer.enabled }}
         - name: CARDANO_BLOCK_PRODUCER
           value: "true"
