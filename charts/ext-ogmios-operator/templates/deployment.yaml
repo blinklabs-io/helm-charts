@@ -26,8 +26,6 @@ spec:
               value: {{ .Values.extensionName | quote }}
             - name: API_KEY_SALT
               value: {{ .Values.apiKeySalt | quote }}
-            - name: DCU_PER_FRAME
-              value: "mainnet={{ .Values.perFrameDcus.mainnet }},preprod={{ .Values.perFrameDcus.default }},preview={{ .Values.perFrameDcus.default }},sanchonet={{ .Values.perFrameDcus.default }}"
             - name: METRICS_DELAY
               value: {{ .Values.metricsDelay | quote }}
             - name: PROMETHEUS_URL

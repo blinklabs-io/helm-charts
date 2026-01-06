@@ -14,14 +14,6 @@ apiKeySalt: "change-me"
 dnsZone: "example.com"
 extensionName: "ogmios"
 
-# DCU per frame configuration
-perFrameDcus:
-  mainnet: "10"
-  preprod: "5"
-  preview: "5"
-  sanchonet: "5"
-  default: "5"
-
 resources:
   limits:
     cpu: "100m"
