@@ -10,6 +10,9 @@ metadata:
 {{ toYaml . | indent 4 }}
 {{- end }}
 spec:
+{{- with .Values.podMonitor.fallbackScrapeProtocol }}
+  fallbackScrapeProtocol: {{ . | quote }}
+{{- end }}
   selector:
     matchLabels:
       {{- include "cardano-node.matchLabels" . | nindent 6 }}
