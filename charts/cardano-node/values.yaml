@@ -112,6 +112,9 @@ tolerations:
 podMonitor:
   enabled: false
   # extraLabels: {}
+  # fallbackScrapeProtocol: "PrometheusText0.0.4"
+  # Required for Prometheus >= v3.0.0
+  fallbackScrapeProtocol: ""
   podMetricsEndpoints:
     - port: metrics
       path: /metrics
