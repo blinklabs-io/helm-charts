@@ -11,7 +11,7 @@ metadata:
 {{- end }}
 spec:
 {{- with .Values.podMonitor.fallbackScrapeProtocol }}
-  fallbackScrapeProtocol: {{ .  }}
+  fallbackScrapeProtocol: {{ . }}
 {{- end }}
   selector:
     matchLabels:
