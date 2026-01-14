@@ -23,9 +23,6 @@ service:
       port: 12798
       targetPort: 12798
 
-# Mithril snapshot restoration in the main container
-restoreSnapshot: false
-
 # Mithril snapshot restoration via initContainer
 mithril:
   # Enable Mithril snapshot download via initContainer (recommended)
