@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wireguard.fullname" . }}
+  labels:
+    {{- include "wireguard.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  externalTrafficPolicy: Local
+  {{- end }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: wireguard
+      protocol: {{ .Values.service.protocol }}
+      name: wireguard
+  selector:
+    {{- include "wireguard.selectorLabels" . | nindent 4 }}

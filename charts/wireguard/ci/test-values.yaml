@@ -1,0 +1,19 @@
+# CI test values for chart-testing
+# These values satisfy required fields for Helm install tests
+
+wireguard:
+  # Test endpoint for CI
+  endpoint: "test.wireguard.example.com:51820"
+  # Test private key (base64 encoded, for CI only)
+  privateKey: "YUd3Z0dIRGRnZGdmZ2hkZ2hkZ2hkZmdoZGZnaGRmZ2g="
+
+api:
+  # Test JWT public key (Ed25519 PEM format, for CI only)
+  jwtPublicKey: |
+    -----BEGIN PUBLIC KEY-----
+    MCowBQYDK2VwAyEAtest1234567890abcdefghijklmnopqrstuvwxyz=
+    -----END PUBLIC KEY-----
+
+# Use ClusterIP for CI (no LoadBalancer in kind cluster)
+service:
+  type: ClusterIP

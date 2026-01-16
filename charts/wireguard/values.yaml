@@ -1,0 +1,153 @@
+# WireGuard VPN Server Helm Chart
+# https://github.com/blinklabs-io/docker-wireguard
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/blinklabs-io/docker-wireguard
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# WireGuard configuration
+wireguard:
+  # Server private key (base64 encoded)
+  # Can be provided directly or via existingSecret
+  privateKey: ""
+  # Reference to existing secret containing WireGuard private key
+  # Secret must have key: private-key
+  existingSecret: ""
+  # Public endpoint that clients will connect to
+  # Should be set to your actual endpoint, e.g., "vpn.example.com:51820"
+  endpoint: "wireguard.example.com:51820"
+  # WireGuard listen port
+  port: 51820
+  # Server subnet (CIDR)
+  subnet: "10.8.0.0/24"
+  # DNS server pushed to clients
+  dns: "1.1.1.1"
+  # Enable NAT/masquerading
+  enableNat: true
+  # NAT outbound device (usually auto-detected)
+  natDevice: "eth0"
+
+# Peer Management API configuration
+api:
+  # API listen address
+  listen: ":8080"
+  # Port for the API service
+  port: 8080
+  # JWT public key for verifying peer registration requests
+  # Ed25519 public key in PEM format
+  jwtPublicKey: ""
+  # Reference to existing ConfigMap containing JWT public key
+  # ConfigMap must have key: jwt-verify.pub
+  existingJwtConfigMap: ""
+
+# Region identifier (used for labeling and identification)
+region: "us1"
+
+# Debug mode
+debug: false
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+# Security context - NET_ADMIN required for WireGuard
+securityContext:
+  capabilities:
+    add:
+      - NET_ADMIN
+
+# WireGuard UDP service (LoadBalancer for external access)
+service:
+  type: LoadBalancer
+  port: 51820
+  protocol: UDP
+  annotations: {}
+    # AWS NLB example:
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    # service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+
+# Internal API service (ClusterIP for vpn-indexer communication)
+apiService:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+resources: {}
+  # We recommend setting appropriate limits
+  # limits:
+  #   cpu: 500m
+  #   memory: 256Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Network policy configuration
+networkPolicy:
+  enabled: true
+  # Allow WireGuard UDP from anywhere
+  allowWireguardFromAnywhere: true
+  # Restrict API access to specific pod labels
+  apiAllowedPodLabels:
+    app: vpn-indexer
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Prometheus PodMonitor
+podMonitor:
+  enabled: false
+  extraLabels: {}
+  # For Prometheus v3.0.0+ compatibility
+  fallbackScrapeProtocol: ""
+  podMetricsEndpoints:
+    - port: api
+      path: /metrics
+      interval: 30s
+      scheme: http
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /health
+    port: api
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: api
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
