@@ -1,0 +1,12 @@
+{{- if not .Values.api.existingJwtConfigMap }}
+{{- $jwt := required "api.jwtPublicKey is required when api.existingJwtConfigMap is not set" .Values.api.jwtPublicKey }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wireguard.fullname" . }}-jwt-pubkey
+  labels:
+    {{- include "wireguard.labels" . | nindent 4 }}
+data:
+  jwt-verify.pub: |
+    {{- $jwt | nindent 4 }}
+{{- end }}

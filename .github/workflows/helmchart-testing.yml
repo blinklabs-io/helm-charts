@@ -61,9 +61,18 @@ jobs:
           for chart_path in "${chart_array[@]}"; do
             chart_name=$(basename "$chart_path")
             echo "Installing $chart_name from $chart_path..."
+            # Build values file arguments from ci/ directory (same pattern as ct install)
+            values_args=""
+            for values_file in "$chart_path"/ci/*-values.yaml "$chart_path"/ci/values-*.yaml; do
+              if [[ -f "$values_file" ]]; then
+                echo "  Using values file: $values_file"
+                values_args="$values_args -f $values_file"
+              fi
+            done
             helm install "$chart_name" "$chart_path" \
               --namespace "${chart_name}-ci" \
               --create-namespace \
               --wait=false \
-              --timeout 30s
+              --timeout 30s \
+              $values_args
           done

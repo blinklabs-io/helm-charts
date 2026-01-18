@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "wireguard.fullname" . }}
+  labels:
+    {{- include "wireguard.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "wireguard.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "wireguard.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "wireguard.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: wireguard
+              containerPort: {{ .Values.wireguard.port }}
+              protocol: UDP
+            - name: api
+              containerPort: {{ .Values.api.port }}
+              protocol: TCP
+          env:
+            - name: WG_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wireguard.secretName" . }}
+                  key: private-key
+            - name: WG_ENDPOINT
+              value: {{ .Values.wireguard.endpoint | quote }}
+            - name: WG_PORT
+              value: {{ .Values.wireguard.port | quote }}
+            - name: WG_SUBNET
+              value: {{ .Values.wireguard.subnet | quote }}
+            - name: WG_DNS
+              value: {{ .Values.wireguard.dns | quote }}
+            - name: ENABLE_NAT
+              value: {{ .Values.wireguard.enableNat | ternary "1" "0" | quote }}
+            - name: NAT_DEVICE
+              value: {{ .Values.wireguard.natDevice | quote }}
+            - name: API_LISTEN
+              value: {{ .Values.api.listen | quote }}
+            - name: JWT_PUBLIC_KEY_FILE
+              value: /etc/wireguard/jwt-verify.pub
+            - name: DEBUG
+              value: {{ .Values.debug | ternary "1" "0" | quote }}
+          volumeMounts:
+            - name: jwt-pubkey
+              mountPath: /etc/wireguard/jwt-verify.pub
+              subPath: jwt-verify.pub
+              readOnly: true
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: jwt-pubkey
+          configMap:
+            name: {{ include "wireguard.jwtConfigMapName" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

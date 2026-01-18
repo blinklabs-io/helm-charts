@@ -1,0 +1,22 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $hasMinAvailable := hasKey .Values.podDisruptionBudget "minAvailable" }}
+{{- $hasMaxUnavailable := hasKey .Values.podDisruptionBudget "maxUnavailable" }}
+{{- if not (or $hasMinAvailable $hasMaxUnavailable) }}
+{{- fail "podDisruptionBudget.enabled is true but neither minAvailable nor maxUnavailable is set" }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "wireguard.fullname" . }}
+  labels:
+    {{- include "wireguard.labels" . | nindent 4 }}
+spec:
+  {{- if $hasMaxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  {{- else if $hasMinAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "wireguard.selectorLabels" . | nindent 6 }}
+{{- end }}
