@@ -56,7 +56,8 @@ podMonitor:
   enabled: false
   extraLabels: {}
   podMetricsEndpoints:
-    - port: 1337
+  # port in Podmonitor should match containerPort name in deployment
+    - port: http
       path: /metrics
       scheme: http
       interval: 30s

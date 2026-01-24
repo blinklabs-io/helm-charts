@@ -46,7 +46,8 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: ogmios
         ports:
-        - containerPort: 1337
+        - name: http
+          containerPort: 1337
         {{- with .Values.livenessProbe }}
         livenessProbe:
           {{- toYaml . | nindent 10 }}
