@@ -248,7 +248,7 @@ spec:
           secretName: {{ .Release.Name }}-secret
 {{- end }}
   updateStrategy:
-    type: OnDelete
+    type: {{ .Values.updateStrategy | default "OnDelete" }}
   volumeClaimTemplates:
   - metadata:
       labels:
