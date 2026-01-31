@@ -15,6 +15,12 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: cardano-node
+{{- if .Values.blockProducer.enabled }}                                                                                                                                                               
+        checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}                                                                                                                          
+{{- end }}                                                                                                                                                                                            
+{{- if .Values.topology.enabled }}                                                                                                                                                                    
+        checksum/topology: {{ .Values.topology | toJson | sha256sum }}                                                                                                                                
+{{- end }}
       labels:
 {{ include "cardano-node.labels" . | indent 8 }}
 {{- with .Values.extraPodLabels }}
