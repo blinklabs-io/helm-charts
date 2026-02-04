@@ -109,6 +109,9 @@ tolerations:
 podMonitor:
   enabled: false
   # extraLabels: {}
+  # Promote pod labels to Prometheus metric labels
+  # Includes chart labels (cardano_network, cardano_service) and any extraPodLabels
+  # podTargetLabels: []
   # Required for Prometheus >= v3.0.0
   fallbackScrapeProtocol: "PrometheusText0.0.4"
   podMetricsEndpoints:

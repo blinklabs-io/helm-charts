@@ -13,6 +13,10 @@ spec:
 {{- with .Values.podMonitor.fallbackScrapeProtocol }}
   fallbackScrapeProtocol: {{ . | quote }}
 {{- end }}
+{{- with .Values.podMonitor.podTargetLabels }}
+  podTargetLabels:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
   selector:
     matchLabels:
       {{- include "cardano-node.matchLabels" . | nindent 6 }}
