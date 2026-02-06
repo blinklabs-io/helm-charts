@@ -1,4 +1,7 @@
 ---
+updateStrategy:
+  type: RollingUpdate
+
 backends:
 - http://one.example.com/api/submit/tx
 - http://another.example.com/api/submit/tx

@@ -1,6 +1,9 @@
 ---
 replicaCount: 1
 
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ghcr.io/blinklabs-io/dingo
   tag: "0.21.0"

@@ -7,6 +7,10 @@ metadata:
 spec:
   serviceName: {{ include "dingo.fullname" . }}-headless
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "dingo.name" . }}

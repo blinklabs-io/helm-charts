@@ -1,4 +1,8 @@
 replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
 network: preview
 
 # Optional custom peer address. If not set, a default public peer will be used.

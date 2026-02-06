@@ -5,6 +5,9 @@ nameOverride: ""
 # Override the full name of the app
 fullnameOverride: ""
 
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: "sundaeswap/butane-oracle"
   tag: "v0.25.4"

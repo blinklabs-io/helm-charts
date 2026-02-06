@@ -10,6 +10,10 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   serviceName: {{ .Values.service.name | default .Release.Name }}
+  {{- if .Values.updateStrategy }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels: {{- include "dolos.selectorLabels" . | nindent 6 }}
   template:

@@ -1,4 +1,7 @@
 ---
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ergoplatform/ergo
   tag: v6.1.0

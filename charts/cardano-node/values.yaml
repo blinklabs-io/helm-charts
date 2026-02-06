@@ -1,4 +1,6 @@
 ---
+updateStrategy: RollingUpdate
+
 cardano_network: preview
 # extraPodLabels: {}
 image:

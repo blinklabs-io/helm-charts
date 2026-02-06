@@ -1,7 +1,7 @@
 apiVersion: v2
 name: tx-submit-api-mirror
 description: Creates a Cardano Tx Submit API mirror service deployment
-version: 0.0.9
+version: 0.0.10
 appVersion: 0.8.1
 maintainers:
   - name: aurora

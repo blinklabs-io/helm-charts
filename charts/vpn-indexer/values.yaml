@@ -2,6 +2,9 @@
 
 replicaCount: 1
 
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ghcr.io/blinklabs-io/vpn-indexer
   pullPolicy: IfNotPresent

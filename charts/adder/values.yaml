@@ -1,6 +1,9 @@
 ---
 replicaCount: 1
 
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: "ghcr.io/blinklabs-io/adder"
   tag: "0.34.0"

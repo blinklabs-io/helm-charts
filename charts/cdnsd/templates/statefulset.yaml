@@ -12,6 +12,10 @@ metadata:
 spec:
   serviceName: {{ include "cdnsd.fullname" . }}
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "cdnsd.selectorLabels" . | nindent 6 }}

@@ -1,7 +1,7 @@
 apiVersion: v1
 name: ogmios
 description: Creates an Ogmios API service with SOCAT sidecar
-version: 0.0.8
+version: 0.0.9
 appVersion: v6.14.0
 maintainers:
   - name: aurora

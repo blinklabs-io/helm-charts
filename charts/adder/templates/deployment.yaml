@@ -11,6 +11,10 @@ metadata:
   {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "adder.selectorLabels" . | nindent 6 }}

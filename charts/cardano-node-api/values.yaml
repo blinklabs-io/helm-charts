@@ -1,6 +1,9 @@
 ---
 nameOverride: ""
 
+updateStrategy:
+  type: RollingUpdate
+
 cardano_network: preview
 cardano_node:
   host: cardano-node-headless

@@ -1,5 +1,8 @@
 replicaCount: 1
 
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ghcr.io/blinklabs-io/bursa
   tag: "0.11.1"

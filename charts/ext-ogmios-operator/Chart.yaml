@@ -1,7 +1,7 @@
 apiVersion: v2
 name: ext-ogmios-operator
 description: Extention Ogmios operator
-version: 0.0.2
+version: 0.0.3
 appVersion: "0.0.2"
 
 sources:

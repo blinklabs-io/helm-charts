@@ -1,7 +1,7 @@
 apiVersion: v2
 name: adder
 description: "A Helm chart for deploying Adder"
-version: 0.1.2
+version: 0.1.3
 appVersion: 0.34.0
 
 sources:

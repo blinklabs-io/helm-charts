@@ -1,5 +1,9 @@
 # Ext Tx Submit API Operator values
 replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ghcr.io/demeter-run/ext-cardano-submitapi-operator
   tag: 414d79bfa36292404bb5ed93f6750fa5d43e434f

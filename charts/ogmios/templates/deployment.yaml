@@ -6,6 +6,10 @@ metadata:
   name: {{ include "ogmios.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels: {{ include "ogmios.selectorLabels" . | nindent 6 }}
   template:

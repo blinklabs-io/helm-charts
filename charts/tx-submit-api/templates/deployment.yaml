@@ -7,6 +7,10 @@ metadata:
   name: {{ include "tx-submit-api.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels: {{ include "tx-submit-api.selectorLabels" . | nindent 6 }}
   template:

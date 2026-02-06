@@ -1,5 +1,9 @@
 # Balius Operator values
 replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ghcr.io/demeter-run/ext-balius-operator
   tag: latest
