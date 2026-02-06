@@ -1,6 +1,9 @@
 ---
 replicaCount: 1
 
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ubuntu/bind9
   pullPolicy: Always

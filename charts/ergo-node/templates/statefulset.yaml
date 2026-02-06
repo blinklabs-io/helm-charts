@@ -62,8 +62,10 @@ spec:
             subPath: ergo.conf
           - name: ergo-data-{{ include "ergo-node.network" . }}
             mountPath: /home/ergo/.ergo
+  {{- if .Values.updateStrategy }}
   updateStrategy:
-    type: OnDelete
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   volumeClaimTemplates:
   - metadata:
       labels:

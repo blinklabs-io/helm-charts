@@ -8,6 +8,10 @@ metadata:
 spec:
   serviceName: {{ include "bind9.fullname" . }}
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "bind9.selectorLabels" . | nindent 6 }}

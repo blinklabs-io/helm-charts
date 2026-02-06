@@ -7,6 +7,10 @@ metadata:
     {{- include "butane-oracle.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount | default 1 }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "butane-oracle.selectorLabels" . | nindent 6 }}

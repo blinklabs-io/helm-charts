@@ -146,8 +146,10 @@ spec:
         resources:
           {{- toYaml .Values.metrics.resources | nindent 10 }}
       {{- end }}
+  {{- if .Values.updateStrategy }}
   updateStrategy:
-    type: OnDelete
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   volumeClaimTemplates:
   - metadata:
       labels:

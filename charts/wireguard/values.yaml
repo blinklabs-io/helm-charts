@@ -3,6 +3,9 @@
 
 replicaCount: 1
 
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ghcr.io/blinklabs-io/docker-wireguard
   pullPolicy: IfNotPresent

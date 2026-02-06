@@ -1,4 +1,7 @@
 ---
+updateStrategy:
+  type: RollingUpdate
+
 cardano_network: preview
 cardano_node:
   host: preview-node.play.dev.cardano.org:3001

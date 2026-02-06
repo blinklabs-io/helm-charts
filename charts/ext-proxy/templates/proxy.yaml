@@ -7,6 +7,10 @@ metadata:
     role: {{ .Values.proxy.role }}
 spec:
   replicas: {{ .Values.proxy.replicas }}
+  {{- if .Values.proxy.updateStrategy }}
+  strategy:
+    type: {{ .Values.proxy.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels:
       role: {{ .Values.proxy.role }}

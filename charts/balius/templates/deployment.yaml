@@ -9,11 +9,15 @@ metadata:
     cardano_network: {{ .Values.balius.network }}
 spec:
   replicas: {{ .Values.balius.replicas }}
+  {{- if .Values.balius.updateStrategy }}
   strategy:
-    type: RollingUpdate
+    type: {{ .Values.balius.updateStrategy.type }}
+    {{- if eq .Values.balius.updateStrategy.type "RollingUpdate" }}
     rollingUpdate:
       maxSurge: {{ .Values.balius.rollingUpdate.maxSurge }}
       maxUnavailable: {{ .Values.balius.rollingUpdate.maxUnavailable }}
+    {{- end }}
+  {{- end }}
   selector:
     matchLabels: {{- include "balius.selectorLabels" . | nindent 6 }}
   template:

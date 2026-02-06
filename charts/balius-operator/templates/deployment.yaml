@@ -6,6 +6,10 @@ metadata:
   labels: {{ include "baliusOperator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels: {{ include "baliusOperator.selectorLabels" . | nindent 6 }}
   template:

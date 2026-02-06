@@ -6,6 +6,10 @@ metadata:
   labels: {{ include "extKupoOperator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels: {{ include "extKupoOperator.selectorLabels" . | nindent 6 }}
   template:

@@ -1,5 +1,9 @@
 # Ogmios Operator values
 replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ghcr.io/demeter-run/ext-cardano-ogmios-operator
   tag: latest

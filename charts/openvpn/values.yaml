@@ -4,6 +4,9 @@
 
 replicaCount: 1
 
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: blinklabs/openvpn
   pullPolicy: IfNotPresent

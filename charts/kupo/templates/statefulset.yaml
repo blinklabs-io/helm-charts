@@ -12,6 +12,10 @@ metadata:
 spec:
   serviceName: {{ include "kupo.fullname" . }}
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "kupo.selectorLabels" . | nindent 6 }}

@@ -1,5 +1,9 @@
 # Kupo Operator values
 replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
 image:
   repository: ghcr.io/demeter-run/ext-cardano-kupo-operator
   tag: latest

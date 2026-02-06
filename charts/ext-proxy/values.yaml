@@ -2,6 +2,8 @@
 proxy:
   role: &proxy_role demo-proxy
   replicas: 1
+  updateStrategy:
+    type: RollingUpdate
   serviceAccountName: "demo"
   env:
     - name: SSL_CRT_PATH
