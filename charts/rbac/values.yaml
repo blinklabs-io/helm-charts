@@ -1,0 +1,38 @@
+serviceAccounts: {}
+#  my-svcacct:
+#    automountServiceAccountToken: true
+#    createToken: false
+#    annotations:
+#      foo: bar
+#    imagePullSecrets:
+#      - foo-bar
+#      - bar-baz
+
+roles: {}
+#  my-role:
+#    rules:
+#    - apiGroups:
+#      - ""
+#      resources:
+#      - pods
+#      verbs:
+#      - list
+#      - watch
+#      - create
+#    - apiGroups:
+#      - ""
+#      resources:
+#      - pods/log
+#      verbs:
+#      - list
+#      - watch
+#      - get
+
+roleBindings: {}
+#  my-rolebinding:
+#    roleName: my-role
+#    roleKind: Role
+#    subjects:
+#    - kind: ServiceAccount
+#      name: my-svcacct
+#      namespace: my-namespace

@@ -1,0 +1,16 @@
+apiVersion: v2
+description: Deploy generic ServiceAccount(s) with role(s) and binding(s)
+name: rbac
+version: 0.1.0
+type: application
+appVersion: 1.0.0
+
+maintainers:
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
+  - name: tripura
+    email: tripura@blinklabs.io
