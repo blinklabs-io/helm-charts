@@ -31,7 +31,7 @@ spec:
       serviceAccountName: {{ include "adder.serviceAccountName" . }}
       containers:
         - name: adder
-          command: ["adder", "-config", "/adder/config.yaml"]
+          command: ["adder", "--config", "/adder/config.yaml"]
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
