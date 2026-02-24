@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.service.name | default .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "demeter-fabric.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector: {{- include "demeter-fabric.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: metrics
+      port: {{ .Values.ports.metrics }}
+      targetPort: {{ .Values.ports.metrics }}

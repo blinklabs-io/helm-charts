@@ -1,0 +1,32 @@
+{{- if .Values.rbac.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "demeter-fabric.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "demeter-fabric.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "demeter-fabric.fullname" . }}
+  labels: {{- include "demeter-fabric.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["", "demeter.run", "networking.k8s.io", "gateway.networking.k8s.io", "configuration.konghq.com", "coordination.k8s.io"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "demeter-fabric.fullname" . }}
+  labels: {{- include "demeter-fabric.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "demeter-fabric.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "demeter-fabric.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "demeter-fabric.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 0
+  serviceName: {{ .Values.service.name | default .Release.Name }}
+  {{- with .Values.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels: {{- include "demeter-fabric.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels: {{- include "demeter-fabric.selectorLabels" . | nindent 8 -}}
+        {{- if .Values.podLabels }}
+          {{- toYaml .Values.podLabels | nindent 8 -}}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ if .Values.rbac.enabled }}{{ include "demeter-fabric.fullname" . }}{{ else }}default{{ end }}
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 30
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config
+      containers:
+        - name: daemon
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DAEMON_CONFIG
+              value: /fabric/daemon.toml
+            - name: RUST_LOG
+              value: {{ .Values.config.rustLog | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: cache
+              mountPath: /var/cache
+            - name: config
+              mountPath: /fabric
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.ports.metrics }}
+              protocol: TCP
+  volumeClaimTemplates:
+    - metadata:
+        name: cache
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
+        {{- if and (hasKey .Values.storage "storageClassName") (ne .Values.storage.storageClassName "") }}
+        storageClassName: {{ .Values.storage.storageClassName }}
+        {{- end }}

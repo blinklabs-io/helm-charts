@@ -1,0 +1,58 @@
+replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
+image:
+  repository: ghcr.io/demeter-run/fabric-daemon
+  tag: "6077ca0335291f668a4cbe122759c310cb46a4f1"
+  pullPolicy: IfNotPresent
+
+podAnnotations: {}
+podLabels: {}
+
+resources: {}
+
+storage:
+  size: 10Gi
+  # If unset, the default StorageClass is used.
+  # storageClassName: ""
+
+tolerations: []
+
+affinity: {}
+
+ports:
+  metrics: 9946
+
+service:
+  # Optional custom service name. If not set, release name will be used.
+  name: ""
+
+# Daemon TOML configuration
+config:
+  clusterId: ""
+  mode: "full"
+  rustLog: "error"
+  prometheus:
+    url: "http://prometheus-operated.dmtr-system.svc.cluster.local:9090/api/v1"
+    delaySec: 3600
+    queryStep: "10m"
+  kafka:
+    brokerUrls: ""
+    username: ""
+    password: ""
+    topicEvents: "events"
+    topicUsage: "usage"
+    consumerMonitorName: ""
+    consumerCacheName: ""
+
+# RBAC - grants cluster-wide permissions to the default ServiceAccount.
+# Names are scoped to the namespace, so only one release per namespace is supported.
+rbac:
+  enabled: true
+
+# PodMonitor for Prometheus Operator
+podMonitor:
+  enabled: false
+  labels: {}
