@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "demeter-fabric.labels" . | nindent 4 }}
+data:
+  daemon.toml: |
+    db_path="/var/cache/{{ required "config.kafka.consumerCacheName is required" .Values.config.kafka.consumerCacheName }}.db"
+    topic_events = "{{ required "config.kafka.topicEvents is required" .Values.config.kafka.topicEvents }}"
+    topic_usage = "{{ required "config.kafka.topicUsage is required" .Values.config.kafka.topicUsage }}"
+    cluster_id = "{{ required "config.clusterId is required" .Values.config.clusterId }}"
+    delay_sec = {{ required "config.prometheus.delaySec is required" .Values.config.prometheus.delaySec }}
+    mode = "{{ required "config.mode is required" .Values.config.mode }}"
+
+    [metrics]
+    addr = "0.0.0.0:{{ .Values.ports.metrics }}"
+
+    [prometheus]
+    url = "{{ .Values.config.prometheus.url }}"
+    query_step = "{{ .Values.config.prometheus.queryStep }}"
+
+    [kafka_producer]
+    "bootstrap.servers" = "{{ required "config.kafka.brokerUrls is required" .Values.config.kafka.brokerUrls }}"
+    "security.protocol" = "SASL_SSL"
+    "message.timeout.ms" = "30000"
+    "sasl.mechanisms" = "SCRAM-SHA-256"
+    "sasl.username" = "{{ required "config.kafka.username is required" .Values.config.kafka.username }}"
+    "sasl.password" = "{{ required "config.kafka.password is required" .Values.config.kafka.password }}"
+
+    [kafka_monitor]
+    "bootstrap.servers" = "{{ required "config.kafka.brokerUrls is required" .Values.config.kafka.brokerUrls }}"
+    "group.id"= "{{ required "config.kafka.consumerMonitorName is required" .Values.config.kafka.consumerMonitorName }}"
+    "auto.offset.reset" = "earliest"
+    "security.protocol" = "SASL_SSL"
+    "sasl.mechanisms" = "SCRAM-SHA-256"
+    "sasl.username" = "{{ required "config.kafka.username is required" .Values.config.kafka.username }}"
+    "sasl.password" = "{{ required "config.kafka.password is required" .Values.config.kafka.password }}"
+
+    [kafka_cache]
+    "bootstrap.servers" = "{{ required "config.kafka.brokerUrls is required" .Values.config.kafka.brokerUrls }}"
+    "group.id"= "{{ required "config.kafka.consumerCacheName is required" .Values.config.kafka.consumerCacheName }}"
+    "auto.offset.reset" = "earliest"
+    "security.protocol" = "SASL_SSL"
+    "sasl.mechanisms" = "SCRAM-SHA-256"
+    "sasl.username" = "{{ required "config.kafka.username is required" .Values.config.kafka.username }}"
+    "sasl.password" = "{{ required "config.kafka.password is required" .Values.config.kafka.password }}"
