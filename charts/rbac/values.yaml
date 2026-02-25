@@ -36,3 +36,23 @@ roleBindings: {}
 #    - kind: ServiceAccount
 #      name: my-svcacct
 #      namespace: my-namespace
+
+clusterRoles: {}
+#  my-clusterrole:
+#    rules:
+#    - apiGroups:
+#      - ""
+#      resources:
+#      - namespaces
+#      verbs:
+#      - get
+#      - list
+#      - watch
+
+clusterRoleBindings: {}
+#  my-clusterrolebinding:
+#    roleName: my-clusterrole
+#    subjects:
+#    - kind: User
+#      name: user@example.com
+#      apiGroup: rbac.authorization.k8s.io
