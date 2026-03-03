@@ -15,11 +15,11 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: cardano-node
-{{- if .Values.blockProducer.enabled }}                                                                                                                                                               
-        checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}                                                                                                                          
-{{- end }}                                                                                                                                                                                            
-{{- if .Values.topology.enabled }}                                                                                                                                                                    
-        checksum/topology: {{ .Values.topology | toJson | sha256sum }}                                                                                                                                
+{{- if .Values.blockProducer.enabled }}
+        checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}
+{{- end }}
+{{- if .Values.topology.enabled }}
+        checksum/topology: {{ .Values.topology | toJson | sha256sum }}
 {{- end }}
       labels:
 {{ include "cardano-node.labels" . | indent 8 }}
@@ -215,12 +215,10 @@ spec:
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         command:
-        - sh
-        - -c
-        - socat TCP-LISTEN:${PORT},fork UNIX-CLIENT:/ipc/node.socket,ignoreeof
-        env:
-        - name: PORT
-          value: "{{ .Values.service.ports.socatNtc.targetPort }}"
+        - socat
+        args:
+        - "TCP-LISTEN:{{ .Values.service.ports.socatNtc.targetPort }},fork"
+        - "UNIX-CLIENT:/ipc/node.socket,ignoreeof"
         ports:
         - containerPort: {{ .Values.service.ports.socatNtc.targetPort }}
         resources: {{ .Values.socat.resources | toYaml | nindent 10 }}
