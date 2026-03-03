@@ -109,3 +109,11 @@ vpn: {}
   # domain:
   # region:
   # port:
+
+wireguard: {}
+  # endpoint:
+  # containerUrl:
+  # serverPubKey:
+  # jwtPrivateKey:
+  # maxDevices:
+  # subnet:
