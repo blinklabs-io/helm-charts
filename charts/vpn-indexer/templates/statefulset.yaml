@@ -99,6 +99,30 @@ spec:
             - name: VPN_PORT
               value: {{ . }}
             {{- end }}
+            {{- with .Values.wireguard.endpoint }}
+            - name: VPN_WG_ENDPOINT
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.wireguard.containerUrl }}
+            - name: VPN_WG_CONTAINER_URL
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.wireguard.serverPubKey }}
+            - name: VPN_WG_SERVER_PUBKEY
+              value: {{ . }}
+            {{- end }}
+            {{- with .Values.wireguard.jwtPrivateKey }}
+            - name: VPN_WG_JWT_KEY_FILE
+              value: /secrets/wg_jwt_private_key
+            {{- end }}
+            {{- with .Values.wireguard.maxDevices }}
+            - name: VPN_WG_MAX_DEVICES
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.wireguard.subnet }}
+            - name: VPN_WG_SUBNET
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.s3.accessKey }}
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
