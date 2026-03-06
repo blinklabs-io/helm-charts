@@ -4,7 +4,6 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: {{ $name | replace "_" "-" }}
-  namespace: {{ $.Release.Namespace }}
   {{- if $data.labels }}
   labels: {{ toYaml $data.labels | nindent 4 }}
   {{- end }}
