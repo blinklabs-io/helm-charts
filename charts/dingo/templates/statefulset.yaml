@@ -60,7 +60,7 @@ spec:
             case ${NETWORK} in
               mainnet|preprod) __path=release-${NETWORK} ;;
               preview) __path=pre-release-${NETWORK} ;;
-              *) echo "Mithril not supported on ${NETWORK}... skipping"; exit 0 ;;
+              *) echo "Mithril not supported on ${NETWORK}"; exit 1 ;;
             esac
             export AGGREGATOR_ENDPOINT=https://aggregator.${__path}.api.mithril.network/aggregator
             if [ "$DEBUG_INIT" = "true" ]; then
