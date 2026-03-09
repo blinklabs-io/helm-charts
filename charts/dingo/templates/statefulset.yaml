@@ -18,11 +18,11 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "dingo.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        app.kubernetes.io/name: {{ include "dingo.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: dingo
@@ -56,6 +56,13 @@ spec:
         args:
           - |
             set -e
+            NETWORK="{{ .Values.environment.CARDANO_NETWORK }}"
+            case ${NETWORK} in
+              mainnet|preprod) __path=release-${NETWORK} ;;
+              preview) __path=pre-release-${NETWORK} ;;
+              *) echo "Mithril not supported on ${NETWORK}... skipping"; exit 0 ;;
+            esac
+            export AGGREGATOR_ENDPOINT=https://aggregator.${__path}.api.mithril.network/aggregator
             if [ "$DEBUG_INIT" = "true" ]; then
               echo "DEBUG: Checking mithril data directory..."
               ls -la /mithril-data/ || true
@@ -87,10 +94,8 @@ spec:
               exit 1
             fi
         env:
-          - name: AGGREGATOR_ENDPOINT
-            value: {{ .Values.mithril.aggregatorEndpoint | quote }}
           - name: GENESIS_VERIFICATION_KEY
-            value: {{ .Values.mithril.genesisVerificationKey | quote }}
+            value: {{ required "mithril.genesisVerificationKey must be set when mithril.enabled is true" .Values.mithril.genesisVerificationKey | quote }}
           - name: FORCE_REDOWNLOAD
             value: {{ .Values.mithril.forceRedownload | quote }}
           - name: DEBUG_INIT
@@ -148,7 +153,7 @@ spec:
 
             echo "Loading immutable data into Dingo database..."
             cd {{ .Values.environment.CARDANO_DATABASE_PATH }}
-            dingo load /mithril-data/db/immutable
+            dingo load{{- if .Values.dingoConfig.enabled }} --config /etc/dingo/dingo.yaml{{- end }} /mithril-data/db/immutable
             echo "Dingo load complete"
 
             # Cleanup mithril data to reclaim storage space (if configured)
@@ -176,6 +181,12 @@ spec:
           - name: dingo-data
             mountPath: /mithril-data
             subPath: mithril
+        {{- if .Values.dingoConfig.enabled }}
+          - name: dingo-config
+            mountPath: /etc/dingo/dingo.yaml
+            subPath: dingo.yaml
+            readOnly: true
+        {{- end }}
         {{- if .Values.resources }}
         resources: {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
@@ -276,9 +287,9 @@ spec:
       {{- end }}
       {{- if .Values.dingoConfig.enabled }}
       - name: dingo-config
-        configMap:
-          name: {{ include "dingo.fullname" . }}-config
-          defaultMode: 0644
+        secret:
+          secretName: {{ include "dingo.fullname" . }}-config
+          defaultMode: 0600
       {{- end }}
   volumeClaimTemplates:
     - metadata:

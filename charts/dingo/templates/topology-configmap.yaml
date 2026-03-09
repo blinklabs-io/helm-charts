@@ -39,9 +39,11 @@ data:
         {{- end }}
       {{- end }}
       {{- if $hasPublicRoots }}
-        {{- range $i, $public := .Values.topology.publicRoots }}
+        {{- $first := true }}
+        {{- range $public := .Values.topology.publicRoots }}
           {{- if and (hasKey $public "accessPoints") (gt (len $public.accessPoints) 0) }}
-            {{- if $i }},{{ end }}
+            {{- if not $first }},{{ end }}
+            {{- $first = false }}
             {
               "accessPoints": [
               {{- range $j, $peer := $public.accessPoints }}

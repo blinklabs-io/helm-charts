@@ -40,4 +40,4 @@ spec:
   selector:
     app.kubernetes.io/name: {{ include "dingo.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
-  sessionAffinity: ClientIP
+  sessionAffinity: {{ .Values.service.sessionAffinity | default "None" }}
