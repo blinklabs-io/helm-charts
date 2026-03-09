@@ -12,3 +12,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
+
+{{- define "dingo.matchLabels" -}}
+app.kubernetes.io/name: {{ include "dingo.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

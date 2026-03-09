@@ -20,8 +20,26 @@ spec:
       labels:
         app.kubernetes.io/name: {{ include "dingo.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        kubectl.kubernetes.io/default-container: dingo
+        {{- if .Values.blockProducer.enabled }}
+        checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}
+        {{- end }}
+        {{- if .Values.topology.enabled }}
+        checksum/topology: {{ .Values.topology | toJson | sha256sum }}
+        {{- end }}
+        {{- if .Values.dingoConfig.enabled }}
+        checksum/config: {{ .Values.dingoConfig.data | sha256sum }}
+        {{- end }}
     spec:
-      serviceAccountName: {{ .Release.Name }}
+      serviceAccountName: {{ .Values.serviceAccount.name | default .Release.Name }}
+      {{- if .Values.affinity }}
+      affinity: {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
       {{- end }}
@@ -165,6 +183,9 @@ spec:
       containers:
       - name: dingo
         command: ["dingo"]
+        {{- if .Values.dingoConfig.enabled }}
+        args: ["--config", "/etc/dingo/dingo.yaml"]
+        {{- end }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         env:
@@ -174,21 +195,91 @@ spec:
             value: "{{ $value }}"
           {{- end }}
           {{- end }}
+          {{- if not (index .Values.environment "CARDANO_CONFIG") }}
+          - name: CARDANO_CONFIG
+            value: "/opt/cardano/config/{{ .Values.environment.CARDANO_NETWORK }}/config.json"
+          {{- end }}
+          - name: CARDANO_TOPOLOGY
+            value: "/opt/cardano/config/{{ .Values.environment.CARDANO_NETWORK }}/topology.json"
+          {{- if .Values.blockProducer.enabled }}
+          - name: CARDANO_BLOCK_PRODUCER
+            value: "true"
+          - name: CARDANO_SHELLEY_VRF_KEY
+            value: "/keys/vrf.skey"
+          - name: CARDANO_SHELLEY_KES_KEY
+            value: "/keys/kes.skey"
+          - name: CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE
+            value: "/keys/node.cert"
+          {{- if .Values.blockProducer.forgeSyncToleranceSlots }}
+          - name: DINGO_FORGE_SYNC_TOLERANCE_SLOTS
+            value: {{ .Values.blockProducer.forgeSyncToleranceSlots | quote }}
+          {{- end }}
+          {{- if .Values.blockProducer.forgeStaleGapThresholdSlots }}
+          - name: DINGO_FORGE_STALE_GAP_THRESHOLD_SLOTS
+            value: {{ .Values.blockProducer.forgeStaleGapThresholdSlots | quote }}
+          {{- end }}
+          {{- end }}
+          - name: DINGO_SOCKET_PATH
+            value: /ipc/dingo.socket
+          - name: CARDANO_SOCKET_PATH
+            value: /ipc/dingo.socket
+          - name: CARDANO_NODE_SOCKET_PATH
+            value: /ipc/dingo.socket
         ports:
           - name: private
             containerPort: {{ .Values.service.ports.private }}
           - name: relay
             containerPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
           - name: utxorpc
-            containerPort: {{ .Values.environment.CARDANO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+            containerPort: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
           - name: metrics
             containerPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
         volumeMounts:
           - name: dingo-data
             mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
+          {{- if .Values.blockProducer.enabled }}
+          - name: block-producer-keys
+            mountPath: /keys
+            readOnly: true
+          {{- end }}
+          {{- if .Values.topology.enabled }}
+          - name: topology
+            mountPath: /opt/cardano/config/{{ .Values.environment.CARDANO_NETWORK }}/topology.json
+            subPath: topology.json
+            readOnly: true
+          {{- end }}
+          - name: node-ipc
+            mountPath: /ipc
+          {{- if .Values.dingoConfig.enabled }}
+          - name: dingo-config
+            mountPath: /etc/dingo/dingo.yaml
+            subPath: dingo.yaml
+            readOnly: true
+          {{- end }}
         {{- if .Values.resources }}
         resources: {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
+      volumes:
+      - name: node-ipc
+        emptyDir: {}
+      {{- if .Values.blockProducer.enabled }}
+      - name: block-producer-keys
+        secret:
+          defaultMode: 0600
+          secretName: {{ .Release.Name }}-secret
+      {{- end }}
+      {{- if .Values.topology.enabled }}
+      - name: topology
+        configMap:
+          name: {{ include "dingo.fullname" . }}-topology
+          defaultMode: 0644
+      {{- end }}
+      {{- if .Values.dingoConfig.enabled }}
+      - name: dingo-config
+        configMap:
+          name: {{ include "dingo.fullname" . }}-config
+          defaultMode: 0644
+      {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: dingo-data

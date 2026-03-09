@@ -1,0 +1,12 @@
+{{- if .Values.dingoConfig.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dingo.fullname" . }}-config
+  namespace: {{ .Release.Namespace | default "default" }}
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+data:
+  dingo.yaml: |
+    {{- .Values.dingoConfig.data | nindent 4 }}
+{{- end }}
