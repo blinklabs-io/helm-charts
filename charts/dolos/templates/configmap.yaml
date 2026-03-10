@@ -6,75 +6,45 @@ metadata:
 data:
   dolos.toml: |
     [upstream]
-    {{- if eq .Values.network "mainnet" }}
-    network_magic = 764824073
-    {{- else if eq .Values.network "preprod" }}
-    network_magic = 1
-    {{- else if eq .Values.network "preview" }}
-    network_magic = 2
-    {{- end }}
-
     {{- if .Values.peerAddress }}
     peer_address = "{{ .Values.peerAddress }}"
-    {{- if eq .Values.network "mainnet" }}
-    is_testnet = false
-    {{- else }}
-    is_testnet = true
-    {{- end }}
     {{- else if eq .Values.network "mainnet" }}
     peer_address = "backbone.{{ .Values.network }}.cardanofoundation.org:3001"
-    is_testnet = false
     {{- else }}
     peer_address = "{{ .Values.network }}-node.play.dev.cardano.org:3001"
+    {{- end }}
+    {{- if not (or (eq .Values.network "mainnet") (eq .Values.network "preprod") (eq .Values.network "preview")) }}
+    {{- fail (printf "Unsupported network: %s. Supported networks are: mainnet, preprod, preview" .Values.network) }}
+    {{- end }}
+    {{- if eq .Values.network "mainnet" }}
+    network_magic = 764824073
+    is_testnet = false
+    {{- else if eq .Values.network "preprod" }}
+    network_magic = 1
+    is_testnet = true
+    {{- else if eq .Values.network "preview" }}
+    network_magic = 2
     is_testnet = true
     {{- end }}
-
-    [storage]
-    version = "{{ .Values.configmap.storage.version }}"
-    path = "/var/data/{{ .Values.network }}/db"
-    wal_size = {{ .Values.configmap.storage.wal_size }}
 
     [genesis]
     byron_path = "/etc/genesis/{{ .Values.network }}/byron.json"
     shelley_path = "/etc/genesis/{{ .Values.network }}/shelley.json"
     alonzo_path = "/etc/genesis/{{ .Values.network }}/alonzo.json"
     conway_path = "/etc/genesis/{{ .Values.network }}/conway.json"
-
-    [sync]
-    pull_batch_size = {{ .Values.configmap.sync.pull_batch_size }}
-
-    [submit]
-    prune_height = {{ .Values.configmap.submit.prune_height }}
+    {{- if and .Values.configmap.genesis .Values.configmap.genesis.force_protocol }}
+    force_protocol = {{ .Values.configmap.genesis.force_protocol }}
+    {{- end }}
 
     [mithril]
-    aggregator = "https://aggregator.release-{{ .Values.network }}.api.mithril.network/aggregator"
     {{- if eq .Values.network "mainnet" }}
+    aggregator = "https://aggregator.release-{{ .Values.network }}.api.mithril.network/aggregator"
     genesis_key = "5b3139312c36362c3134302c3138352c3133382c31312c3233372c3230372c3235302c3134342c32372c322c3138382c33302c31322c38312c3135352c3230342c31302c3137392c37352c32332c3133382c3139362c3231372c352c31342c32302c35372c37392c33392c3137365d"
-    {{- else }}
+    {{- else if eq .Values.network "preprod" }}
+    aggregator = "https://aggregator.release-{{ .Values.network }}.api.mithril.network/aggregator"
+    genesis_key = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
+    {{- else if eq .Values.network "preview" }}
+    aggregator = "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
     genesis_key = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
     {{- end }}
-
-    [serve.grpc]
-    listen_address = "[::]:{{ .Values.ports.grpc }}"
-    permissive_cors = true
-
-    [serve.ouroboros]
-    listen_path = "/ipc/dolos.socket"
-    {{- if eq .Values.network "mainnet" }}
-    magic = 764824073
-    {{- else if eq .Values.network "preprod" }}
-    magic = 1
-    {{- else if eq .Values.network "preview" }}
-    magic = 2
-    {{- end }}
-
-    [serve.minibf]
-    listen_address = "[::]:{{ .Values.ports.minibf }}"
-
-    [logging]
-    max_level = "{{ .Values.configmap.logging.max_level }}"
-    include_tokio = {{ .Values.configmap.logging.include_tokio }}
-    include_pallas = {{ .Values.configmap.logging.include_pallas }}
-    include_grpc = {{ .Values.configmap.logging.include_grpc }}
-    include_trp = {{ .Values.configmap.logging.include_trp }}
-    include_minibf = {{ .Values.configmap.logging.include_minibf }}
+  {{ .Values.configmap | toToml | nindent 4 }}

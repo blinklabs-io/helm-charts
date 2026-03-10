@@ -1,8 +1,8 @@
 apiVersion: v2
 name: dolos
 description: Dolos server
-version: 0.3.1
-appVersion: "0.32.0"
+version: 0.4.0
+appVersion: "0.33.1"
 
 sources:
   - https://github.com/txpipe/dolos
@@ -10,8 +10,6 @@ sources:
 maintainers:
   - name: aurora
     email: aurora@blinklabs.io
-  - name: overcookedpanda
-    email: overcookedpanda@blinklabs.io
   - name: verbotenj
     email: verbotenj@blinklabs.io
   - name: wolf31o2
