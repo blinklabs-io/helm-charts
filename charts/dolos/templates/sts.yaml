@@ -88,13 +88,10 @@ spec:
         - name: socat-ntc
           image: "{{ .Values.socat.image.repository }}:{{ .Values.socat.image.tag }}"
           imagePullPolicy: {{ .Values.socat.image.pullPolicy | default "IfNotPresent" }}
-          env:
-            - name: PORT
-              value: "{{ .Values.ports.ouroboros }}"
           command:
-            - sh
-            - -c
-            - socat TCP-LISTEN:${PORT},fork UNIX-CLIENT:/ipc/dolos.socket,ignoreeof
+            - socat
+            - TCP-LISTEN:{{ .Values.ports.ouroboros }},fork
+            - UNIX-CLIENT:/ipc/dolos.socket,ignoreeof
           ports:
             - name: socat-ntc
               containerPort: {{ .Values.ports.ouroboros }}
