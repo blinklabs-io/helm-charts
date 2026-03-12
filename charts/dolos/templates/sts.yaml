@@ -49,6 +49,7 @@ spec:
             - -c
             - /etc/config/dolos.toml
             - bootstrap
+            - --skip-if-data
             - snapshot
             - --variant
             - full
