@@ -32,8 +32,8 @@ data:
     shelley_path = "/etc/genesis/{{ .Values.network }}/shelley.json"
     alonzo_path = "/etc/genesis/{{ .Values.network }}/alonzo.json"
     conway_path = "/etc/genesis/{{ .Values.network }}/conway.json"
-    {{- if and .Values.configmap.genesis .Values.configmap.genesis.force_protocol }}
-    force_protocol = {{ .Values.configmap.genesis.force_protocol }}
+    {{- if .Values.configmap.genesis }}
+    {{- regexReplaceAll `(?m)=\s+(\d+)\.0\s*$` (.Values.configmap.genesis | toToml) "= ${1}" | trim | nindent 4 }}
     {{- end }}
 
     [mithril]
@@ -47,4 +47,10 @@ data:
     aggregator = "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
     genesis_key = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
     {{- end }}
-  {{ .Values.configmap | toToml | nindent 4 }}
+  {{- $networkMagic := 764824073 }}
+  {{- $isTestnet := false }}
+  {{- if eq .Values.network "preprod" }}{{- $networkMagic = 1 }}{{- $isTestnet = true }}{{- end }}
+  {{- if eq .Values.network "preview" }}{{- $networkMagic = 2 }}{{- $isTestnet = true }}{{- end }}
+  {{- $chain := mergeOverwrite (deepCopy (default (dict) .Values.configmap.chain)) (dict "magic" $networkMagic "is_testnet" $isTestnet) }}
+  {{- $cm := set (deepCopy (omit .Values.configmap "genesis" "chain")) "chain" $chain }}
+  {{- regexReplaceAll `(?m)=\s+(\d+)\.0\s*$` ($cm | toToml) "= ${1}" | nindent 4 }}
