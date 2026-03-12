@@ -69,23 +69,23 @@ socat:
 
 # Dolos specific configuration values
 configmap:
-  # storage:
-  #   version: "v3"
-  #   path: "/var/data/db"
-  #   wal:
-  #     backend: "redb"
-  #     max_history: 129600
-  #   state:
-  #     backend: "fjall"
-  #   archive:
-  #     backend: "redb"
-  #   index:
-  #     backend: "fjall"
-  #   mempool:
-  #     backend: "redb"
+  storage:
+    version: "v3"
+    path: "/var/data/db"
+    # wal:
+    #   backend: "redb"
+    #   max_history: 129600
+    # state:
+    #   backend: "fjall"
+    # archive:
+    #   backend: "redb"
+    # index:
+    #   backend: "fjall"
+    # mempool:
+    #   backend: "redb"
 
-  # genesis:
-  #  force_protocol: 6
+  genesis:
+    force_protocol: 6
 
   # sync:
   #   pull_batch_size: 100
@@ -129,9 +129,9 @@ configmap:
 
   logging:
     max_level: "INFO"
-  #   include_tokio: false
-  #   include_pallas: false
-  #   include_grpc: true
-  #   include_trp: true
-  #   include_minibf: true
-  #   include_fjall: true
+    # include_tokio: false
+    # include_pallas: false
+    # include_grpc: true
+    # include_trp: true
+    # include_minibf: true
+    # include_fjall: true
