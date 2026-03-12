@@ -1,0 +1,57 @@
+---
+{{- if .Values.topology.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dingo.fullname" . }}-topology
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+data:
+  topology.json: |
+    {
+      "bootstrapPeers": [{{- range $i, $peer := .Values.topology.bootstrapPeers }}
+        {{- if $i }},{{ end }}
+        { "address": {{ $peer.address | toJson }}, "port": {{ $peer.port }} }
+      {{- end }}],
+      "localRoots": [
+      {{- range $i, $local := .Values.topology.localRoots }}
+        {{- if $i }},{{ end }}
+        {
+          "accessPoints": [
+          {{- range $j, $peer := $local.accessPoints }}
+            {{- if $j }},{{ end }}
+            { "address": {{ $peer.address | toJson }}, "port": {{ $peer.port }}{{- if $peer.name }}, "name": {{ $peer.name | toJson }}{{- end }} }
+          {{- end }}
+          ],
+          "advertise": {{ $local.advertise | toJson }},
+          "trustable": {{ $local.trustable | default false | toJson }},
+          "valency": {{ $local.valency }}
+          {{- if $local.warmValency }},
+          "warmValency": {{ $local.warmValency }}
+          {{- end }}
+        }
+      {{- end }}
+      ]
+      {{- with .Values.topology.peerSnapshotFile }},
+      "peerSnapshotFile": {{ . | toJson }}
+      {{- end }},
+      "publicRoots": [{{- $publicIndex := 0 }}
+      {{- range $public := .Values.topology.publicRoots }}
+        {{- if and (hasKey $public "accessPoints") (gt (len $public.accessPoints) 0) }}
+          {{- if gt $publicIndex 0 }},{{ end }}
+          {
+            "accessPoints": [{{- $peerIndex := 0 }}
+            {{- range $peer := $public.accessPoints }}
+              {{- if gt $peerIndex 0 }},{{ end }}
+              { "address": {{ $peer.address | toJson }}, "port": {{ $peer.port }}{{- if $peer.name }}, "name": {{ $peer.name | toJson }}{{- end }} }
+              {{- $peerIndex = add1 $peerIndex }}
+            {{- end }}
+            ],
+            "advertise": {{ $public.advertise | default false | toJson }}
+          }
+          {{- $publicIndex = add1 $publicIndex }}
+        {{- end }}
+      {{- end }}],
+      "useLedgerAfterSlot": {{ .Values.topology.useLedgerAfterSlot | int }}
+    }
+{{- end }}

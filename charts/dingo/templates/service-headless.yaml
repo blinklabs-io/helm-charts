@@ -9,18 +9,29 @@ spec:
   clusterIP: None
   type: ClusterIP
   ports:
-    - name: private
-      port: {{ .Values.service.ports.private }}
-      targetPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
     - name: relay
       port: {{ .Values.service.ports.relay }}
       targetPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
-    - name: utxorpc
-      port: {{ .Values.service.ports.utxorpc }}
-      targetPort: {{ .Values.environment.CARDANO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+    - name: private
+      port: {{ .Values.service.ports.private }}
+      targetPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
     - name: metrics
       port: {{ .Values.service.ports.metrics }}
       targetPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
+{{- if gt (int (default "0" (default .Values.service.ports.utxorpc .Values.environment.DINGO_UTXORPC_PORT))) 0 }}
+    - name: utxorpc
+      port: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+      targetPort: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.blockfrost .Values.environment.DINGO_BLOCKFROST_PORT))) 0 }}
+    - name: blockfrost
+      port: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+      targetPort: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.mesh .Values.environment.DINGO_MESH_PORT))) 0 }}
+    - name: mesh
+      port: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+      targetPort: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+{{- end }}
   selector:
-    app.kubernetes.io/name: {{ include "dingo.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "dingo.matchLabels" . | nindent 4 }}

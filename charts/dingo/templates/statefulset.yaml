@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -13,185 +14,196 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "dingo.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- include "dingo.matchLabels" . | nindent 6 }}
   template:
     metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        kubectl.kubernetes.io/default-container: dingo
+{{- if .Values.blockProducer.enabled }}
+        checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}
+{{- end }}
+{{- if .Values.topology.enabled }}
+        checksum/topology: {{ .Values.topology | toJson | sha256sum }}
+{{- end }}
       labels:
-        app.kubernetes.io/name: {{ include "dingo.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "dingo.labels" . | nindent 8 }}
+{{- with .Values.extraPodLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
     spec:
-      serviceAccountName: {{ .Release.Name }}
-      {{- if .Values.tolerations }}
+      serviceAccountName: {{ include "dingo.fullname" . }}
+{{- if .Values.affinity }}
+      affinity: {{ .Values.affinity | toYaml | nindent 8 }}
+{{- end }}
+{{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
-      {{- end }}
-      {{- if .Values.mithril.enabled }}
+{{- end }}
+{{- if .Values.mithril.enabled }}
       initContainers:
-      # Download Cardano snapshot using mithril-client
-      - name: mithril-snapshot
-        image: {{ .Values.mithril.image.repository }}:{{ .Values.mithril.image.tag }}
-        imagePullPolicy: {{ .Values.mithril.image.pullPolicy }}
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            set -e
-            if [ "$DEBUG_INIT" = "true" ]; then
-              echo "DEBUG: Checking mithril data directory..."
-              ls -la /mithril-data/ || true
-              echo "DEBUG: Checking for db subdirectory..."
-              ls -la /mithril-data/db/ || true
-            fi
-
-            # Check if snapshot was successfully downloaded (marker file indicates complete download)
-            if [ -f "/mithril-data/.download-complete" ] && [ "$FORCE_REDOWNLOAD" != "true" ]; then
-              echo "Mithril snapshot already exists at /mithril-data/db/ (verified by marker file)"
-              exit 0
-            fi
-
-            # Remove existing data if force redownload is enabled
-            if [ "$FORCE_REDOWNLOAD" = "true" ]; then
-              echo "Force redownload enabled, removing existing mithril data..."
-              rm -rf /mithril-data/*
-            fi
-
-            echo "Starting mithril snapshot download..."
-            if mithril-client cardano-db download {{ .Values.mithril.snapshotDigest | default "latest" }} \
-              --download-dir /mithril-data \
-              --json; then
-              # Create marker file to indicate successful download
-              touch /mithril-data/.download-complete
-              echo "Mithril snapshot download complete"
-            else
-              echo "ERROR: Mithril snapshot download failed"
-              exit 1
-            fi
-        env:
-          - name: AGGREGATOR_ENDPOINT
-            value: {{ .Values.mithril.aggregatorEndpoint | quote }}
-          - name: GENESIS_VERIFICATION_KEY
-            value: {{ .Values.mithril.genesisVerificationKey | quote }}
-          - name: FORCE_REDOWNLOAD
-            value: {{ .Values.mithril.forceRedownload | quote }}
-          - name: DEBUG_INIT
-            value: {{ .Values.mithril.debugInit | quote }}
-        volumeMounts:
-          - name: dingo-data
-            mountPath: /mithril-data
-            subPath: mithril
-        {{- if .Values.resources }}
-        resources: {{- toYaml .Values.resources | nindent 12 }}
-        {{- end }}
-      # Load blocks from immutable DB into Dingo's database
-      - name: dingo-load
+      # Native Mithril bootstrap using dingo's built-in mithril sync
+      - name: mithril-sync
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         securityContext:
           runAsUser: 0
-          runAsGroup: 0
+          readOnlyRootFilesystem: false
         command: ["/bin/sh", "-c"]
         args:
           - |
             set -e
+
             if [ "$DEBUG_INIT" = "true" ]; then
-              echo "DEBUG: Listing CARDANO_DATABASE_PATH..."
+              echo "DEBUG: Checking data directory..."
               ls -la {{ .Values.environment.CARDANO_DATABASE_PATH }} || true
-              echo "DEBUG: Listing mithril data directory..."
-              ls -la /mithril-data/ || true
-              echo "DEBUG: Listing mithril db subdirectory..."
-              ls -la /mithril-data/db/ || true
-              # echo "DEBUG: Checking for immutable directory..."
-              # ls -la /mithril-data/db/immutable/ || true
             fi
 
-            # Check if force reload is enabled
-            if [ "$FORCE_RELOAD" = "true" ]; then
-              echo "Force reload enabled, removing existing Dingo database..."
+            # Check if database already exists (skip sync if data present)
+            if [ -f "{{ .Values.environment.CARDANO_DATABASE_PATH }}/metadata.sqlite" ] && [ "$FORCE_RESYNC" != "true" ]; then
+              echo "Database already exists, skipping mithril sync"
+              exit 0
+            fi
+
+            # Remove existing data if force resync is enabled
+            if [ "$FORCE_RESYNC" = "true" ]; then
+              echo "Force resync enabled, removing existing database..."
               rm -rf {{ .Values.environment.CARDANO_DATABASE_PATH }}/blob/* \
                      {{ .Values.environment.CARDANO_DATABASE_PATH }}/db/* \
-                     {{ .Values.environment.CARDANO_DATABASE_PATH }}/metadata.sqlite* 2>/dev/null || true
-              rmdir {{ .Values.environment.CARDANO_DATABASE_PATH }}/blob \
-                    {{ .Values.environment.CARDANO_DATABASE_PATH }}/db 2>/dev/null || true
+                     {{ .Values.environment.CARDANO_DATABASE_PATH }}/metadata.sqlite* \
+                     {{ .Values.environment.CARDANO_DATABASE_PATH }}/.mithril-cache/* 2>/dev/null || true
             fi
 
-            # Check if Dingo database already initialized (dingo creates blob/, db/, and metadata.sqlite)
-            if [ -f "{{ .Values.environment.CARDANO_DATABASE_PATH }}/metadata.sqlite" ]; then
-              echo "Dingo database already initialized, skipping load"
-              exit 0
-            fi
+            echo "Starting native mithril sync..."
+            echo "(This could take a while...)"
 
-            # Check if immutable data exists (mithril downloads to db/ subdirectory)
-            if [ ! -d "/mithril-data/db/immutable" ] || [ "$(ls -A /mithril-data/db/immutable 2>/dev/null | wc -l)" -eq 0 ]; then
-              echo "ERROR: No immutable data found at /mithril-data/db/immutable"
-              exit 1
-            fi
+            # Run dingo mithril sync - handles download, load, and ledger catchup
+            # Network, database path, and mithril config are picked up from env vars
+            dingo mithril sync
 
-            echo "Loading immutable data into Dingo database..."
-            cd {{ .Values.environment.CARDANO_DATABASE_PATH }}
-            dingo load /mithril-data/db/immutable
-            echo "Dingo load complete"
-
-            # Cleanup mithril data to reclaim storage space (if configured)
-            if [ "$CLEANUP_AFTER_LOAD" = "true" ]; then
-              echo "Cleaning up mithril snapshot data to reclaim storage..."
-              rm -rf /mithril-data/*
-              echo "Cleanup complete - reclaimed storage space."
-            else
-              echo "Keeping mithril snapshot data for potential reloads"
-            fi
+            echo "Mithril sync complete"
         env:
           {{- range $key, $value := .Values.environment }}
-          - name: {{ $key }}
-            value: {{ $value | quote }}
-          {{- end }}
-          - name: FORCE_RELOAD
-            value: {{ .Values.mithril.forceReload | quote }}
-          - name: CLEANUP_AFTER_LOAD
-            value: {{ .Values.mithril.cleanupAfterLoad | quote }}
-          - name: DEBUG_INIT
-            value: {{ .Values.mithril.debugInit | quote }}
-        volumeMounts:
-          - name: dingo-data
-            mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
-          - name: dingo-data
-            mountPath: /mithril-data
-            subPath: mithril
-        {{- if .Values.resources }}
-        resources: {{- toYaml .Values.resources | nindent 12 }}
-        {{- end }}
-      {{- end }}
-      containers:
-      - name: dingo
-        command: ["dingo"]
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        env:
-          {{- range $key, $value := .Values.environment }}
-          {{- if $value }}
+          {{- if not (kindIs "invalid" $value) }}
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
           {{- end }}
-        ports:
-          - name: private
-            containerPort: {{ .Values.service.ports.private }}
-          - name: relay
-            containerPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
-          - name: utxorpc
-            containerPort: {{ .Values.environment.CARDANO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
-          - name: metrics
-            containerPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
+          {{- if .Values.mithril.aggregatorUrl }}
+          - name: DINGO_MITHRIL_AGGREGATOR_URL
+            value: {{ .Values.mithril.aggregatorUrl | quote }}
+          {{- end }}
+          {{- if .Values.mithril.downloadDir }}
+          - name: DINGO_MITHRIL_DOWNLOAD_DIR
+            value: {{ .Values.mithril.downloadDir | quote }}
+          {{- end }}
+          - name: DINGO_MITHRIL_CLEANUP
+            value: {{ .Values.mithril.cleanupAfterLoad | quote }}
+          - name: DINGO_MITHRIL_VERIFY_CERTS
+            value: {{ .Values.mithril.verifyCertificates | quote }}
+          - name: FORCE_RESYNC
+            value: {{ .Values.mithril.forceResync | quote }}
+          - name: DEBUG_INIT
+            value: {{ .Values.mithril.debugInit | quote }}
         volumeMounts:
           - name: dingo-data
             mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
+        {{- if .Values.mithril.resources }}
+        resources: {{- toYaml .Values.mithril.resources | nindent 12 }}
+        {{- end }}
+{{- end }}
+      containers:
+      - name: dingo
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          runAsUser: 0
+          readOnlyRootFilesystem: false
+        env:
+          {{- range $key, $value := .Values.environment }}
+          {{- if not (kindIs "invalid" $value) }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
+          {{- end }}
+{{- if .Values.blockProducer.enabled }}
+          - name: CARDANO_BLOCK_PRODUCER
+            value: "true"
+          - name: CARDANO_SHELLEY_KES_KEY
+            value: "/keys/kes.skey"
+          - name: CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE
+            value: "/keys/node.cert"
+          - name: CARDANO_SHELLEY_VRF_KEY
+            value: "/keys/vrf.skey"
+          - name: DINGO_FORGE_SYNC_TOLERANCE_SLOTS
+            value: {{ .Values.blockProducer.forgeSyncToleranceSlots | quote }}
+          - name: DINGO_FORGE_STALE_GAP_THRESHOLD_SLOTS
+            value: {{ .Values.blockProducer.forgeStaleGapThresholdSlots | quote }}
+          - name: DINGO_SLOTS_PER_KES_PERIOD
+            value: {{ .Values.blockProducer.slotsPerKESPeriod | quote }}
+          - name: DINGO_MAX_KES_EVOLUTIONS
+            value: {{ .Values.blockProducer.maxKESEvolutions | quote }}
+{{- end }}
+{{- if .Values.topology.enabled }}
+          - name: CARDANO_TOPOLOGY
+            value: "/config/topology.json"
+{{- end }}
+        ports:
+          - name: relay
+            containerPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+          - name: private
+            containerPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
+          - name: metrics
+            containerPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
+{{- if gt (int (default "0" (default .Values.service.ports.utxorpc .Values.environment.DINGO_UTXORPC_PORT))) 0 }}
+          - name: utxorpc
+            containerPort: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.blockfrost .Values.environment.DINGO_BLOCKFROST_PORT))) 0 }}
+          - name: blockfrost
+            containerPort: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.mesh .Values.environment.DINGO_MESH_PORT))) 0 }}
+          - name: mesh
+            containerPort: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+{{- end }}
+        volumeMounts:
+          - name: dingo-data
+            mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
+{{- if .Values.topology.enabled }}
+          - name: topology
+            mountPath: /config/topology.json
+            subPath: topology.json
+{{- end }}
+{{- if .Values.blockProducer.enabled }}
+          - name: block-producer-keys
+            mountPath: /keys
+            readOnly: true
+{{- end }}
         {{- if .Values.resources }}
         resources: {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
+{{- if .Values.sidecars }}
+{{ toYaml .Values.sidecars | nindent 6 }}
+{{- end }}
+      restartPolicy: Always
+      volumes:
+{{- if .Values.topology.enabled }}
+      - name: topology
+        configMap:
+          name: {{ include "dingo.fullname" . }}-topology
+          defaultMode: 0644
+{{- end }}
+{{- if .Values.blockProducer.enabled }}
+      - name: block-producer-keys
+        secret:
+          defaultMode: 0600
+          secretName: {{ include "dingo.fullname" . }}-keys
+{{- end }}
   volumeClaimTemplates:
     - metadata:
         name: dingo-data
+        labels:
+          cardano_network: {{ include "dingo.network" . }}
       spec:
         accessModes:
         - {{ .Values.persistence.accessMode }}

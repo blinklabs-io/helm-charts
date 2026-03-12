@@ -6,75 +6,173 @@ updateStrategy:
 
 image:
   repository: ghcr.io/blinklabs-io/dingo
-  tag: "0.21.0"
+  tag: "0.23.1"
   pullPolicy: IfNotPresent
 
+# Native Mithril snapshot bootstrap via dingo's built-in mithril sync
+# Uses dingo's native Go Mithril client (no external mithril-client binary needed)
 mithril:
   enabled: true
-  image:
-    repository: ghcr.io/blinklabs-io/mithril-client
-    tag: "0.12.33"
-    pullPolicy: IfNotPresent
-  # Mithril aggregator URL
-  # All network configurations (aggregator endpoints, genesis keys, etc.) are documented at:
-  # https://github.com/input-output-hk/mithril/blob/main/networks.json
-  #
-  # Aggregator endpoints:
+  # Aggregator URL is auto-detected from network name when empty
   # Mainnet: https://aggregator.release-mainnet.api.mithril.network/aggregator
   # Preprod: https://aggregator.release-preprod.api.mithril.network/aggregator
-  # Preview (pre-release): https://aggregator.pre-release-preview.api.mithril.network/aggregator
-  # Preview (testing): https://aggregator.testing-preview.api.mithril.network/aggregator
-  aggregatorEndpoint: "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
-  # Genesis verification key for the network
-  # Fetch from networks.json genesis.verification-key.url for each network
-  # Mainnet: curl -sL https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey
-  # Preprod: curl -sL https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey
-  # Preview: curl -sL https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey
-  genesisVerificationKey: "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
-  # Specific snapshot digest to download (leave empty for latest)
-  snapshotDigest: ""
-  # Force re-download of mithril snapshot even if data exists
-  # Useful for updating to a newer snapshot
-  # WARNING: This will delete existing mithril data
-  forceRedownload: false
-  # Force re-load of Dingo database from immutable data even if database exists
-  # Useful for rebuilding database from existing snapshot without re-downloading
-  # WARNING: This will delete existing Dingo database
-  forceReload: false
-  # Cleanup mithril snapshot data after loading to reclaim storage space
-  # WARNING: If forceReload is true and this is true, subsequent restarts won't be able to reload
-  # Recommended: false if forceReload is true, true otherwise to save storage
-  cleanupAfterLoad: false
-  # Enable debug logging in init containers (shows directory listings, etc.)
+  # Preview: https://aggregator.pre-release-preview.api.mithril.network/aggregator
+  aggregatorUrl: ""
+  # Download directory for mithril snapshot (default: <databasePath>/.mithril-cache)
+  downloadDir: ""
+  # Cleanup temp files after loading snapshot
+  cleanupAfterLoad: true
+  # Verify mithril certificate chain
+  verifyCertificates: true
+  # Force re-sync even if database already exists
+  # WARNING: This will delete existing database data
+  forceResync: false
+  # Enable debug logging in init container
   debugInit: false
+  # Resource limits for the mithril init container
+  resources: {}
+    # limits:
+    #   cpu: 2
+    #   memory: 4Gi
+    # requests:
+    #   cpu: 1
+    #   memory: 2Gi
 
+# Block producer (SPO) configuration
+# Requires KES signing key, VRF signing key, and operational certificate
+blockProducer:
+  enabled: false
+  # Forging sync tolerance - skip forging if more than this many slots behind tip
+  forgeSyncToleranceSlots: 100
+  # Slot gap threshold that triggers stale database warning
+  forgeStaleGapThresholdSlots: 1000
+  # KES period configuration (should match network genesis parameters)
+  slotsPerKESPeriod: 129600
+  maxKESEvolutions: 62
+  # Block producer keys - stored as a Kubernetes Secret
+  # Generate keys using cardano-cli and provide in the same JSON format
+#  keys:
+#    - name: kes.skey
+#      type: KesSigningKey_ed25519_kes_2^6
+#      description: KES Signing Key
+#      cborHex: ""
+#    - name: node.cert
+#      type: NodeOperationalCertificate
+#      description: ""
+#      cborHex: ""
+#    - name: vrf.skey
+#      type: VrfSigningKey_PraosVRF
+#      description: VRF Signing Key
+#      cborHex: ""
+
+# Custom P2P topology configuration
+# When disabled, dingo uses built-in bootstrap peers for the configured network
+topology:
+  enabled: false
+#  bootstrapPeers:
+#    - address: preview-node.play.dev.cardano.org
+#      port: 3001
+#  localRoots:
+#    - accessPoints:
+#        - name: Example
+#          address: preview-node.play.dev.cardano.org
+#          port: 3001
+#      advertise: false
+#      trustable: true
+#      valency: 1
+#  publicRoots:
+#    - accessPoints:
+#        - name: Example
+#          address: preview-node.play.dev.cardano.org
+#          port: 3001
+#      advertise: true
+#  # useLedgerAfterSlot: -1 to disable ledger peer discovery
+#  useLedgerAfterSlot: 83116868
+
+# Environment variables passed directly to the dingo container
+# Dingo reads CARDANO_* and DINGO_* environment variables
+# See https://github.com/blinklabs-io/dingo for full list
 environment:
   CARDANO_NETWORK: "preview"
   CARDANO_DATABASE_PATH: "/data"
-  # CARDANO_BIND_ADDR
-  # CARDANO_CONFIG
-  # CARDANO_SOCKET_PATH
-  # CARDANO_TLS_CERT_FILE_PATH
-  # CARDANO_TLS_KEY_FILE_PATH
-  # CARDANO_TOPOLOGY
-  # CARDANO_METRICS_PORT
-  # CARDANO_PRIVATE_BIND_ADDR
-  # CARDANO_PRIVATE_PORT
-# CARDANO_PORT is Relay Port
-  # CARDANO_PORT
-  # CARDANO_UTXORPC_PORT
-  # CARDANO_INTERSECT_TIP
-
+  # Core node settings
+  # CARDANO_BIND_ADDR: "0.0.0.0"
+  # CARDANO_CONFIG: ""
+  # CARDANO_SOCKET_PATH: "dingo.socket"
+  # CARDANO_PORT: "3001"
+  # CARDANO_PRIVATE_BIND_ADDR: "127.0.0.1"
+  # CARDANO_PRIVATE_PORT: "3002"
+  # CARDANO_METRICS_PORT: "12798"
+  # CARDANO_TOPOLOGY: ""
+  # CARDANO_INTERSECT_TIP: "false"
+  # CARDANO_VALIDATE_HISTORICAL: "false"
+  # CARDANO_SHUTDOWN_TIMEOUT: "30s"
+  # CARDANO_MEMPOOL_CAPACITY: "1048576"
+  #
+  # Run/storage mode
+  # DINGO_RUN_MODE: "serve"           # serve, load, dev, leios
+  # DINGO_STORAGE_MODE: "core"        # core or api (api required for blockfrost/mesh/utxorpc)
+  #
+  # API ports (0 = disabled, requires storageMode=api)
+  # DINGO_UTXORPC_PORT: "0"
+  # DINGO_BLOCKFROST_PORT: "0"
+  # DINGO_MESH_PORT: "0"
+  #
+  # TLS for UTxO RPC gRPC
+  # TLS_CERT_FILE_PATH: ""
+  # TLS_KEY_FILE_PATH: ""
+  #
+  # Peer targeting
+  # DINGO_TARGET_KNOWN_PEERS: "150"
+  # DINGO_TARGET_ESTABLISHED_PEERS: "50"
+  # DINGO_TARGET_ACTIVE_PEERS: "20"
+  # DINGO_ACTIVE_PEERS_TOPOLOGY_QUOTA: "3"
+  # DINGO_ACTIVE_PEERS_GOSSIP_QUOTA: "12"
+  # DINGO_ACTIVE_PEERS_LEDGER_QUOTA: "5"
+  #
+  # Chainsync
+  # DINGO_CHAINSYNC_MAX_CLIENTS: "3"
+  # DINGO_CHAINSYNC_STALL_TIMEOUT: "2m"
+  #
+  # Cache tuning
+  # DINGO_CACHE_HOT_UTXO_ENTRIES: "50000"
+  # DINGO_CACHE_HOT_TX_ENTRIES: "10000"
+  # DINGO_CACHE_HOT_TX_MAX_BYTES: "268435456"
+  # DINGO_CACHE_BLOCK_LRU_ENTRIES: "500"
+  # DINGO_CACHE_WARMUP_BLOCKS: "1000"
+  # DINGO_CACHE_WARMUP_SYNC: "true"
+  #
+  # Mempool
+  # DINGO_MEMPOOL_EVICTION_WATERMARK: "0.90"
+  # DINGO_MEMPOOL_REJECTION_WATERMARK: "0.95"
+  #
+  # Ledger
+  # DINGO_LEDGER_CATCHUP_TIMEOUT: "30m"
+  #
+  # Database plugins
+  # DINGO_DATABASE_METADATA_PLUGIN: "sqlite"    # sqlite, postgres, mysql
+  # DINGO_DATABASE_BLOB_PLUGIN: "badger"        # badger, s3, gcs
+  # DINGO_DATABASE_WORKERS: "5"
+  # DINGO_DATABASE_QUEUE_SIZE: "50"
+  #
+  # Bark notification
+  # DINGO_BARK_BASE_URL: ""
+  # DINGO_BARK_SECURITY_WINDOW: "10000"
+  # DINGO_BARK_PORT: "0"
 
 resources: {}
   # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
+  #   cpu: 2
+  #   memory: 8Gi
   # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  #   cpu: 1
+  #   memory: 4Gi
 
 tolerations: []
+
+affinity: {}
+
+# extraPodLabels: {}
 
 persistence:
   accessMode: ReadWriteOnce
@@ -84,11 +182,32 @@ persistence:
 service:
   annotations: {}
   type: ClusterIP
+  sessionAffinity: ClientIP
   ports:
     private: 3002
     relay: 3001
-    utxorpc: 9090
-    metrics: 12789
+    metrics: 12798
+    # API ports - only exposed when non-zero
+    # Set corresponding DINGO_*_PORT environment variable to enable
+    utxorpc: 0
+    blockfrost: 0
+    mesh: 0
 
 serviceAccount:
   annotations: {}
+
+# Enable PodMonitor for Prometheus Operator
+podMonitor:
+  enabled: false
+  # extraLabels: {}
+  # Promote pod labels to Prometheus metric labels
+  # podTargetLabels: []
+  # Required for Prometheus >= v3.0.0
+  fallbackScrapeProtocol: "PrometheusText0.0.4"
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+
+# Inject arbitrary sidecar containers
+# sidecars: []
