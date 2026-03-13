@@ -1,7 +1,7 @@
 apiVersion: v2
 name: dolos
 description: Dolos server
-version: 0.4.2
+version: 0.4.3
 appVersion: "0.33.1"
 
 sources:
