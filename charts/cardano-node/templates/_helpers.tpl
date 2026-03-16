@@ -67,3 +67,17 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 cardano_network: {{ include "cardano-node.network" . }}
 cardano_service: cardano-node
 {{- end -}}
+
+{{/*
+Validate required block producer key files when block production is enabled.
+*/}}
+{{- define "cardano-node.blockProducer.validateKeys" -}}
+{{- $keys := required "blockProducer.keys is required when blockProducer.enabled=true" .Values.blockProducer.keys -}}
+{{- $keyNames := dict -}}
+{{- range $keys }}
+{{- $_ := set $keyNames .name true -}}
+{{- end -}}
+{{- $_ := required "blockProducer.keys must include kes.skey" (get $keyNames "kes.skey") -}}
+{{- $_ := required "blockProducer.keys must include node.cert" (get $keyNames "node.cert") -}}
+{{- $_ := required "blockProducer.keys must include vrf.skey" (get $keyNames "vrf.skey") -}}
+{{- end -}}

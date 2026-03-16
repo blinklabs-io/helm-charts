@@ -12,7 +12,7 @@ data:
     {
       "bootstrapPeers": [{{- range $i, $peer := .Values.topology.bootstrapPeers }}
         {{- if $i }},{{ end }}
-        { "address": "{{ $peer.address }}", "port": {{ $peer.port }} }
+        { "address": {{ $peer.address | toJson }}, "port": {{ $peer.port }} }
       {{- end }}],
       "localRoots": [
       {{- range $i, $local := .Values.topology.localRoots }}
@@ -21,7 +21,7 @@ data:
           "accessPoints": [
           {{- range $j, $peer := $local.accessPoints }}
             {{- if $j }},{{ end }}
-            { "address": "{{ $peer.address }}", "port": {{ $peer.port }}, "name": "{{ $peer.name }}" }
+            { "address": {{ $peer.address | toJson }}, "port": {{ $peer.port }}, "name": {{ $peer.name | toJson }} }
           {{- end }}
           ],
           "advertise": {{ $local.advertise | toJson }},
@@ -31,28 +31,23 @@ data:
       {{- end }}
       ]
       {{- with .Values.topology.peerSnapshotFile }},
-      "peerSnapshotFile": "{{ . }}"
+      "peerSnapshotFile": {{ . | toJson }}
       {{- end }},
-      "publicRoots": [{{- $hasPublicRoots := false }}
+      "publicRoots": [{{- $publicIndex := 0 }}
       {{- range $public := .Values.topology.publicRoots }}
         {{- if and (hasKey $public "accessPoints") (gt (len $public.accessPoints) 0) }}
-          {{- $hasPublicRoots = true }}
-        {{- end }}
-      {{- end }}
-      {{- if $hasPublicRoots }}
-        {{- range $i, $public := .Values.topology.publicRoots }}
-          {{- if and (hasKey $public "accessPoints") (gt (len $public.accessPoints) 0) }}
-            {{- if $i }},{{ end }}
-            {
-              "accessPoints": [
-              {{- range $j, $peer := $public.accessPoints }}
-                {{- if $j }},{{ end }}
-                { "address": "{{ $peer.address }}", "port": {{ $peer.port }}, "name": "{{ $peer.name }}" }
-              {{- end }}
-              ],
-              "advertise": {{ $public.advertise | default false | toJson }}
-            }
-          {{- end }}
+          {{- if gt $publicIndex 0 }},{{ end }}
+          {
+            "accessPoints": [{{- $peerIndex := 0 }}
+            {{- range $peer := $public.accessPoints }}
+              {{- if gt $peerIndex 0 }},{{ end }}
+              { "address": {{ $peer.address | toJson }}, "port": {{ $peer.port }}, "name": {{ $peer.name | toJson }} }
+              {{- $peerIndex = add1 $peerIndex }}
+            {{- end }}
+            ],
+            "advertise": {{ $public.advertise | default false | toJson }}
+          }
+          {{- $publicIndex = add1 $publicIndex }}
         {{- end }}
       {{- end }}],
       "useLedgerAfterSlot": {{ .Values.topology.useLedgerAfterSlot | int }}
