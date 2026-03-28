@@ -15,6 +15,10 @@ spec:
   namespaceSelector:
     matchNames:
       - {{ .Release.Namespace }}
+  {{- with .Values.podMonitor.podTargetLabels }}
+  podTargetLabels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   podMetricsEndpoints:
     {{- toYaml .Values.podMonitor.podMetricsEndpoints | nindent 4 }}
 {{- end }}
