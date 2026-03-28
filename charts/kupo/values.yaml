@@ -89,6 +89,7 @@ kupo:
         - port: http
           path: /health
           interval: 15s
+      podTargetLabels: []
       labels: {}
       annotations: {}
 
