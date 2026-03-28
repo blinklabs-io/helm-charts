@@ -15,10 +15,11 @@ spec:
     matchLabels: {{ include "tx-submit-api.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      labels: {{ include "tx-submit-api.selectorLabels" . | nindent 8 }}
+      labels:
         {{- with .Values.extraPodLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- include "tx-submit-api.selectorLabels" . | nindent 8 }}
     spec:
       {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
