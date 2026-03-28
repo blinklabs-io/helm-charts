@@ -38,6 +38,8 @@ balius:
   podmonitor:
     enabled: false
     labels: {}
+    podTargetLabels: []
+    podMetricsEndpoints: []
   # --- Postgres Credentials ---
   postgres:
     database: balius
