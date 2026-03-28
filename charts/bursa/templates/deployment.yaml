@@ -17,11 +17,11 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "bursa.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
         {{- with .Values.extraPodLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        app.kubernetes.io/name: {{ include "bursa.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- if .Values.tolerations }}
