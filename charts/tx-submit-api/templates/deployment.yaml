@@ -16,6 +16,9 @@ spec:
   template:
     metadata:
       labels: {{ include "tx-submit-api.selectorLabels" . | nindent 8 }}
+        {{- with .Values.extraPodLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
@@ -35,7 +38,9 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - name: api
-          containerPort: 8090
+          containerPort: {{ .Values.service.apiPort | default 8090 }}
+        - name: metrics
+          containerPort: {{ .Values.service.metricsPort | default 8081 }}
         readinessProbe:
           httpGet:
             path: /healthcheck

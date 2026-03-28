@@ -1,0 +1,32 @@
+---
+{{- if .Values.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "tx-submit-api.fullname" . }}
+  labels:
+    {{- include "tx-submit-api.labels" . | nindent 4 }}
+{{- with .Values.podMonitor.extraLabels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  selector:
+    matchLabels: {{- include "tx-submit-api.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  {{- with .Values.podMonitor.podTargetLabels }}
+  podTargetLabels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  podMetricsEndpoints:
+    {{- if .Values.podMonitor.podMetricsEndpoints }}
+    {{- toYaml .Values.podMonitor.podMetricsEndpoints | nindent 4 }}
+    {{- else }}
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 10s
+    {{- end }}
+{{- end }}
