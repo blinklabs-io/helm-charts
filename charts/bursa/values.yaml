@@ -20,6 +20,14 @@ environment:
   # METRICS_LISTEN_ADDRESS: ""
   # METRICS_LISTEN_PORT: 8081
 
+extraPodLabels: {}
+
+podMonitor:
+  enabled: false
+  extraLabels: {}
+  podTargetLabels: []
+  podMetricsEndpoints: []
+
 service:
   annotations: {}
   type: ClusterIP
