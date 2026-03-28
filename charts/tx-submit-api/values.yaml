@@ -26,6 +26,14 @@ ingress:
   host: submit-api.preview.local
   secretName: submit-api-preview-local-tls
 
+extraPodLabels: {}
+
+podMonitor:
+  enabled: false
+  extraLabels: {}
+  podMetricsEndpoints: []
+  podTargetLabels: []
+
 service:
   enabled: false
   apiPort: 8090
