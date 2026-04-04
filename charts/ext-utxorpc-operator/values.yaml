@@ -1,0 +1,48 @@
+# UTxO RPC Operator values
+replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
+image:
+  repository: ghcr.io/demeter-run/ext-cardano-utxorpc-operator
+  tag: 5bba0eb4bb3d76f6ce17233138c5c5cb08b2da62
+  pullPolicy: IfNotPresent
+
+# Environment configuration
+prometheusUrl: "http://prometheus-operated.mynamespace.svc.cluster.local:9090/api/v1"
+metricsDelay: "60"
+metricsStep: "30s"
+defaultUtxorpcVersion: "v1"
+
+# Changing the salt will trigger reconciliation for UTxO RPC CRs
+apiKeySalt: "change-me"
+
+# Map of network names to extension URLs, e.g.:
+# extensionUrlsPerNetwork:
+#   mainnet: "https://utxorpc.mainnet.example.com"
+#   preprod: "https://utxorpc.preprod.example.com"
+extensionUrlsPerNetwork: {}
+
+resources:
+  limits:
+    cpu: "1"
+    memory: "256Mi"
+  requests:
+    cpu: "50m"
+    memory: "256Mi"
+tolerations: []
+# Example tolerations:
+# - key: "key"
+#   operator: "Equal"
+#   value: "value"
+#   effect: "NoSchedule"
+affinity: {}
+
+podMonitor:
+  enabled: false
+  labels: {}
+
+serviceAccount:
+  annotations: {}
+  # name: "utxorpc-operator"

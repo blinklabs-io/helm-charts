@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "extUtxorpcOperator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
+  selector:
+    matchLabels: {{ include "extUtxorpcOperator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{ include "extUtxorpcOperator.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name | default .Release.Name }}
+      containers:
+        - name: main
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ADDR
+              value: "0.0.0.0:9946"
+            - name: API_KEY_SALT
+              value: {{ .Values.apiKeySalt | quote }}
+            - name: EXTENSION_URL_PER_NETWORK
+              value: {{ include "extUtxorpcOperator.extensionUrlsPerNetwork" . | quote }}
+            - name: METRICS_DELAY
+              value: {{ .Values.metricsDelay | quote }}
+            - name: METRICS_STEP
+              value: {{ .Values.metricsStep | quote }}
+            - name: DEFAULT_UTXORPC_VERSION
+              value: {{ .Values.defaultUtxorpcVersion | quote }}
+            - name: PROMETHEUS_URL
+              value: {{ .Values.prometheusUrl | quote }}
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+          ports:
+            - name: metrics
+              containerPort: 9946
+              protocol: TCP
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
