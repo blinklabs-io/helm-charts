@@ -1,0 +1,78 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: blockfrostports.demeter.run
+spec:
+  group: demeter.run
+  scope: Namespaced
+  names:
+    kind: BlockfrostPort
+    plural: blockfrostports
+    singular: blockfrostport
+    shortNames:
+      - bfpts
+    categories:
+      - demeter-port
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Network
+          jsonPath: .spec.network
+          type: string
+        - name: Throughput Tier
+          jsonPath: .spec.throughputTier
+          type: string
+        - name: Endpoint URL
+          jsonPath: .status.endpointUrl
+          type: string
+        - name: Authenticated Endpoint URL
+          jsonPath: .status.authenticatedEndpointUrl
+          type: string
+        - name: Auth Token
+          jsonPath: .status.authToken
+          type: string
+      schema:
+        openAPIV3Schema:
+          title: BlockfrostPort
+          description: Auto-generated derived type for BlockfrostPortSpec via `CustomResource`
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - network
+                - operatorVersion
+                - throughputTier
+              properties:
+                authToken:
+                  type: string
+                  nullable: true
+                blockfrostVersion:
+                  type: string
+                  nullable: true
+                network:
+                  type: string
+                operatorVersion:
+                  type: string
+                throughputTier:
+                  type: string
+            status:
+              type: object
+              nullable: true
+              required:
+                - authToken
+                - endpointUrl
+              properties:
+                authToken:
+                  type: string
+                authenticatedEndpointUrl:
+                  type: string
+                  nullable: true
+                endpointUrl:
+                  type: string
+      subresources:
+        status: {}
