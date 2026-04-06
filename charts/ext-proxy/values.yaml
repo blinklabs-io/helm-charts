@@ -53,6 +53,17 @@ podMonitor:
   enabled: false
   labels: {}
 
+# Extra config files to include in the ConfigMap alongside tiers.toml
+# Each key becomes a filename mounted at /configs/<key>
+extraConfigs: {}
+# Example:
+#   cache_rules.toml: |
+#     [[rules]]
+#     endpoint = "/blocks/latest"
+#     duration_s = 300
+#   routing.toml: |
+#     default_backend = "dolos"
+
 # Proxy Config
 proxyConfig:
   tiers:

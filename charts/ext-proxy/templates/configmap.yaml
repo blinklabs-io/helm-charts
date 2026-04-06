@@ -19,3 +19,7 @@ data:
     {{- end }}
     {{- end }}
     {{- end }}
+{{- range $filename, $content := .Values.extraConfigs }}
+  {{ $filename }}: |
+{{ $content | indent 4 }}
+{{- end }}
