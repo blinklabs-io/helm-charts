@@ -1,0 +1,42 @@
+# Blockfrost Operator values
+replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
+image:
+  repository: ghcr.io/demeter-run/ext-cardano-blockfrost-operator
+  tag: a7977ca03a96121936e29bd2de1007e7c0ad91b0
+  pullPolicy: IfNotPresent
+
+# Environment configuration
+prometheusUrl: "http://prometheus-operated.mynamespace.svc.cluster.local:9090/api/v1"
+metricsDelay: "60"
+
+# Changing the salt will trigger reconciliation for Blockfrost CRs
+apiKeySalt: "change-me"
+dnsZone: "demeter.run"
+extensionSubdomain: "blockfrost-m1"
+
+resources:
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+  requests:
+    cpu: "50m"
+    memory: "256Mi"
+tolerations: []
+# Example tolerations:
+# - key: "key"
+#   operator: "Equal"
+#   value: "value"
+#   effect: "NoSchedule"
+affinity: {}
+
+podMonitor:
+  enabled: false
+  labels: {}
+
+serviceAccount:
+  annotations: {}
+  # name: ""
