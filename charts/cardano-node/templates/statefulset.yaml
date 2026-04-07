@@ -217,7 +217,7 @@ spec:
         command:
         - socat
         args:
-        - "TCP-LISTEN:{{ .Values.service.ports.socatNtc.targetPort }},fork"
+        - "TCP-LISTEN:{{ .Values.service.ports.socatNtc.targetPort }},fork,reuseaddr"
         - "UNIX-CLIENT:/ipc/node.socket,ignoreeof"
         ports:
         - containerPort: {{ .Values.service.ports.socatNtc.targetPort }}
