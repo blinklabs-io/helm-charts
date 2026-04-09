@@ -13,6 +13,6 @@ spec:
     matchLabels:
       role: {{ .Values.proxy.role }}
   podMetricsEndpoints:
-  - port: metrics
+  - port: {{ .Values.podMonitor.metricsPort }}
     path: /metrics
 {{- end }}
