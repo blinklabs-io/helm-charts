@@ -35,9 +35,11 @@ proxy:
     requests:
       cpu: "50m"
       memory: "250Mi"
-  ports:
-    metrics: 9187
-    proxy: 8080
+  # Define named ports — keys become containerPort names, values are port numbers.
+  # Example:
+  #   metrics: 9187
+  #   proxy: 8080
+  ports: {}
   affinity: {}
   tolerations: []
 
@@ -52,6 +54,7 @@ init:
 podMonitor:
   enabled: false
   labels: {}
+  # Must match the key name used in proxy.ports for the metrics endpoint.
   metricsPort: metrics
 
 # Extra config files to include in the ConfigMap alongside tiers.toml
