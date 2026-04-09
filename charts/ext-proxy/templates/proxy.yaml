@@ -43,12 +43,11 @@ spec:
         env: {{ toYaml .Values.proxy.env | nindent 8 }}
         resources: {{ toYaml .Values.proxy.resources | nindent 10 }}
         ports:
-        - name: metrics
-          containerPort: {{ .Values.proxy.ports.metrics }}
+        {{- range $name, $port := .Values.proxy.ports }}
+        - name: {{ $name }}
+          containerPort: {{ $port }}
           protocol: TCP
-        - name: proxy
-          containerPort: {{ .Values.proxy.ports.proxy }}
-          protocol: TCP
+        {{- end }}
         volumeMounts:
         - name: certs
           mountPath: /certs

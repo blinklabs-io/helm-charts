@@ -52,6 +52,7 @@ init:
 podMonitor:
   enabled: false
   labels: {}
+  metricsPort: metrics
 
 # Extra config files to include in the ConfigMap alongside tiers.toml
 # Each key becomes a filename mounted at /configs/<key>
