@@ -1,0 +1,19 @@
+# CI test values: default configuration (minikupo disabled)
+# Verifies that the chart renders correctly without minikupo support,
+# which is the default behavior (ports.minikupo is not set).
+
+image:
+  tag: v1.0.3
+
+ports:
+  grpc: 50051
+  ouroboros: 30013
+  minibf: 3001
+  # minikupo is intentionally omitted to test the disabled code path
+
+service:
+  ports:
+    grpc: 15051
+    ouroboros: 13013
+    minibf: 13001
+    # service.ports.minikupo is intentionally omitted

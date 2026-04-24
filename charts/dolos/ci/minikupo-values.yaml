@@ -1,0 +1,20 @@
+# CI test values: minikupo enabled configuration
+# Verifies that the chart renders correctly when the optional minikupo port
+# is enabled. This exercises the {{- if .Values.ports.minikupo }} conditional
+# blocks in both headless-service.yaml and sts.yaml.
+
+image:
+  tag: v1.0.3
+
+ports:
+  grpc: 50051
+  ouroboros: 30013
+  minibf: 3001
+  minikupo: 1442
+
+service:
+  ports:
+    grpc: 15051
+    ouroboros: 13013
+    minibf: 13001
+    minikupo: 11442
