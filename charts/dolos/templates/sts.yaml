@@ -86,6 +86,11 @@ spec:
             - name: minibf
               containerPort: {{ .Values.ports.minibf }}
               protocol: TCP
+            {{- if and .Values.ports.minikupo .Values.service.ports.minikupo }}
+            - name: minikupo
+              containerPort: {{ .Values.ports.minikupo }}
+              protocol: TCP
+            {{- end }}
         - name: socat-ntc
           image: "{{ .Values.socat.image.repository }}:{{ .Values.socat.image.tag }}"
           imagePullPolicy: {{ .Values.socat.image.pullPolicy | default "IfNotPresent" }}

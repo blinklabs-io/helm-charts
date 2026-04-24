@@ -11,7 +11,7 @@ peerAddress: ""
 # Dolos configuration
 image:
   repository: ghcr.io/txpipe/dolos
-  tag: v1.0.2
+  tag: v1.0.3
   pullPolicy: IfNotPresent
 
 podAnnotations: {}
@@ -29,6 +29,8 @@ ports:
   ouroboros: 30013
   # Mini-Blockfrost API
   minibf: 3001
+  # MiniKupo API (optional, omit to disable)
+  # minikupo: 1442
 
 service:
   # Optional custom service name. If not set, release name will be used.
@@ -38,6 +40,8 @@ service:
     ouroboros: 13013
     # Mini-Blockfrost API
     minibf: 13001
+    # MiniKupo API (required if ports.minikupo is set)
+    # minikupo: 11442
 
 storage:
   # Mainnet requires at least 500Gi
@@ -110,6 +114,10 @@ configmap:
   #   ouroboros:
   #     listen_path: "/ipc/dolos.socket"
   #     magic: 2
+  #   minikupo:
+  #     listen_address: "[::]:1442"
+  #     # Allow cross-origin requests from any origin (set false in production if origin restriction is needed)
+  #     permissive_cors: true
 
   # chain:
   #   type: "cardano"
@@ -134,4 +142,5 @@ configmap:
     # include_grpc: true
     # include_trp: true
     # include_minibf: true
+    # include_minikupo: true
     # include_fjall: true
