@@ -20,3 +20,8 @@ spec:
     - name: minibf
       port: {{ .Values.service.ports.minibf }}
       targetPort: {{ .Values.ports.minibf }}
+    {{- if and .Values.ports.minikupo .Values.service.ports.minikupo }}
+    - name: minikupo
+      port: {{ .Values.service.ports.minikupo }}
+      targetPort: {{ .Values.ports.minikupo }}
+    {{- end }}
