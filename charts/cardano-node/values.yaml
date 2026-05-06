@@ -7,6 +7,11 @@ image:
   repository: ghcr.io/blinklabs-io/cardano-node
   tag: 10.5.3
   pullPolicy: IfNotPresent
+  # Per-network tag overrides. If the current cardano_network has an entry
+  # below, that tag is used instead of image.tag. Used to roll out a new
+  # node version on a single network ahead of the others.
+  tagOverrides:
+    preview: 11.0.1
 replicaCount: 1
 resources: {}
 service:

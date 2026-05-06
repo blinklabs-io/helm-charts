@@ -44,6 +44,24 @@ Define Cardano network.
 {{- end -}}
 
 {{/*
+Resolve the image tag, honouring per-network overrides under
+.Values.image.tagOverrides (keyed by cardano_network) and falling back to
+.Values.image.tag.
+*/}}
+{{- define "cardano-node.imageTag" -}}
+{{- $network := include "cardano-node.network" . | trim -}}
+{{- $override := "" -}}
+{{- if .Values.image.tagOverrides -}}
+{{- $override = index .Values.image.tagOverrides $network | default "" -}}
+{{- end -}}
+{{- if $override -}}
+{{ $override }}
+{{- else -}}
+{{ .Values.image.tag }}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Common labels
 */}}
 {{- define "cardano-node.labels" -}}

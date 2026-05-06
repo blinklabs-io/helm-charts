@@ -34,7 +34,7 @@ spec:
       initContainers:
       # Download Cardano snapshot using mithril-client
       - name: mithril-snapshot
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: {{ .Values.image.repository }}:{{ include "cardano-node.imageTag" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command: ["/bin/sh", "-c"]
         args:
@@ -187,7 +187,7 @@ spec:
         - name: CARDANO_SHELLEY_VRF_KEY
           value: "/opt/cardano/config/keys/vrf.skey"
 {{- end }}
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: {{ .Values.image.repository }}:{{ include "cardano-node.imageTag" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: cardano-node
         ports:
@@ -212,7 +212,7 @@ spec:
 {{- end }}
 
       - name: socat-ntc
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: {{ .Values.image.repository }}:{{ include "cardano-node.imageTag" . }}
         imagePullPolicy: IfNotPresent
         command:
         - socat
