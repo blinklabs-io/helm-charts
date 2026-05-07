@@ -55,23 +55,17 @@ podMonitor:
   labels: {}
   # Pod labels to copy onto the scraped target
   podTargetLabels: []
-  # Named container port to scrape. Must match a port name on the dolos pod.
-  # The MiniKupo health endpoint is exposed on the `minikupo` port (1442).
-  port: minikupo
-  # Scrape path. Dolos MiniKupo exposes a plaintext /health endpoint.
-  path: /health
-  # interval: 30s
-  # scrapeTimeout: 10s
-  # scheme: http
-  honorLabels: false
-  # Request headers sent on each scrape. MiniKupo /health requires Accept: text/plain.
-  headers:
-    Accept: text/plain
-  # Optional Prometheus relabel configs
-  relabelings: []
-  metricRelabelings: []
-  # If set, fully overrides the default podMetricsEndpoints generated above.
-  podMetricsEndpoints: []
+  # Scrape endpoints. Each entry must reference a named container port that
+  # exists on the dolos pod. Available named ports: `grpc`, `minibf`, and
+  # (when ports.minikupo is set) `minikupo`.
+  #
+  # The MiniKupo /health endpoint returns plaintext; if you scrape it you must
+  # also set ports.minikupo (e.g. 1442) and service.ports.minikupo so the
+  # `minikupo` container port exists.
+  podMetricsEndpoints:
+    - port: minibf
+      path: /health
+      interval: 30s
 
 tolerations: []
 
