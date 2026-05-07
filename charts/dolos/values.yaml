@@ -48,6 +48,25 @@ storage:
   size: 50Gi
   # storageClassName: gp
 
+# Prometheus Operator PodMonitor (requires monitoring.coreos.com CRDs)
+podMonitor:
+  enabled: false
+  # Extra labels added to the PodMonitor metadata (e.g. release: kube-prometheus-stack)
+  labels: {}
+  # Pod labels to copy onto the scraped target
+  podTargetLabels: []
+  # Scrape endpoints. Each entry must reference a named container port that
+  # exists on the dolos pod. Available named ports: `grpc`, `minibf`, and
+  # (when ports.minikupo is set) `minikupo`.
+  #
+  # The MiniKupo /health endpoint returns plaintext; if you scrape it you must
+  # also set ports.minikupo (e.g. 1442) and service.ports.minikupo so the
+  # `minikupo` container port exists.
+  podMetricsEndpoints:
+    - port: minibf
+      path: /health
+      interval: 30s
+
 tolerations: []
 
 affinity: {}
