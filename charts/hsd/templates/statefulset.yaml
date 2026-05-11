@@ -3,26 +3,26 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   labels:
-    {{- include "handshake-node.labels" . | nindent 4 }}
-  name: {{ include "handshake-node.network-fullname" . }}
+    {{- include "hsd.labels" . | nindent 4 }}
+  name: {{ include "hsd.network-fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      handshake_network: {{ include "handshake-node.network" . }}
-      app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+      handshake_network: {{ include "hsd.network" . }}
+      app.kubernetes.io/name: {{ include "hsd.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
-  serviceName: {{ include "handshake-node.network-fullname" . }}
+  serviceName: {{ include "hsd.network-fullname" . }}
   template:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
-        kubectl.kubernetes.io/default-container: handshake-node
+        kubectl.kubernetes.io/default-container: hsd
       labels:
-        handshake_network: {{ include "handshake-node.network" . }}
-        app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+        handshake_network: {{ include "hsd.network" . }}
+        app.kubernetes.io/name: {{ include "hsd.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
-        {{- include "handshake-node.labels" . | nindent 8 }}
+        {{- include "hsd.labels" . | nindent 8 }}
     spec:
       {{- with .Values.affinity }}
       affinity: {{ toYaml . | nindent 8 }}
@@ -36,23 +36,23 @@ spec:
       securityContext:
         fsGroup: 1000
       containers:
-      - name: handshake-node
+      - name: hsd
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
-        - --network={{ include "handshake-node.network" . }}
+        - --network={{ include "hsd.network" . }}
         - --listen={{ .Values.nodeConfig.listen }}
         - --max-inbound={{ .Values.nodeConfig.maxInbound }}
         - --max-outbound={{ .Values.nodeConfig.maxOutbound }}
         - --http-host={{ .Values.nodeConfig.httpHost }}
-        - --http-port={{ include "handshake-node.http-port" . }}
+        - --http-port={{ include "hsd.http-port" . }}
         {{- if .Values.nodeConfig.api.secretName }}
         - --api-key=$(HSD_API_KEY)
         {{- end }}
         {{- if .Values.nodeConfig.publicHost }}
         - --public-host={{ .Values.nodeConfig.publicHost }}
         {{- end }}
-        - --brontide-port={{ include "handshake-node.brontide-port" . }}
+        - --brontide-port={{ include "hsd.brontide-port" . }}
         - --prune={{ .Values.nodeConfig.prune }}
         - --index-tx={{ .Values.nodeConfig.indexTx }}
         - --index-address={{ .Values.nodeConfig.indexAddress }}
@@ -68,9 +68,9 @@ spec:
         - --no-wallet
         {{- end }}
         - --ns-host={{ .Values.nodeConfig.nsHost }}
-        - --ns-port={{ include "handshake-node.ns-port" . }}
+        - --ns-port={{ include "hsd.ns-port" . }}
         - --rs-host={{ .Values.nodeConfig.rsHost }}
-        - --rs-port={{ include "handshake-node.rs-port" . }}
+        - --rs-port={{ include "hsd.rs-port" . }}
         - --rs-no-unbound={{ .Values.nodeConfig.rsNoUnbound }}
         env:
         {{- if .Values.nodeConfig.api.secretName }}
@@ -81,44 +81,44 @@ spec:
               key: {{ .Values.nodeConfig.api.secretKey }}
         {{- end }}
         - name: HSD_NETWORK
-          value: "{{ include "handshake-node.network" . }}"
+          value: "{{ include "hsd.network" . }}"
         - name: HSD_PREFIX
           value: "/data"
         ports:
         - name: p2p
-          containerPort: {{ include "handshake-node.p2p-port" . }}
+          containerPort: {{ include "hsd.p2p-port" . }}
           protocol: TCP
         - name: brontide
-          containerPort: {{ include "handshake-node.brontide-port" . }}
+          containerPort: {{ include "hsd.brontide-port" . }}
           protocol: TCP
         - name: http
-          containerPort: {{ include "handshake-node.http-port" . }}
+          containerPort: {{ include "hsd.http-port" . }}
           protocol: TCP
         - name: ns
-          containerPort: {{ include "handshake-node.ns-port" . }}
+          containerPort: {{ include "hsd.ns-port" . }}
           protocol: UDP
         - name: rs
-          containerPort: {{ include "handshake-node.rs-port" . }}
+          containerPort: {{ include "hsd.rs-port" . }}
           protocol: UDP
         resources:
-          {{- $network := include "handshake-node.network" . }}
+          {{- $network := include "hsd.network" . }}
           {{- if .Values.resources }}
           {{- toYaml .Values.resources | nindent 12 }}
           {{- else }}
           {{- toYaml (index .Values.networkResources $network) | nindent 12 }}
           {{- end }}
         volumeMounts:
-        - name: handshake-data-{{ include "handshake-node.network" . }}
+        - name: handshake-data-{{ include "hsd.network" . }}
           mountPath: /data
       {{- if .Values.metrics.enabled }}
-      - name: handshake-node-metrics-exporter
+      - name: hsd-metrics-exporter
         image: "{{ .Values.metrics.image.repository }}:{{ .Values.metrics.image.tag }}"
         imagePullPolicy: {{ .Values.metrics.image.pullPolicy | default "IfNotPresent" }}
         env:
         - name: HANDSHAKE_RPC_HOST
           value: "localhost"
         - name: HANDSHAKE_RPC_PORT
-          value: "{{ include "handshake-node.http-port" . }}"
+          value: "{{ include "hsd.http-port" . }}"
         - name: HANDSHAKE_RPC_USER
           value: "x"
         - name: HANDSHAKE_RPC_PASSWORD
@@ -153,8 +153,8 @@ spec:
   volumeClaimTemplates:
   - metadata:
       labels:
-        handshake_network: {{ include "handshake-node.network" . }}
-      name: handshake-data-{{ include "handshake-node.network" . }}
+        handshake_network: {{ include "hsd.network" . }}
+      name: handshake-data-{{ include "hsd.network" . }}
     spec:
       accessModes:
       - ReadWriteOnce
@@ -163,4 +163,4 @@ spec:
       {{- end }}
       resources:
         requests:
-          storage: {{ include "handshake-node.storage-size" . }}
+          storage: {{ include "hsd.storage-size" . }}
