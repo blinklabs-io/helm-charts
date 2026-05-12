@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "handshake-node.network-fullname" . }}-metrics
+  name: {{ include "hsd.network-fullname" . }}-metrics
   labels:
-    {{- include "handshake-node.labels" . | nindent 4 }}
+    {{- include "hsd.labels" . | nindent 4 }}
     app.kubernetes.io/component: metrics
 spec:
   type: ClusterIP
@@ -14,7 +14,7 @@ spec:
     protocol: TCP
     name: metrics
   selector:
-    handshake_network: {{ include "handshake-node.network" . }}
-    app.kubernetes.io/name: {{ include "handshake-node.name" . }}
+    handshake_network: {{ include "hsd.network" . }}
+    app.kubernetes.io/name: {{ include "hsd.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

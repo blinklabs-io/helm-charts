@@ -1,12 +1,12 @@
-name: publish-handshake-node-helm-chart
+name: publish-hsd-helm-chart
 
 on:
   push:
     branches: ['main']
-    paths: ['charts/handshake-node/**','.github/workflows/publish-handshake-node-helm-chart.yml']
+    paths: ['charts/hsd/**','.github/workflows/publish-hsd-helm-chart.yml']
 
 jobs:
-  build-and-push-handshake-node-helm-chart:
+  build-and-push-hsd-helm-chart:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,7 +25,7 @@ jobs:
         run: |
           rm -rf dist
           mkdir dist
-          helm package charts/handshake-node/ -d dist/
+          helm package charts/hsd/ -d dist/
           echo "${TOKEN}" | helm registry login "${REGISTRY}" -u "${USER}" --password-stdin
           for file in dist/*; do
             helm push "$file" "oci://${REGISTRY}/${REPOSITORY,,}/charts"
