@@ -6,7 +6,7 @@ updateStrategy:
 
 image:
   repository: ghcr.io/blinklabs-io/dingo
-  tag: "0.46.3"
+  tag: "0.46.4"
   pullPolicy: IfNotPresent
 
 # Native Mithril snapshot bootstrap via dingo's built-in mithril sync
