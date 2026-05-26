@@ -2,8 +2,8 @@
 apiVersion: v2
 name: dingo
 description: "A Helm chart for deploying Dingo, the Go Cardano blockchain node"
-version: 0.1.5
-appVersion: 0.46.4
+version: 0.1.6
+appVersion: 0.47.1
 
 sources:
   - https://github.com/blinklabs-io/dingo
