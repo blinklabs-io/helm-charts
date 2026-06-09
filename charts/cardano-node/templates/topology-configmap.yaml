@@ -30,7 +30,8 @@ data:
         }
       {{- end }}
       ]
-      {{- with .Values.topology.peerSnapshotFile }},
+      {{- with .Values.topology.peerSnapshotFile }}
+      ,
       "peerSnapshotFile": {{ . | toJson }}
       {{- end }},
       "publicRoots": [{{- $publicIndex := 0 }}
