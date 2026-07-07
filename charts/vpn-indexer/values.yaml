@@ -79,6 +79,8 @@ persistence:
     requests:
       storage: 5Gi
 
+# jwtPrivateKey: ''
+
 ca:
   cert: ''
   key: ''
@@ -114,6 +116,5 @@ wireguard: {}
   # endpoint:
   # containerUrl:
   # serverPubKey:
-  # jwtPrivateKey:
   # maxDevices:
   # subnet:

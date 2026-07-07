@@ -111,6 +111,10 @@ spec:
             - name: VPN_WG_SERVER_PUBKEY
               value: {{ . }}
             {{- end }}
+            {{- with .Values.jwtPrivateKey }}
+            - name: VPN_JWT_KEY_FILE
+              value: /secrets/jwt_private_key
+            {{- end }}
             {{- with .Values.wireguard.jwtPrivateKey }}
             - name: VPN_WG_JWT_KEY_FILE
               value: /secrets/wg_jwt_private_key
