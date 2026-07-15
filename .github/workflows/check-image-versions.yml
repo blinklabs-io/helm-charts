@@ -168,34 +168,39 @@ jobs:
             git push -u origin "$BRANCH_NAME"
 
             # ── Open PR ────────────────────────────────────────────────────
+            # printf is used instead of a multi-line string so that each body
+            # line starts at column 0, preventing GitHub's CommonMark renderer
+            # from treating the indented content as a code block.
             if [[ -n "$LATEST_TAG" ]]; then
-              PR_BODY="## Summary
-          - Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`
-          - Upstream release: https://github.com/${REPO}/releases/tag/${LATEST_TAG}
-
-          ## Changes
-          - \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`
-          - \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped
-
-          ## Test plan
-          - [ ] CI lint passes
-          - [ ] Manual smoke-test if needed
-
-          🤖 Generated automatically by check-image-versions workflow"
+              PR_BODY=$(printf '%s\n' \
+                "## Summary" \
+                "- Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`" \
+                "- Upstream release: https://github.com/${REPO}/releases/tag/${LATEST_TAG}" \
+                "" \
+                "## Changes" \
+                "- \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`" \
+                "- \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped" \
+                "" \
+                "## Test plan" \
+                "- [ ] CI lint passes" \
+                "- [ ] Manual smoke-test if needed" \
+                "" \
+                "🤖 Generated automatically by check-image-versions workflow")
             else
-              PR_BODY="## Summary
-          - Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`
-          - Source: ghcr.io/${GHCR_IMAGE}:${UPSTREAM_VERSION}
-
-          ## Changes
-          - \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`
-          - \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped
-
-          ## Test plan
-          - [ ] CI lint passes
-          - [ ] Manual smoke-test if needed
-
-          🤖 Generated automatically by check-image-versions workflow"
+              PR_BODY=$(printf '%s\n' \
+                "## Summary" \
+                "- Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`" \
+                "- Source: ghcr.io/${GHCR_IMAGE}:${UPSTREAM_VERSION}" \
+                "" \
+                "## Changes" \
+                "- \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`" \
+                "- \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped" \
+                "" \
+                "## Test plan" \
+                "- [ ] CI lint passes" \
+                "- [ ] Manual smoke-test if needed" \
+                "" \
+                "🤖 Generated automatically by check-image-versions workflow")
             fi
 
             PR_CREATED=false
