@@ -1,0 +1,100 @@
+{
+  "adder": {
+    "repo": "blinklabs-io/adder",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "bluefin": {
+    "repo": "blinklabs-io/bluefin",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "bursa": {
+    "repo": "blinklabs-io/bursa",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "cardano-db-sync": {
+    "repo": "blinklabs-io/cardano-db-sync",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": "v"
+  },
+  "cardano-node": {
+    "repo": "IntersectMBO/cardano-node",
+    "tag_pattern": "",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "cardano-node-api": {
+    "repo": "blinklabs-io/cardano-node-api",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "cdnsd": {
+    "repo": "blinklabs-io/cdnsd",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "dingo": {
+    "repo": "blinklabs-io/dingo",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "dolos": {
+    "repo": "txpipe/dolos",
+    "tag_pattern": "v",
+    "values_tag_prefix": "v",
+    "app_version_prefix": ""
+  },
+  "ergo-node": {
+    "repo": "ergoplatform/ergo",
+    "tag_pattern": "",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "hsd": {
+    "repo": "handshake-org/hsd",
+    "tag_pattern": "",
+    "values_tag_prefix": "",
+    "app_version_prefix": "",
+    "ghcr_image": "handshake-org/hsd"
+  },
+  "kupo": {
+    "repo": "CardanoSolutions/kupo",
+    "tag_pattern": "v",
+    "values_tag_prefix": "v",
+    "app_version_prefix": "",
+    "docker_image": "cardanosolutions/kupo"
+  },
+  "ogmios": {
+    "repo": "CardanoSolutions/ogmios",
+    "tag_pattern": "v",
+    "values_tag_prefix": "v",
+    "app_version_prefix": "v"
+  },
+  "tx-submit-api": {
+    "repo": "blinklabs-io/tx-submit-api",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "tx-submit-api-mirror": {
+    "repo": "blinklabs-io/tx-submit-api-mirror",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  },
+  "vpn-indexer": {
+    "repo": "blinklabs-io/vpn-indexer",
+    "tag_pattern": "v",
+    "values_tag_prefix": "",
+    "app_version_prefix": ""
+  }
+}

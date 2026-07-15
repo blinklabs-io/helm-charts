@@ -1,0 +1,229 @@
+name: check-image-versions
+
+# Automatically checks whether any upstream container image has received a new
+# release, and opens a pull-request to update the matching Helm chart when one
+# is found.  Mirrors the check-versions workflow used in
+# blinklabs-io/cardano-up-packages.
+
+on:
+  schedule:
+    # Run every Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  check-image-versions:
+    name: Check for new upstream image versions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0 https://github.com/actions/checkout/releases/tag/v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Check and create PRs for new versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # ── Git identity ───────────────────────────────────────────────────
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          UPSTREAM_CONFIG="scripts/upstream-versions.json"
+
+          # Iterate over every chart defined in the config
+          CHARTS=$(jq -r 'keys[]' "$UPSTREAM_CONFIG")
+
+          for CHART in $CHARTS; do
+            echo "=========================================="
+            echo "Checking chart: $CHART"
+            echo "=========================================="
+
+            # ── Read config fields ─────────────────────────────────────────
+            REPO=$(jq -r         --arg c "$CHART" '.[$c].repo'                  "$UPSTREAM_CONFIG")
+            TAG_PATTERN=$(jq -r  --arg c "$CHART" '.[$c].tag_pattern'           "$UPSTREAM_CONFIG")
+            VALUES_PREFIX=$(jq -r --arg c "$CHART" '.[$c].values_tag_prefix'    "$UPSTREAM_CONFIG")
+            APP_PREFIX=$(jq -r   --arg c "$CHART" '.[$c].app_version_prefix'    "$UPSTREAM_CONFIG")
+            DOCKER_IMAGE=$(jq -r --arg c "$CHART" '.[$c].docker_image // ""'    "$UPSTREAM_CONFIG")
+            GHCR_IMAGE=$(jq -r   --arg c "$CHART" '.[$c].ghcr_image   // ""'    "$UPSTREAM_CONFIG")
+
+            echo "  Upstream repo     : $REPO"
+            echo "  Tag pattern       : '${TAG_PATTERN}'"
+            echo "  values_tag_prefix : '${VALUES_PREFIX}'"
+            echo "  app_version_prefix: '${APP_PREFIX}'"
+
+            # ── Determine upstream version ─────────────────────────────────
+
+            LATEST_TAG=""
+            UPSTREAM_VERSION=""
+
+            if [[ -n "$GHCR_IMAGE" ]]; then
+              # Use GHCR as source of truth (e.g. hsd – no predictable GH release tag)
+              echo "  Using GHCR image as version source: $GHCR_IMAGE"
+              GHCR_ORG="${GHCR_IMAGE%%/*}"
+              GHCR_PKG="${GHCR_IMAGE#*/}"
+
+              UPSTREAM_VERSION=$(gh api "/orgs/${GHCR_ORG}/packages/container/${GHCR_PKG}/versions" \
+                --paginate \
+                --jq '.[].metadata.container.tags[]' 2>/dev/null \
+                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+                | sort -V | tail -1 || echo "")
+
+              if [[ -z "$UPSTREAM_VERSION" ]]; then
+                echo "  WARNING: Could not fetch versions from GHCR for $GHCR_IMAGE, skipping"
+                continue
+              fi
+              echo "  Latest GHCR version: $UPSTREAM_VERSION"
+
+            else
+              # Use GitHub releases
+              LATEST_TAG=$(gh api "repos/${REPO}/releases/latest" --jq '.tag_name' 2>/dev/null || echo "")
+
+              if [[ -z "$LATEST_TAG" ]]; then
+                echo "  WARNING: Could not fetch latest release for $REPO, skipping"
+                continue
+              fi
+              echo "  Latest upstream tag: $LATEST_TAG"
+
+              # Strip the tag_pattern prefix to derive the plain version number
+              if [[ -n "$TAG_PATTERN" ]]; then
+                UPSTREAM_VERSION="${LATEST_TAG#$TAG_PATTERN}"
+              else
+                UPSTREAM_VERSION="$LATEST_TAG"
+              fi
+
+              # If docker_image is configured, look up the Docker Hub tag that
+              # corresponds to this release (handles short GH tags like v2.11 vs
+              # full image tags like v2.11.0, matching cardano-up-packages logic).
+              if [[ -n "$DOCKER_IMAGE" ]]; then
+                echo "  Looking up Docker Hub tags for: $DOCKER_IMAGE"
+                DOCKER_TAG=$(curl -s \
+                  "https://hub.docker.com/v2/repositories/${DOCKER_IMAGE}/tags?page_size=100" \
+                  | jq -r --arg prefix "${TAG_PATTERN}${UPSTREAM_VERSION}" \
+                      '.results[].name | select(startswith($prefix))' \
+                  | sort -V | tail -1 || echo "")
+
+                if [[ -n "$DOCKER_TAG" ]]; then
+                  UPSTREAM_VERSION="${DOCKER_TAG#$TAG_PATTERN}"
+                  echo "  Found Docker Hub tag: $DOCKER_TAG -> version $UPSTREAM_VERSION"
+                else
+                  echo "  WARNING: No matching Docker Hub tag for ${TAG_PATTERN}${UPSTREAM_VERSION}, using GitHub tag"
+                fi
+              fi
+            fi
+
+            echo "  Upstream version: $UPSTREAM_VERSION"
+
+            # ── Derive the values-tag and app-version strings ──────────────
+            NEW_VALUES_TAG="${VALUES_PREFIX}${UPSTREAM_VERSION}"
+            NEW_APP_VERSION="${APP_PREFIX}${UPSTREAM_VERSION}"
+
+            # ── Read current image tag from values.yaml ────────────────────
+            VALUES_FILE="charts/${CHART}/values.yaml"
+            if [[ ! -f "$VALUES_FILE" ]]; then
+              echo "  WARNING: values.yaml not found for $CHART, skipping"
+              continue
+            fi
+
+            CURRENT_TAG=$(grep '^  tag:' "$VALUES_FILE" | head -1 | awk '{print $2}' | tr -d '"')
+            echo "  Current values.yaml tag: $CURRENT_TAG"
+
+            # ── Skip if already up to date ─────────────────────────────────
+            if [[ "$CURRENT_TAG" == "$NEW_VALUES_TAG" ]]; then
+              echo "  Already up to date"
+              continue
+            fi
+
+            echo "  Update available: $CURRENT_TAG -> $NEW_VALUES_TAG"
+
+            BRANCH_NAME="chore/${CHART}-${UPSTREAM_VERSION}"
+
+            # Skip if an open PR already exists for this update.
+            EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0].number')
+            if [[ -n "$EXISTING_PR" ]]; then
+              echo "  PR #$EXISTING_PR already open for $BRANCH_NAME, skipping"
+              continue
+            fi
+
+            # ── Apply the update ───────────────────────────────────────────
+            echo "  Applying update..."
+            ./scripts/update-chart-version.sh "$CHART" "$NEW_VALUES_TAG" "$NEW_APP_VERSION"
+
+            # ── Commit and push ────────────────────────────────────────────
+            git checkout -b "$BRANCH_NAME"
+            git add "charts/${CHART}/values.yaml" "charts/${CHART}/Chart.yaml"
+            git commit -m "chore: update ${CHART} image to ${NEW_VALUES_TAG}"
+
+            # Remove a stale remote branch left over from a previous failed run
+            # (only safe to do when no open PR was found above).
+            if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+              echo "  Stale remote branch found with no open PR, deleting"
+              git push origin --delete "$BRANCH_NAME"
+            fi
+
+            git push -u origin "$BRANCH_NAME"
+
+            # ── Open PR ────────────────────────────────────────────────────
+            if [[ -n "$LATEST_TAG" ]]; then
+              PR_BODY="## Summary
+          - Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`
+          - Upstream release: https://github.com/${REPO}/releases/tag/${LATEST_TAG}
+
+          ## Changes
+          - \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`
+          - \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped
+
+          ## Test plan
+          - [ ] CI lint passes
+          - [ ] Manual smoke-test if needed
+
+          🤖 Generated automatically by check-image-versions workflow"
+            else
+              PR_BODY="## Summary
+          - Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`
+          - Source: ghcr.io/${GHCR_IMAGE}:${UPSTREAM_VERSION}
+
+          ## Changes
+          - \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`
+          - \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped
+
+          ## Test plan
+          - [ ] CI lint passes
+          - [ ] Manual smoke-test if needed
+
+          🤖 Generated automatically by check-image-versions workflow"
+            fi
+
+            PR_CREATED=false
+            if PR_OUTPUT=$(gh pr create \
+              --title "chore: update ${CHART} image to ${NEW_VALUES_TAG}" \
+              --body  "$PR_BODY" \
+              --base  main \
+              --head  "$BRANCH_NAME" 2>&1); then
+              echo "$PR_OUTPUT"
+              PR_CREATED=true
+            else
+              if echo "$PR_OUTPUT" | grep -qi 'already exists'; then
+                echo "  PR already exists for $BRANCH_NAME, skipping create"
+              else
+                echo "$PR_OUTPUT"
+                exit 1
+              fi
+            fi
+
+            # Return to main for the next chart
+            git checkout main
+
+            if [[ "$PR_CREATED" == "true" ]]; then
+              echo "  PR created successfully!"
+            fi
+          done
+
+          echo ""
+          echo "=========================================="
+          echo "Image version check complete"
+          echo "=========================================="
