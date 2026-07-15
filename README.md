@@ -122,6 +122,8 @@ add an entry following the schema below:
 
   // Prefix to strip from the GitHub release tag to get the plain version.
   // E.g. "v" turns "v1.2.3" into "1.2.3".  Use "" to keep the tag as-is.
+  // Note: ignored when "ghcr_image" is set (GHCR tags are filtered by semver
+  // regex instead; see the workflow for details).
   "tag_pattern": "v",
 
   // Prefix written in front of the version when updating values.yaml image.tag.

@@ -38,7 +38,7 @@ fi
 
 # ── 1. Derive current and next chart version ──────────────────────────────────
 # Strip any surrounding quotes from the version field
-CURRENT_CHART_VERSION=$(grep '^version:' "$CHART_FILE" | head -1 | awk '{print $2}' | tr -d '"')
+CURRENT_CHART_VERSION=$(grep '^version:' "$CHART_FILE" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
 
 # Split on '.' and bump the patch (third) segment
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_CHART_VERSION"
@@ -62,11 +62,13 @@ fi
 # Replace the first (and only) top-level `  tag:` line in the file.
 # All target charts have exactly one two-space-indented `tag:` key, which belongs
 # to the primary image block.  Nested image blocks use deeper indentation.
-"${SED_INPLACE[@]}" "s|^  tag:.*|  tag: ${NEW_VALUES_TAG}|" "$VALUES_FILE"
+"${SED_INPLACE[@]}" "s|^  tag:.*|  tag: \"${NEW_VALUES_TAG}\"|" "$VALUES_FILE"
 
 # ── 3. Update Chart.yaml ──────────────────────────────────────────────────────
 # appVersion may be unquoted or quoted; replace the whole line either way.
-"${SED_INPLACE[@]}" "s|^appVersion:.*|appVersion: ${NEW_APP_VERSION}|" "$CHART_FILE"
+# Values are double-quoted to prevent YAML parsers from coercing version strings
+# with a single decimal point (e.g. 1.20) into floats.
+"${SED_INPLACE[@]}" "s|^appVersion:.*|appVersion: \"${NEW_APP_VERSION}\"|" "$CHART_FILE"
 
 # Bump the chart version.
 "${SED_INPLACE[@]}" "s|^version:.*|version: ${NEW_CHART_VERSION}|" "$CHART_FILE"

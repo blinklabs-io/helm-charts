@@ -70,7 +70,7 @@ jobs:
               UPSTREAM_VERSION=$(gh api "/orgs/${GHCR_ORG}/packages/container/${GHCR_PKG}/versions" \
                 --paginate \
                 --jq '.[].metadata.container.tags[]' 2>/dev/null \
-                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+                | grep -E "^${TAG_PATTERN}[0-9]+\.[0-9]+\.[0-9]+$" \
                 | sort -V | tail -1 || echo "")
 
               if [[ -z "$UPSTREAM_VERSION" ]]; then
@@ -129,7 +129,7 @@ jobs:
               continue
             fi
 
-            CURRENT_TAG=$(grep '^  tag:' "$VALUES_FILE" | head -1 | awk '{print $2}' | tr -d '"')
+            CURRENT_TAG=$(grep '^  tag:' "$VALUES_FILE" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
             echo "  Current values.yaml tag: $CURRENT_TAG"
 
             # ── Skip if already up to date ─────────────────────────────────
@@ -143,7 +143,7 @@ jobs:
             BRANCH_NAME="chore/${CHART}-${UPSTREAM_VERSION}"
 
             # Skip if an open PR already exists for this update.
-            EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0].number')
+            EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0]?.number // empty')
             if [[ -n "$EXISTING_PR" ]]; then
               echo "  PR #$EXISTING_PR already open for $BRANCH_NAME, skipping"
               continue
