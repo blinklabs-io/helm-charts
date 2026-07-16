@@ -8,9 +8,9 @@ metadata:
 spec:
   serviceName: {{ include "handshake-node.fullname" . }}-headless
   replicas: {{ .Values.replicaCount }}
-  {{- if .Values.updateStrategy }}
+  {{- with .Values.updateStrategy }}
   updateStrategy:
-    type: {{ .Values.updateStrategy.type }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   {{- if and .Values.persistence.enabled .Values.persistence.retention }}
   persistentVolumeClaimRetentionPolicy:
@@ -68,12 +68,15 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           {{- $network := include "handshake-node.network" . }}
-          {{- if or (ne $network "main") .Values.metrics.enabled .Values.stratum.enabled }}
+          {{- $networkNeedsArg := has $network (list "regtest" "simnet" "testnet") }}
+          {{- if or $networkNeedsArg .Values.metrics.enabled .Values.stratum.enabled }}
           args:
             {{- if eq $network "regtest" }}
             - --regtest
             {{- else if eq $network "simnet" }}
             - --simnet
+            {{- else if eq $network "testnet" }}
+            - --testnet
             {{- end }}
             {{- if .Values.metrics.enabled }}
             - --metricslisten={{ .Values.metrics.listen }}

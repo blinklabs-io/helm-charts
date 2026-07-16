@@ -26,7 +26,7 @@ spec:
       port: {{ .Values.service.p2p.port }}
       targetPort: p2p
       protocol: TCP
-      {{- if and (eq .Values.service.p2p.type "NodePort") .Values.service.p2p.nodePort }}
+      {{- if and (or (eq .Values.service.p2p.type "NodePort") (eq .Values.service.p2p.type "LoadBalancer")) .Values.service.p2p.nodePort }}
       nodePort: {{ .Values.service.p2p.nodePort }}
       {{- end }}
   selector:
