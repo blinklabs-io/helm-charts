@@ -1,0 +1,114 @@
+{
+  "adder": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/adder",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "bluefin": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/bluefin",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "bursa": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/bursa",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "cardano-db-sync": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/cardano-db-sync",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": "v"
+  },
+  "cardano-node": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/cardano-node",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9]+)?$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "cardano-node-api": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/cardano-node-api",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "cdnsd": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/cdnsd",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "dingo": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/dingo",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "dolos": {
+    "registry": "ghcr",
+    "image": "txpipe/dolos",
+    "tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "v",
+    "app_version_prefix": ""
+  },
+  "ergo-node": {
+    "registry": "dockerhub",
+    "image": "ergoplatform/ergo",
+    "tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "v",
+    "app_version_prefix": "v"
+  },
+  "hsd": {
+    "registry": "ghcr",
+    "image": "handshake-org/hsd",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "kupo": {
+    "registry": "dockerhub",
+    "image": "cardanosolutions/kupo",
+    "tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "v",
+    "app_version_prefix": ""
+  },
+  "ogmios": {
+    "registry": "dockerhub",
+    "image": "cardanosolutions/ogmios",
+    "tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "v",
+    "app_version_prefix": "v"
+  },
+  "tx-submit-api": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/tx-submit-api",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "tx-submit-api-mirror": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/tx-submit-api-mirror",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  },
+  "vpn-indexer": {
+    "registry": "ghcr",
+    "image": "blinklabs-io/vpn-indexer",
+    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "tag_pattern": "",
+    "app_version_prefix": ""
+  }
+}
