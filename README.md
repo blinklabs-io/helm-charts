@@ -130,7 +130,7 @@ add an entry following the schema below:
   // E.g. "blinklabs-io/adder" (GHCR) or "cardanosolutions/kupo" (Docker Hub).
   "image": "org/name",
 
-  // ECMA/POSIX extended regex that a candidate tag must fully match. Use
+  // POSIX extended regex that a candidate tag must fully match. Use
   // this to exclude floating tags like "latest", release-candidate tags,
   // and anything with an unexpected shape.
   //   Simple semver           : "^[0-9]+\\.[0-9]+\\.[0-9]+$"
