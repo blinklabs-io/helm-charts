@@ -1,0 +1,207 @@
+---
+# Default values for handshake-node.
+
+replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/blinklabs-io/handshake-node
+  # Explicit tag; do not rely on "latest".
+  tag: "0.1.1-rc1"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Handshake network. Supported: main, regtest, simnet.
+# Default is mainnet as required.
+network: main
+
+# Node runtime configuration. These render into HANDSHAKE_NODE_* environment
+# variables which the daemon consumes at startup. Keys should be the long-form
+# CLI option name in uppercase without the leading "--"; dashes become
+# underscores per upstream configuration precedence rules.
+#
+# Only include keys you actually want to set. Anything left empty or unset is
+# omitted from the environment so upstream defaults apply.
+config:
+  # Optional listen overrides. Empty values use the daemon defaults.
+  listen: ""
+  # RPC listener. Default binds only to loopback to keep RPC private.
+  rpclisten: "127.0.0.1:12037"
+  # rpcallowip may be specified as a comma-separated list.
+  rpcallowip: ""
+  # Extra long-form options, keyed by uppercase option name.
+  # Example:
+  #   MAXPEERS: "125"
+  extra: {}
+
+# RPC credentials. Loaded from an existing Kubernetes Secret. Credentials must
+# not be baked into values or ConfigMaps. Leave rpc.enabled=false to run
+# handshake-node without an RPC listener (upstream disables RPC unless both
+# rpcuser and rpcpass are set).
+rpc:
+  enabled: false
+  existingSecret: ""
+  userKey: rpcuser
+  passwordKey: rpcpass
+
+# Persistence for /home/handshake/.handshake-node
+persistence:
+  enabled: true
+  accessModes:
+    - ReadWriteOnce
+  size: 200Gi
+  # storageClass: ""
+  # If set, an existing PVC name to bind instead of using the template.
+  existingClaim: ""
+  annotations: {}
+  # Retain the PVC when the StatefulSet is deleted.
+  # Kubernetes 1.27+ supports .spec.persistentVolumeClaimRetentionPolicy.
+  retention:
+    whenDeleted: Retain
+    whenScaled: Retain
+
+# Pod security context. Handshake node runs as a non-root system user baked
+# into the upstream image. fsGroup ensures the mounted PVC is writable by the
+# in-container group. Adjust runAsUser/runAsGroup if you rebuild the image.
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 100
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context. Locked down by default.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+
+# Peer-to-peer service. Kept ClusterIP by default; operators must explicitly
+# opt into any public exposure by setting service.p2p.type to LoadBalancer or
+# NodePort.
+service:
+  p2p:
+    type: ClusterIP
+    port: 12038
+    # Optional advertised port when using NodePort/LoadBalancer.
+    nodePort: ""
+    annotations: {}
+    # externalTrafficPolicy applies to NodePort and LoadBalancer only.
+    externalTrafficPolicy: ""
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+
+# Private RPC service (ClusterIP only, never publicly exposed by this chart).
+rpcService:
+  # Defaults to whether rpc.enabled is true.
+  enabled: null
+  port: 12037
+  annotations: {}
+
+# Metrics endpoint. Prometheus text format on /metrics. Off by default;
+# private when on.
+metrics:
+  enabled: false
+  # Bind inside the pod. Defaults to loopback if allowPublic is false; the
+  # daemon rejects non-loopback binds unless metricsallowpublic is set.
+  listen: "0.0.0.0:12039"
+  allowPublic: true
+  service:
+    port: 12039
+    annotations: {}
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: ""
+    path: /metrics
+    labels: {}
+    relabelings: []
+    metricRelabelings: []
+
+# Stratum server. Off and private by default.
+stratum:
+  enabled: false
+  listen: "127.0.0.1:12040"
+  allowPublic: false
+  # If enabled and bound publicly, the daemon requires a mining address and
+  # stratum credentials. Provide credentials via an existing Secret.
+  miningAddress: ""
+  auth:
+    existingSecret: ""
+    userKey: stratumuser
+    passwordKey: stratumpass
+  service:
+    enabled: false
+    type: ClusterIP
+    port: 12040
+    annotations: {}
+
+# Probes are tolerant of long initial chain synchronisation.
+startupProbe:
+  enabled: true
+  tcpSocket:
+    port: p2p
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 240
+readinessProbe:
+  enabled: true
+  tcpSocket:
+    port: p2p
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 6
+livenessProbe:
+  enabled: true
+  tcpSocket:
+    port: p2p
+  initialDelaySeconds: 120
+  periodSeconds: 60
+  timeoutSeconds: 10
+  failureThreshold: 6
+
+resources: {}
+  # requests:
+  #   cpu: 500m
+  #   memory: 1Gi
+  # limits:
+  #   cpu: 2000m
+  #   memory: 4Gi
+
+# Additional environment variables (name/value pairs). These override the
+# rendered defaults from .Values.config.
+extraEnv: []
+
+# Additional volumes/mounts.
+extraVolumes: []
+extraVolumeMounts: []
+
+# Scheduling
+nodeSelector: {}
+affinity: {}
+tolerations: []
+topologySpreadConstraints: []
+priorityClassName: ""
+
+# Pod/container annotations and labels
+podAnnotations: {}
+podLabels: {}
+serviceAnnotations: {}
+
+# Termination grace period for graceful shutdown.
+terminationGracePeriodSeconds: 60

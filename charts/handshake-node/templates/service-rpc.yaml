@@ -1,0 +1,24 @@
+{{- if eq (include "handshake-node.rpcService.enabled" .) "true" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "handshake-node.fullname" . }}-rpc
+  labels:
+    {{- include "handshake-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rpc
+  {{- with .Values.rpcService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  # RPC must stay private. Do not change this Service type in this chart.
+  type: ClusterIP
+  ports:
+    - name: rpc
+      port: {{ .Values.rpcService.port }}
+      targetPort: rpc
+      protocol: TCP
+  selector:
+    {{- include "handshake-node.matchLabels" . | nindent 4 }}
+{{- end }}

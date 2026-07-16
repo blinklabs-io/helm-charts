@@ -1,0 +1,23 @@
+{{- if and .Values.stratum.enabled .Values.stratum.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "handshake-node.fullname" . }}-stratum
+  labels:
+    {{- include "handshake-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: stratum
+  {{- with .Values.stratum.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.stratum.service.type | default "ClusterIP" }}
+  ports:
+    - name: stratum
+      port: {{ .Values.stratum.service.port }}
+      targetPort: stratum
+      protocol: TCP
+  selector:
+    {{- include "handshake-node.matchLabels" . | nindent 4 }}
+{{- end }}
