@@ -38,7 +38,7 @@ Security-relevant defaults:
 
 ## Prerequisites
 
-- Kubernetes 1.24+
+- Kubernetes 1.27+
 - Helm 3.8+ (for OCI registry support)
 - A default StorageClass (or set `persistence.storageClass`)
 
@@ -120,9 +120,10 @@ Enable the Prometheus endpoint (disabled by default):
 ```yaml
 metrics:
   enabled: true
-  # Keep this bound to a routable interface inside the pod. The daemon
-  # rejects non-loopback binds unless allowPublic is true.
-  listen: "0.0.0.0:12039"
+  # Optional. Leave unset ("") to let the chart derive the bind:
+  #   0.0.0.0:<metrics.service.port> when allowPublic=true
+  #   127.0.0.1:<metrics.service.port> when allowPublic=false
+  # listen: ""
   allowPublic: true
   serviceMonitor:
     enabled: true
@@ -145,7 +146,8 @@ kubectl -n handshake create secret generic handshake-node-stratum \
 ```yaml
 stratum:
   enabled: true
-  listen: "0.0.0.0:12040"
+  # Optional. Derived from stratum.service.port + allowPublic when unset.
+  # listen: ""
   allowPublic: true
   miningAddress: hs1qyourhandshakeaddress
   auth:
@@ -156,7 +158,9 @@ stratum:
 ```
 
 Public exposure requires `stratum.allowPublic=true` and both
-`stratumuser`/`stratumpass` per the upstream daemon.
+`miningAddress` and `auth.existingSecret` (validated at render time). The
+Stratum Service is only rendered when `stratum.allowPublic=true` because
+loopback listeners cannot be reached through a ClusterIP.
 
 ## Service exposure
 
@@ -243,7 +247,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | -------------------------------- | ------------------------------------------------------------ | ------------------------------------ |
 | `image.repository`               | Image name                                                   | `ghcr.io/blinklabs-io/handshake-node` |
 | `image.tag`                      | Image tag (never `latest`)                                   | `0.1.1-rc1`                          |
-| `network`                        | Handshake network: `main`, `regtest`, `simnet`               | `main`                               |
+| `network`                        | Handshake network: `main`, `regtest`, `simnet`, `testnet`    | `main`                               |
 | `persistence.size`               | PVC size                                                     | `200Gi`                              |
 | `persistence.storageClass`       | StorageClass name                                            | cluster default                      |
 | `rpc.enabled`                    | Enable authenticated RPC                                     | `false`                              |

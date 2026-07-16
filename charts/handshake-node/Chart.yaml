@@ -6,7 +6,9 @@ description: |
 type: application
 version: 0.1.0
 appVersion: "0.1.1-rc1"
-kubeVersion: ">=1.24.0-0"
+# 1.27+ is required for the StatefulSet .spec.persistentVolumeClaimRetentionPolicy
+# field that the chart renders by default. Older clusters silently drop the field.
+kubeVersion: ">=1.27.0-0"
 home: https://github.com/blinklabs-io/handshake-node
 sources:
   - https://github.com/blinklabs-io/handshake-node

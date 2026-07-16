@@ -22,7 +22,7 @@ serviceAccount:
   name: ""
   annotations: {}
 
-# Handshake network. Supported: main, regtest, simnet.
+# Handshake network. Supported: main, regtest, simnet, testnet.
 # Default is mainnet as required.
 network: main
 
@@ -34,10 +34,15 @@ network: main
 # Only include keys you actually want to set. Anything left empty or unset is
 # omitted from the environment so upstream defaults apply.
 config:
-  # Optional listen overrides. Empty values use the daemon defaults.
+  # Optional daemon listen override. Leave empty to let the chart derive
+  #   0.0.0.0:<service.p2p.port>
+  # so the Pod P2P listener always matches the Service target port.
   listen: ""
-  # RPC listener. Default binds only to loopback to keep RPC private.
-  rpclisten: "127.0.0.1:12037"
+  # RPC listener. Leave empty to let the chart derive
+  #   0.0.0.0:<rpcService.port>
+  # when rpc.enabled=true. The RPC Service is ClusterIP-only, so the daemon
+  # must bind on a Pod-reachable address rather than loopback.
+  rpclisten: ""
   # rpcallowip may be specified as a comma-separated list.
   rpcallowip: ""
   # Extra long-form options, keyed by uppercase option name.
@@ -115,9 +120,13 @@ rpcService:
 # private when on.
 metrics:
   enabled: false
-  # Bind inside the pod. Defaults to loopback if allowPublic is false; the
-  # daemon rejects non-loopback binds unless metricsallowpublic is set.
-  listen: "0.0.0.0:12039"
+  # Optional explicit listener override in host:port form. Leave empty to let
+  # the chart derive it as:
+  #   0.0.0.0:<metrics.service.port> when allowPublic=true
+  #   127.0.0.1:<metrics.service.port> when allowPublic=false
+  # so bind and Service target port always match, and the daemon never rejects
+  # a public bind because the --metricsallowpublic flag was withheld.
+  listen: ""
   allowPublic: true
   service:
     port: 12039
@@ -134,7 +143,11 @@ metrics:
 # Stratum server. Off and private by default.
 stratum:
   enabled: false
-  listen: "127.0.0.1:12040"
+  # Optional explicit listener override in host:port form. Leave empty to let
+  # the chart derive it as:
+  #   0.0.0.0:<stratum.service.port> when allowPublic=true
+  #   127.0.0.1:<stratum.service.port> when allowPublic=false
+  listen: ""
   allowPublic: false
   # If enabled and bound publicly, the daemon requires a mining address and
   # stratum credentials. Provide credentials via an existing Secret.

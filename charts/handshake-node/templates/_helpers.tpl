@@ -30,10 +30,25 @@ Chart name/version label.
 {{- end -}}
 
 {{/*
-Handshake network selector.
+Handshake network selector. Fails template rendering for unsupported values so
+labels and daemon flags cannot silently disagree.
 */}}
 {{- define "handshake-node.network" -}}
-{{- default "main" .Values.network -}}
+{{- $n := default "main" .Values.network -}}
+{{- $valid := list "main" "regtest" "simnet" "testnet" -}}
+{{- if not (has $n $valid) -}}
+{{- fail (printf "handshake-node: unsupported network %q. Supported: main, regtest, simnet, testnet." $n) -}}
+{{- end -}}
+{{- $n -}}
+{{- end -}}
+
+{{/*
+Name of the headless Service backing the StatefulSet. Reserved suffix space
+keeps the resulting name within the 63-char DNS label limit even with a long
+fullnameOverride or release name.
+*/}}
+{{- define "handshake-node.headlessName" -}}
+{{- printf "%s-headless" (include "handshake-node.fullname" . | trunc 54 | trimSuffix "-") -}}
 {{- end -}}
 
 {{/*
@@ -72,11 +87,14 @@ Service account name.
 
 {{/*
 Return "true" when the private RPC ClusterIP Service should be rendered.
-Defaults to rpc.enabled when rpcService.enabled is unset (null).
+Defaults to rpc.enabled when rpcService.enabled is unset (null). Never renders
+unless rpc.enabled is true so the Service always has a backend.
 */}}
 {{- define "handshake-node.rpcService.enabled" -}}
-{{- if kindIs "invalid" .Values.rpcService.enabled -}}
-{{- ternary "true" "false" .Values.rpc.enabled -}}
+{{- if not .Values.rpc.enabled -}}
+{{- "false" -}}
+{{- else if kindIs "invalid" .Values.rpcService.enabled -}}
+{{- "true" -}}
 {{- else -}}
 {{- ternary "true" "false" .Values.rpcService.enabled -}}
 {{- end -}}

@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "handshake-node.labels" . | nindent 4 }}
 spec:
-  serviceName: {{ include "handshake-node.fullname" . }}-headless
+  serviceName: {{ include "handshake-node.headlessName" . }}
   replicas: {{ .Values.replicaCount }}
   {{- with .Values.updateStrategy }}
   updateStrategy:
@@ -79,31 +79,39 @@ spec:
             - --testnet
             {{- end }}
             {{- if .Values.metrics.enabled }}
-            - --metricslisten={{ .Values.metrics.listen }}
+            {{- $metricsBind := ternary "0.0.0.0" "127.0.0.1" .Values.metrics.allowPublic }}
+            {{- $metricsListen := default (printf "%s:%v" $metricsBind (.Values.metrics.service.port | int)) .Values.metrics.listen }}
+            - --metricslisten={{ $metricsListen }}
             {{- if .Values.metrics.allowPublic }}
             - --metricsallowpublic
             {{- end }}
             {{- end }}
             {{- if .Values.stratum.enabled }}
-            - --stratumlisten={{ .Values.stratum.listen }}
+            {{- $stratumBind := ternary "0.0.0.0" "127.0.0.1" .Values.stratum.allowPublic }}
+            {{- $stratumListen := default (printf "%s:%v" $stratumBind (.Values.stratum.service.port | int)) .Values.stratum.listen }}
+            - --stratumlisten={{ $stratumListen }}
             {{- if .Values.stratum.allowPublic }}
+            {{- $miningAddr := required "stratum.miningAddress is required when stratum.enabled=true and stratum.allowPublic=true" .Values.stratum.miningAddress }}
+            {{- $_ := required "stratum.auth.existingSecret is required when stratum.enabled=true and stratum.allowPublic=true" .Values.stratum.auth.existingSecret }}
             - --stratumallowpublic
-            {{- end }}
+            - --miningaddr={{ $miningAddr }}
+            {{- else }}
             {{- with .Values.stratum.miningAddress }}
             - --miningaddr={{ . }}
+            {{- end }}
             {{- end }}
             {{- end }}
           {{- end }}
           env:
             - name: HOME
               value: /home/handshake
-            {{- if .Values.config.listen }}
+            {{- $p2pListen := default (printf "0.0.0.0:%v" (.Values.service.p2p.port | int)) .Values.config.listen }}
             - name: HANDSHAKE_NODE_LISTEN
-              value: {{ .Values.config.listen | quote }}
-            {{- end }}
-            {{- if and .Values.rpc.enabled .Values.config.rpclisten }}
+              value: {{ $p2pListen | quote }}
+            {{- if .Values.rpc.enabled }}
+            {{- $rpcListen := default (printf "0.0.0.0:%v" (.Values.rpcService.port | int)) .Values.config.rpclisten }}
             - name: HANDSHAKE_NODE_RPCLISTEN
-              value: {{ .Values.config.rpclisten | quote }}
+              value: {{ $rpcListen | quote }}
             {{- end }}
             {{- if and .Values.rpc.enabled .Values.config.rpcallowip }}
             - name: HANDSHAKE_NODE_RPCALLOWIP
@@ -217,8 +225,11 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: data
+        # Use stable selector labels only. StatefulSet volumeClaimTemplates
+        # is immutable, so a chart-version bump in helm.sh/chart would break
+        # subsequent upgrades.
         labels:
-          {{- include "handshake-node.labels" . | nindent 10 }}
+          {{- include "handshake-node.matchLabels" . | nindent 10 }}
         {{- with .Values.persistence.annotations }}
         annotations:
           {{- toYaml . | nindent 10 }}
