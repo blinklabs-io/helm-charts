@@ -106,10 +106,12 @@ rpc:
   passwordKey: rpcpass
 config:
   # REQUIRED when rpc.enabled=true. Comma-separated CIDR list the daemon
-  # will accept RPC connections from. ClusterIP alone does not restrict
-  # source pods, so set this to the Pod/Service CIDR of trusted clients
-  # (or a NetworkPolicy-enforced range).
-  rpcallowip: "10.0.0.0/8"
+  # matches against RPC client *source* addresses. ClusterIP alone does not
+  # restrict source Pods, so set this to the Pod CIDR of trusted clients
+  # (account for CNI SNAT — after SNAT the source may be the node IP). A
+  # Service CIDR is a destination range and will not match client source
+  # addresses; use a NetworkPolicy for finer-grained enforcement.
+  rpcallowip: "<trusted-rpc-client-cidr>"
 ```
 
 The chart injects the credentials as the `HANDSHAKE_NODE_RPCUSER` and
@@ -211,6 +213,11 @@ persistence:
 rpc:
   enabled: true
   existingSecret: handshake-node-rpc
+
+config:
+  # Required whenever rpc.enabled=true. Substitute the Pod CIDR of the
+  # workloads that should be allowed to call RPC.
+  rpcallowip: "<trusted-rpc-client-cidr>"
 
 metrics:
   enabled: true

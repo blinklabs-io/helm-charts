@@ -47,8 +47,10 @@ config:
   # allowlist. It is REQUIRED when rpc.enabled=true because the ClusterIP
   # Service does not restrict source Pods on its own; without an allowlist,
   # any workload in the cluster could reach the listener. Set this to the
-  # Pod/Service CIDR of trusted clients (or a narrower CIDR that a
-  # NetworkPolicy also enforces).
+  # source CIDR of trusted client Pods (normally their Pod CIDR — account for
+  # CNI SNAT which may replace the source with the node IP). A Service CIDR
+  # is a destination range and does not match client source addresses; pair
+  # this allowlist with a NetworkPolicy for finer-grained enforcement.
   rpcallowip: ""
   # Extra long-form options, keyed by uppercase option name.
   # Example:
