@@ -8,7 +8,7 @@ backends:
 cardano_network: preview
 image:
   repository: ghcr.io/blinklabs-io/tx-submit-api-mirror
-  tag: 0.8.1
+  tag: "0.8.3"
 ingress:
   enabled: false
   host: submit-api-mirror.preview.local
