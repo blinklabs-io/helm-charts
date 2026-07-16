@@ -31,24 +31,54 @@ Chart name/version label.
 
 {{/*
 Handshake network selector. Fails template rendering for unsupported values so
-labels and daemon flags cannot silently disagree.
+labels and daemon flags cannot silently disagree. Restricted to the networks
+the upstream handshake-node image actually implements as CLI flags; testnet
+and simnet are rejected by the daemon and therefore not offered here.
 */}}
 {{- define "handshake-node.network" -}}
 {{- $n := default "main" .Values.network -}}
-{{- $valid := list "main" "regtest" "simnet" "testnet" -}}
+{{- $valid := list "main" "regtest" -}}
 {{- if not (has $n $valid) -}}
-{{- fail (printf "handshake-node: unsupported network %q. Supported: main, regtest, simnet, testnet." $n) -}}
+{{- fail (printf "handshake-node: unsupported network %q. Supported: main, regtest." $n) -}}
 {{- end -}}
 {{- $n -}}
 {{- end -}}
 
 {{/*
-Name of the headless Service backing the StatefulSet. Reserved suffix space
-keeps the resulting name within the 63-char DNS label limit even with a long
-fullnameOverride or release name.
+Suffix-aware component name. Truncates the fullname so the returned value
+stays within the 63-character DNS label limit even when a long release name
+or fullnameOverride is combined with a component suffix like "-p2p".
+Call as: include "handshake-node.componentName" (dict "ctx" . "suffix" "-p2p")
+*/}}
+{{- define "handshake-node.componentName" -}}
+{{- $ctx := .ctx -}}
+{{- $suffix := .suffix -}}
+{{- $max := int (sub 63 (len $suffix)) -}}
+{{- printf "%s%s" (include "handshake-node.fullname" $ctx | trunc $max | trimSuffix "-") $suffix -}}
+{{- end -}}
+
+{{/*
+Name of the headless Service backing the StatefulSet.
 */}}
 {{- define "handshake-node.headlessName" -}}
-{{- printf "%s-headless" (include "handshake-node.fullname" . | trunc 54 | trimSuffix "-") -}}
+{{- include "handshake-node.componentName" (dict "ctx" . "suffix" "-headless") -}}
+{{- end -}}
+
+{{/*
+Per-component Service names. Each reserves the suffix length so a maximum
+63-char fullname override still renders a valid Service name.
+*/}}
+{{- define "handshake-node.p2pName" -}}
+{{- include "handshake-node.componentName" (dict "ctx" . "suffix" "-p2p") -}}
+{{- end -}}
+{{- define "handshake-node.rpcName" -}}
+{{- include "handshake-node.componentName" (dict "ctx" . "suffix" "-rpc") -}}
+{{- end -}}
+{{- define "handshake-node.metricsName" -}}
+{{- include "handshake-node.componentName" (dict "ctx" . "suffix" "-metrics") -}}
+{{- end -}}
+{{- define "handshake-node.stratumName" -}}
+{{- include "handshake-node.componentName" (dict "ctx" . "suffix" "-stratum") -}}
 {{- end -}}
 
 {{/*
@@ -66,12 +96,15 @@ handshake_network: {{ include "handshake-node.network" . }}
 {{- end -}}
 
 {{/*
-Selector labels
+Selector labels. Deliberately excludes handshake_network because
+StatefulSet.spec.selector is immutable in Kubernetes; a network change on
+helm upgrade would fail with `spec: Forbidden`. name + instance already
+isolate the release. The network label is still exposed on general resource
+and pod metadata via handshake-node.labels for observability.
 */}}
 {{- define "handshake-node.matchLabels" -}}
 app.kubernetes.io/name: {{ include "handshake-node.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-handshake_network: {{ include "handshake-node.network" . }}
 {{- end -}}
 
 {{/*

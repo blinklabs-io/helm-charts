@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "handshake-node.fullname" . }}-stratum
+  name: {{ include "handshake-node.stratumName" . }}
   labels:
     {{- include "handshake-node.labels" . | nindent 4 }}
     app.kubernetes.io/component: stratum

@@ -22,9 +22,26 @@ PersistentVolumeClaim mounted at `/home/handshake/.handshake-node`.
 Security-relevant defaults:
 
 - The container runs as the non-root `handshake` user baked into the upstream
-  image with `runAsNonRoot: true`, all Linux capabilities dropped, no
-  privilege escalation, `readOnlyRootFilesystem: true`, and the
-  `RuntimeDefault` seccomp profile.
+  image (UID 100 / GID 101), pinned numerically via `runAsUser` /
+  `runAsGroup` so kubelet can enforce `runAsNonRoot: true` without resolving
+  the image's `/etc/passwd`. All Linux capabilities are dropped, no privilege
+  escalation, `readOnlyRootFilesystem: true`, and the `RuntimeDefault`
+  seccomp profile.
+- An `init-chown-data` init container (busybox) fixes ownership of the
+  mounted PVC on every start. It drops all Linux capabilities and adds back
+  only `CAP_CHOWN` (to change owner/group) and `CAP_DAC_READ_SEARCH` (so
+  root can traverse the `0700` directories the daemon creates under the
+  data root on first start; without it, a restart of the pod would fail
+  with `Permission denied`). The container runs a selective
+  `find /home/handshake/.handshake-node \( -not -user <uid> -o -not -group <gid> \) -exec chown <uid>:<gid> {} +`
+  against the mount root, so only entries whose owner or group already
+  differ from the configured `runAsUser` / `runAsGroup` are touched. That
+  keeps the operation idempotent across restarts and cheap on a warm PVC,
+  and it never modifies file modes — the Brontide identity key's `0600`
+  survives, and a pre-populated `persistence.existingClaim` remains fully
+  readable by the non-root main container. `fsGroup` is deliberately not
+  used because kubelet's recursive `fsGroup` chmod adds group r/w to every
+  file, which the daemon rejects for its Brontide identity key.
 - The peer-to-peer Service is `ClusterIP` by default. Public exposure via
   `NodePort` or `LoadBalancer` is an explicit operator choice.
 - The authenticated TLS RPC listener (port `12037`) is not exposed unless
@@ -35,6 +52,10 @@ Security-relevant defaults:
 - The Prometheus metrics endpoint (`12039`) and Stratum server (`12040`) are
   disabled by default. When enabled they are kept on private `ClusterIP`
   Services.
+- Supported `network` values are `main` and `regtest`. The upstream
+  `handshake-node` binary does not implement `--testnet` or `--simnet`; the
+  chart rejects those values at render time to avoid a `CreateContainerError`
+  loop from an unknown flag.
 
 ## Prerequisites
 
@@ -160,6 +181,9 @@ stratum:
   # Optional. Derived from stratum.service.port + allowPublic when unset.
   # listen: ""
   allowPublic: true
+  # Required whenever stratum.enabled=true (even for private/loopback binds).
+  # handshake-node v0.2.0-rc1 refuses to start if --stratumlisten is set
+  # without --miningaddr.
   miningAddress: hs1qyourhandshakeaddress
   auth:
     existingSecret: handshake-node-stratum
@@ -168,10 +192,11 @@ stratum:
     type: ClusterIP
 ```
 
-Public exposure requires `stratum.allowPublic=true` and both
-`miningAddress` and `auth.existingSecret` (validated at render time). The
-Stratum Service is only rendered when `stratum.allowPublic=true` because
-loopback listeners cannot be reached through a ClusterIP.
+`stratum.miningAddress` is required whenever Stratum is enabled. Public
+exposure additionally requires `stratum.allowPublic=true` and
+`stratum.auth.existingSecret` (all validated at render time). The Stratum
+Service is only rendered when `stratum.allowPublic=true` because loopback
+listeners cannot be reached through a ClusterIP.
 
 ## Service exposure
 
@@ -195,6 +220,12 @@ service:
     type: NodePort
     port: 12038
     nodePort: 32038
+config:
+  extra:
+    # handshake-node does not derive its advertised address from the
+    # Service; when using NodePort, set EXTERNALIP to the routable
+    # "<node-ip>:<nodePort>" so peers can dial you back.
+    EXTERNALIP: "203.0.113.10:32038"
 ```
 
 ## Mainnet operations examples
@@ -204,7 +235,7 @@ Full mainnet node with private RPC, metrics enabled, and a beefier PVC:
 ```yaml
 network: main
 image:
-  tag: "0.1.1-rc1"
+  tag: "0.2.0-rc1"
 
 persistence:
   size: 400Gi
@@ -215,8 +246,8 @@ rpc:
   existingSecret: handshake-node-rpc
 
 config:
-  # Required whenever rpc.enabled=true. Substitute the Pod CIDR of the
-  # workloads that should be allowed to call RPC.
+  # Required whenever rpc.enabled=true. Substitute the observed client
+  # source CIDR (Pod CIDR unless CNI SNAT changes it to node IPs).
   rpcallowip: "<trusted-rpc-client-cidr>"
 
 metrics:
@@ -262,8 +293,8 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | Key                              | Description                                                  | Default                              |
 | -------------------------------- | ------------------------------------------------------------ | ------------------------------------ |
 | `image.repository`               | Image name                                                   | `ghcr.io/blinklabs-io/handshake-node` |
-| `image.tag`                      | Image tag (never `latest`)                                   | `0.1.1-rc1`                          |
-| `network`                        | Handshake network: `main`, `regtest`, `simnet`, `testnet`    | `main`                               |
+| `image.tag`                      | Image tag (never `latest`)                                   | `0.2.0-rc1`                          |
+| `network`                        | Handshake network: `main`, `regtest`                         | `main`                               |
 | `persistence.size`               | PVC size                                                     | `200Gi`                              |
 | `persistence.storageClass`       | StorageClass name                                            | cluster default                      |
 | `rpc.enabled`                    | Enable authenticated RPC                                     | `false`                              |

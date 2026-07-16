@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "handshake-node.fullname" . }}-metrics
+  name: {{ include "handshake-node.metricsName" . }}
   labels:
     {{- include "handshake-node.labels" . | nindent 4 }}
     app.kubernetes.io/component: metrics
