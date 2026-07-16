@@ -2,8 +2,9 @@ name: check-image-versions
 
 # Automatically checks whether any upstream container image has received a new
 # release, and opens a pull-request to update the matching Helm chart when one
-# is found.  Mirrors the check-versions workflow used in
-# blinklabs-io/cardano-up-packages.
+# is found.  Container-registry tags are the sole source of truth: repository
+# release tags are never consulted, because they can diverge from the tags that
+# are actually published to Docker Hub or GHCR.
 
 on:
   schedule:
@@ -18,14 +19,21 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      packages: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0 https://github.com/actions/checkout/releases/tag/v7.0.0
+      # Use AUTO_PR_TOKEN (a PAT or GitHub-App token) when available so that
+      # PRs opened by this workflow trigger the repository's pull_request
+      # workflows (chart lint, conventional-commit checks, etc.).  Falls back
+      # to GITHUB_TOKEN if the secret is not configured, but PRs created with
+      # GITHUB_TOKEN will NOT trigger downstream workflows.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          token: ${{ secrets.AUTO_PR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Check and create PRs for new versions
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTO_PR_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -44,83 +52,72 @@ jobs:
             echo "=========================================="
 
             # ── Read config fields ─────────────────────────────────────────
-            REPO=$(jq -r         --arg c "$CHART" '.[$c].repo'                  "$UPSTREAM_CONFIG")
-            TAG_PATTERN=$(jq -r  --arg c "$CHART" '.[$c].tag_pattern'           "$UPSTREAM_CONFIG")
-            VALUES_PREFIX=$(jq -r --arg c "$CHART" '.[$c].values_tag_prefix'    "$UPSTREAM_CONFIG")
-            APP_PREFIX=$(jq -r   --arg c "$CHART" '.[$c].app_version_prefix'    "$UPSTREAM_CONFIG")
-            DOCKER_IMAGE=$(jq -r --arg c "$CHART" '.[$c].docker_image // ""'    "$UPSTREAM_CONFIG")
-            GHCR_IMAGE=$(jq -r   --arg c "$CHART" '.[$c].ghcr_image   // ""'    "$UPSTREAM_CONFIG")
+            REGISTRY=$(jq -r     --arg c "$CHART" '.[$c].registry'            "$UPSTREAM_CONFIG")
+            IMAGE=$(jq -r        --arg c "$CHART" '.[$c].image'               "$UPSTREAM_CONFIG")
+            TAG_REGEX=$(jq -r    --arg c "$CHART" '.[$c].tag_regex'           "$UPSTREAM_CONFIG")
+            TAG_PATTERN=$(jq -r  --arg c "$CHART" '.[$c].tag_pattern // ""'   "$UPSTREAM_CONFIG")
+            APP_PREFIX=$(jq -r   --arg c "$CHART" '.[$c].app_version_prefix // ""' "$UPSTREAM_CONFIG")
 
-            echo "  Upstream repo     : $REPO"
-            echo "  Tag pattern       : '${TAG_PATTERN}'"
-            echo "  values_tag_prefix : '${VALUES_PREFIX}'"
-            echo "  app_version_prefix: '${APP_PREFIX}'"
+            echo "  Registry     : $REGISTRY"
+            echo "  Image        : $IMAGE"
+            echo "  Tag regex    : $TAG_REGEX"
 
-            # ── Determine upstream version ─────────────────────────────────
-
-            LATEST_TAG=""
-            UPSTREAM_VERSION=""
-
-            if [[ -n "$GHCR_IMAGE" ]]; then
-              # Use GHCR as source of truth (e.g. hsd – no predictable GH release tag)
-              echo "  Using GHCR image as version source: $GHCR_IMAGE"
-              GHCR_ORG="${GHCR_IMAGE%%/*}"
-              GHCR_PKG="${GHCR_IMAGE#*/}"
-
-              UPSTREAM_VERSION=$(gh api "/orgs/${GHCR_ORG}/packages/container/${GHCR_PKG}/versions" \
-                --paginate \
-                --jq '.[].metadata.container.tags[]' 2>/dev/null \
-                | grep -E "^${TAG_PATTERN}[0-9]+\.[0-9]+\.[0-9]+$" \
-                | sort -V | tail -1 || echo "")
-
-              if [[ -z "$UPSTREAM_VERSION" ]]; then
-                echo "  WARNING: Could not fetch versions from GHCR for $GHCR_IMAGE, skipping"
+            # ── Fetch candidate tags from the container registry ───────────
+            case "$REGISTRY" in
+              ghcr)
+                # GHCR container package. The path segment before the last '/'
+                # is the org; the remainder is the package name (which may
+                # contain '/' for nested packages, though none of ours do).
+                GHCR_ORG="${IMAGE%%/*}"
+                GHCR_PKG="${IMAGE#*/}"
+                RAW_TAGS=$(gh api "/orgs/${GHCR_ORG}/packages/container/${GHCR_PKG}/versions" \
+                  --paginate \
+                  --jq '.[].metadata.container.tags[]' 2>/dev/null || echo "")
+                ;;
+              dockerhub)
+                # Docker Hub v2 tags API. Paginate through the `next` link so
+                # we do not miss releases that are older than the first 100.
+                RAW_TAGS=""
+                URL="https://hub.docker.com/v2/repositories/${IMAGE}/tags?page_size=100"
+                # Bound the pagination loop so a broken `next` link cannot spin
+                # forever.
+                for _ in $(seq 1 20); do
+                  [[ -z "$URL" || "$URL" == "null" ]] && break
+                  RESP=$(curl -sS "$URL" || echo '{}')
+                  PAGE=$(echo "$RESP" | jq -r '.results[]?.name' 2>/dev/null || echo "")
+                  if [[ -n "$PAGE" ]]; then
+                    RAW_TAGS="${RAW_TAGS}${PAGE}"$'\n'
+                  fi
+                  URL=$(echo "$RESP" | jq -r '.next // empty' 2>/dev/null || echo "")
+                done
+                ;;
+              *)
+                echo "  WARNING: unsupported registry '$REGISTRY' for $CHART, skipping"
                 continue
-              fi
-              echo "  Latest GHCR version: $UPSTREAM_VERSION"
+                ;;
+            esac
 
-            else
-              # Use GitHub releases
-              LATEST_TAG=$(gh api "repos/${REPO}/releases/latest" --jq '.tag_name' 2>/dev/null || echo "")
-
-              if [[ -z "$LATEST_TAG" ]]; then
-                echo "  WARNING: Could not fetch latest release for $REPO, skipping"
-                continue
-              fi
-              echo "  Latest upstream tag: $LATEST_TAG"
-
-              # Strip the tag_pattern prefix to derive the plain version number
-              if [[ -n "$TAG_PATTERN" ]]; then
-                UPSTREAM_VERSION="${LATEST_TAG#$TAG_PATTERN}"
-              else
-                UPSTREAM_VERSION="$LATEST_TAG"
-              fi
-
-              # If docker_image is configured, look up the Docker Hub tag that
-              # corresponds to this release (handles short GH tags like v2.11 vs
-              # full image tags like v2.11.0, matching cardano-up-packages logic).
-              if [[ -n "$DOCKER_IMAGE" ]]; then
-                echo "  Looking up Docker Hub tags for: $DOCKER_IMAGE"
-                DOCKER_TAG=$(curl -s \
-                  "https://hub.docker.com/v2/repositories/${DOCKER_IMAGE}/tags?page_size=100" \
-                  | jq -r --arg prefix "${TAG_PATTERN}${UPSTREAM_VERSION}" \
-                      '.results[].name | select(startswith($prefix))' \
-                  | sort -V | tail -1 || echo "")
-
-                if [[ -n "$DOCKER_TAG" ]]; then
-                  UPSTREAM_VERSION="${DOCKER_TAG#$TAG_PATTERN}"
-                  echo "  Found Docker Hub tag: $DOCKER_TAG -> version $UPSTREAM_VERSION"
-                else
-                  echo "  WARNING: No matching Docker Hub tag for ${TAG_PATTERN}${UPSTREAM_VERSION}, using GitHub tag"
-                fi
-              fi
+            if [[ -z "${RAW_TAGS// /}" ]]; then
+              echo "  WARNING: no tags returned from $REGISTRY for $IMAGE, skipping"
+              continue
             fi
 
-            echo "  Upstream version: $UPSTREAM_VERSION"
+            NEW_VALUES_TAG=$(printf '%s\n' "$RAW_TAGS" \
+              | grep -E "$TAG_REGEX" \
+              | sort -V \
+              | tail -1 || echo "")
 
-            # ── Derive the values-tag and app-version strings ──────────────
-            NEW_VALUES_TAG="${VALUES_PREFIX}${UPSTREAM_VERSION}"
-            NEW_APP_VERSION="${APP_PREFIX}${UPSTREAM_VERSION}"
+            if [[ -z "$NEW_VALUES_TAG" ]]; then
+              echo "  WARNING: no tag on $IMAGE matched $TAG_REGEX, skipping"
+              continue
+            fi
+            echo "  Latest registry tag: $NEW_VALUES_TAG"
+
+            # ── Derive the appVersion string ───────────────────────────────
+            # Strip the shared image-tag prefix (e.g. "v") to obtain the
+            # numeric core, then prepend the desired appVersion prefix.
+            CORE_VERSION="${NEW_VALUES_TAG#$TAG_PATTERN}"
+            NEW_APP_VERSION="${APP_PREFIX}${CORE_VERSION}"
 
             # ── Read current image tag from values.yaml ────────────────────
             VALUES_FILE="charts/${CHART}/values.yaml"
@@ -138,9 +135,20 @@ jobs:
               continue
             fi
 
+            # ── Downgrade guard ────────────────────────────────────────────
+            # sort -V handles semver-ish ordering including trailing packaging
+            # revisions ("11.0.1-1" > "11.0.1") and 4-segment tags. Skip if
+            # the newest registry tag is not strictly greater than the current
+            # values.yaml tag.
+            HIGHEST=$(printf '%s\n%s\n' "$CURRENT_TAG" "$NEW_VALUES_TAG" | sort -V | tail -1)
+            if [[ "$HIGHEST" != "$NEW_VALUES_TAG" ]]; then
+              echo "  Resolved tag $NEW_VALUES_TAG is not newer than current $CURRENT_TAG, skipping"
+              continue
+            fi
+
             echo "  Update available: $CURRENT_TAG -> $NEW_VALUES_TAG"
 
-            BRANCH_NAME="chore/${CHART}-${UPSTREAM_VERSION}"
+            BRANCH_NAME="chore/${CHART}-${CORE_VERSION}"
 
             # Skip if an open PR already exists for this update.
             EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0]?.number // empty')
@@ -171,37 +179,26 @@ jobs:
             # printf is used instead of a multi-line string so that each body
             # line starts at column 0, preventing GitHub's CommonMark renderer
             # from treating the indented content as a code block.
-            if [[ -n "$LATEST_TAG" ]]; then
-              PR_BODY=$(printf '%s\n' \
-                "## Summary" \
-                "- Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`" \
-                "- Upstream release: https://github.com/${REPO}/releases/tag/${LATEST_TAG}" \
-                "" \
-                "## Changes" \
-                "- \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`" \
-                "- \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped" \
-                "" \
-                "## Test plan" \
-                "- [ ] CI lint passes" \
-                "- [ ] Manual smoke-test if needed" \
-                "" \
-                "🤖 Generated automatically by check-image-versions workflow")
-            else
-              PR_BODY=$(printf '%s\n' \
-                "## Summary" \
-                "- Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`" \
-                "- Source: ghcr.io/${GHCR_IMAGE}:${UPSTREAM_VERSION}" \
-                "" \
-                "## Changes" \
-                "- \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`" \
-                "- \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped" \
-                "" \
-                "## Test plan" \
-                "- [ ] CI lint passes" \
-                "- [ ] Manual smoke-test if needed" \
-                "" \
-                "🤖 Generated automatically by check-image-versions workflow")
-            fi
+            case "$REGISTRY" in
+              ghcr)      IMAGE_REF="ghcr.io/${IMAGE}:${NEW_VALUES_TAG}" ;;
+              dockerhub) IMAGE_REF="docker.io/${IMAGE}:${NEW_VALUES_TAG}" ;;
+              *)         IMAGE_REF="${IMAGE}:${NEW_VALUES_TAG}" ;;
+            esac
+
+            PR_BODY=$(printf '%s\n' \
+              "## Summary" \
+              "- Updates \`${CHART}\` image tag from \`${CURRENT_TAG}\` to \`${NEW_VALUES_TAG}\`" \
+              "- Source: \`${IMAGE_REF}\`" \
+              "" \
+              "## Changes" \
+              "- \`charts/${CHART}/values.yaml\`: \`image.tag\` → \`${NEW_VALUES_TAG}\`" \
+              "- \`charts/${CHART}/Chart.yaml\`: \`appVersion\` → \`${NEW_APP_VERSION}\`, chart \`version\` patch bumped" \
+              "" \
+              "## Test plan" \
+              "- [ ] CI lint passes" \
+              "- [ ] Manual smoke-test if needed" \
+              "" \
+              "🤖 Generated automatically by check-image-versions workflow")
 
             PR_CREATED=false
             if PR_OUTPUT=$(gh pr create \
