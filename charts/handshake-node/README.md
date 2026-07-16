@@ -104,9 +104,15 @@ rpc:
   existingSecret: handshake-node-rpc
   userKey: rpcuser
   passwordKey: rpcpass
+config:
+  # REQUIRED when rpc.enabled=true. Comma-separated CIDR list the daemon
+  # will accept RPC connections from. ClusterIP alone does not restrict
+  # source pods, so set this to the Pod/Service CIDR of trusted clients
+  # (or a NetworkPolicy-enforced range).
+  rpcallowip: "10.0.0.0/8"
 ```
 
-The chart injects these values as the `HANDSHAKE_NODE_RPCUSER` and
+The chart injects the credentials as the `HANDSHAKE_NODE_RPCUSER` and
 `HANDSHAKE_NODE_RPCPASS` environment variables via `secretKeyRef`. It also
 renders a `ClusterIP`-only Service named `<release>-handshake-node-rpc` on
 port `12037`. If you need remote clients to reach RPC, port-forward the
@@ -130,8 +136,11 @@ metrics:
     interval: 30s
 ```
 
-The metrics `Service` is always `ClusterIP`. Prometheus Operator users can
-turn on the `ServiceMonitor` with `metrics.serviceMonitor.enabled=true`.
+The metrics `Service` is always `ClusterIP` and is only rendered when
+`metrics.allowPublic=true`; a loopback-only listener has no reachable
+backend, so the chart suppresses the Service (and any `ServiceMonitor`) in
+that case. Prometheus Operator users can turn on the `ServiceMonitor` with
+`metrics.serviceMonitor.enabled=true`.
 
 ## Stratum
 

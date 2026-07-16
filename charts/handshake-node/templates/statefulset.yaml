@@ -112,10 +112,9 @@ spec:
             {{- $rpcListen := default (printf "0.0.0.0:%v" (.Values.rpcService.port | int)) .Values.config.rpclisten }}
             - name: HANDSHAKE_NODE_RPCLISTEN
               value: {{ $rpcListen | quote }}
-            {{- end }}
-            {{- if and .Values.rpc.enabled .Values.config.rpcallowip }}
+            {{- $rpcAllow := required "config.rpcallowip is required when rpc.enabled=true; set it to a comma-separated CIDR list (e.g. the Pod/Service CIDR) that should be allowed to talk to the RPC listener. If you rely on a NetworkPolicy instead, set config.rpcallowip to the same allowlist explicitly." .Values.config.rpcallowip }}
             - name: HANDSHAKE_NODE_RPCALLOWIP
-              value: {{ .Values.config.rpcallowip | quote }}
+              value: {{ $rpcAllow | quote }}
             {{- end }}
             {{- if .Values.rpc.enabled }}
             {{- $secretName := required "rpc.existingSecret is required when rpc.enabled=true" .Values.rpc.existingSecret }}

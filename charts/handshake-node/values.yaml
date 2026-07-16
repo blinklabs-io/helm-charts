@@ -43,7 +43,12 @@ config:
   # when rpc.enabled=true. The RPC Service is ClusterIP-only, so the daemon
   # must bind on a Pod-reachable address rather than loopback.
   rpclisten: ""
-  # rpcallowip may be specified as a comma-separated list.
+  # rpcallowip is a comma-separated CIDR list that the daemon uses as its RPC
+  # allowlist. It is REQUIRED when rpc.enabled=true because the ClusterIP
+  # Service does not restrict source Pods on its own; without an allowlist,
+  # any workload in the cluster could reach the listener. Set this to the
+  # Pod/Service CIDR of trusted clients (or a narrower CIDR that a
+  # NetworkPolicy also enforces).
   rpcallowip: ""
   # Extra long-form options, keyed by uppercase option name.
   # Example:
