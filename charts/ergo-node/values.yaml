@@ -4,7 +4,7 @@ updateStrategy:
 
 image:
   repository: ergoplatform/ergo
-  tag: v6.1.0
+  tag: "v6.1.3"
   pullPolicy: IfNotPresent
 replicaCount: 1
 
