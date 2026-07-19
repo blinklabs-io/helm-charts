@@ -6,7 +6,7 @@ updateStrategy:
 
 image:
   repository: cardanosolutions/kupo
-  tag: "v2.11.0"
+  tag: "v2.12.0"
   pullPolicy: IfNotPresent
 
 # Readiness gate / liveness probe settings
