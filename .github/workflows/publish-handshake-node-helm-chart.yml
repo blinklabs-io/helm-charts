@@ -1,0 +1,36 @@
+name: publish-handshake-node-helm-chart
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'charts/handshake-node/**'
+      - '.github/workflows/publish-handshake-node-helm-chart.yml'
+
+jobs:
+  build-and-push-handshake-node-helm-chart:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Install Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - name: Package and upload chart
+        shell: bash
+        env:
+          REGISTRY: "ghcr.io"
+          REPOSITORY: "${{ github.repository }}"
+          TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          USER: "${{ github.repository_owner }}"
+        run: |
+          rm -rf dist
+          mkdir dist
+          helm package charts/handshake-node/ -d dist/
+          echo "${TOKEN}" | helm registry login "${REGISTRY}" -u "${USER}" --password-stdin
+          for file in dist/*; do
+            helm push "$file" "oci://${REGISTRY}/${REPOSITORY,,}/charts"
+          done

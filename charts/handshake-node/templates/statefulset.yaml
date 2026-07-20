@@ -1,0 +1,328 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "handshake-node.fullname" . }}
+  labels:
+    {{- include "handshake-node.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "handshake-node.headlessName" . }}
+  replicas: {{ .Values.replicaCount }}
+  {{- with .Values.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if and .Values.persistence.enabled .Values.persistence.retention }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ .Values.persistence.retention.whenDeleted | default "Retain" }}
+    whenScaled: {{ .Values.persistence.retention.whenScaled | default "Retain" }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "handshake-node.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "handshake-node.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        kubectl.kubernetes.io/default-container: handshake-node
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "handshake-node.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if and .Values.persistence.enabled .Values.persistence.chownInitContainer.enabled }}
+      initContainers:
+        - name: init-chown-data
+          image: {{ .Values.persistence.chownInitContainer.image | quote }}
+          imagePullPolicy: {{ .Values.persistence.chownInitContainer.imagePullPolicy }}
+          # Restart-safe ownership fix. handshake-node creates subdirectories
+          # like data/ and logs/ as UID 100 mode 0700, so on pod restart root
+          # cannot traverse them without CAP_DAC_READ_SEARCH; that capability
+          # is added below alongside CAP_CHOWN. `find ... -not -user` skips
+          # entries already owned by the target UID, keeping the operation
+          # idempotent and cheap on warm PVCs. File modes are never touched,
+          # so the Brontide identity key stays 0600.
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              find /home/handshake/.handshake-node \( -not -user {{ .Values.podSecurityContext.runAsUser }} -o -not -group {{ .Values.podSecurityContext.runAsGroup }} \) -exec chown {{ .Values.podSecurityContext.runAsUser }}:{{ .Values.podSecurityContext.runAsGroup }} {} +
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - DAC_READ_SEARCH
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: data
+              mountPath: /home/handshake/.handshake-node
+      {{- end }}
+      containers:
+        - name: handshake-node
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- $network := include "handshake-node.network" . }}
+          {{- $networkNeedsArg := eq $network "regtest" }}
+          {{- /* Validate listener overrides: if the operator sets an explicit
+               host:port, the port must match the corresponding Kubernetes
+               Service target port so the container port, Services, and TCP
+               probes stay in sync. Address-only overrides (no colon) are
+               rejected because handshake-node expects host:port. */ -}}
+          {{- $p2pExpect := printf ":%v" (.Values.service.p2p.port | int) }}
+          {{- if and .Values.config.listen (not (hasSuffix $p2pExpect .Values.config.listen)) }}
+            {{- fail (printf "config.listen %q must end with %q to match service.p2p.port; use service.p2p.port to change the port and set config.listen only to override the bind address." .Values.config.listen $p2pExpect) }}
+          {{- end }}
+          {{- if .Values.rpc.enabled }}
+          {{- $rpcExpect := printf ":%v" (.Values.rpcService.port | int) }}
+          {{- if and .Values.config.rpclisten (not (hasSuffix $rpcExpect .Values.config.rpclisten)) }}
+            {{- fail (printf "config.rpclisten %q must end with %q to match rpcService.port; use rpcService.port to change the port and set config.rpclisten only to override the bind address." .Values.config.rpclisten $rpcExpect) }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.metrics.enabled }}
+          {{- $metricsExpect := printf ":%v" (.Values.metrics.service.port | int) }}
+          {{- if and .Values.metrics.listen (not (hasSuffix $metricsExpect .Values.metrics.listen)) }}
+            {{- fail (printf "metrics.listen %q must end with %q to match metrics.service.port; use metrics.service.port to change the port and set metrics.listen only to override the bind address." .Values.metrics.listen $metricsExpect) }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.stratum.enabled }}
+          {{- $stratumExpect := printf ":%v" (.Values.stratum.service.port | int) }}
+          {{- if and .Values.stratum.listen (not (hasSuffix $stratumExpect .Values.stratum.listen)) }}
+            {{- fail (printf "stratum.listen %q must end with %q to match stratum.service.port; use stratum.service.port to change the port and set stratum.listen only to override the bind address." .Values.stratum.listen $stratumExpect) }}
+          {{- end }}
+          {{- end }}
+          {{- if or $networkNeedsArg .Values.metrics.enabled .Values.stratum.enabled }}
+          args:
+            {{- if eq $network "regtest" }}
+            - --regtest
+            {{- end }}
+            {{- if .Values.metrics.enabled }}
+            {{- $metricsBind := ternary "0.0.0.0" "127.0.0.1" .Values.metrics.allowPublic }}
+            {{- $metricsListen := default (printf "%s:%v" $metricsBind (.Values.metrics.service.port | int)) .Values.metrics.listen }}
+            - --metricslisten={{ $metricsListen }}
+            {{- if .Values.metrics.allowPublic }}
+            - --metricsallowpublic
+            {{- end }}
+            {{- end }}
+            {{- if .Values.stratum.enabled }}
+            {{- $stratumBind := ternary "0.0.0.0" "127.0.0.1" .Values.stratum.allowPublic }}
+            {{- $stratumListen := default (printf "%s:%v" $stratumBind (.Values.stratum.service.port | int)) .Values.stratum.listen }}
+            {{- /* handshake-node v0.2.0-rc1 refuses to start when --stratumlisten
+                 is set without --miningaddr, regardless of allowPublic. Require
+                 stratum.miningAddress whenever Stratum is enabled and always
+                 emit --miningaddr. Auth credentials remain required only for
+                 public exposure. */ -}}
+            {{- $miningAddr := required "stratum.miningAddress is required when stratum.enabled=true (handshake-node rejects --stratumlisten without --miningaddr)." .Values.stratum.miningAddress }}
+            - --stratumlisten={{ $stratumListen }}
+            - --miningaddr={{ $miningAddr }}
+            {{- if .Values.stratum.allowPublic }}
+            {{- $_ := required "stratum.auth.existingSecret is required when stratum.enabled=true and stratum.allowPublic=true" .Values.stratum.auth.existingSecret }}
+            - --stratumallowpublic
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          env:
+            - name: HOME
+              value: /home/handshake
+            {{- $p2pListen := default (printf "0.0.0.0:%v" (.Values.service.p2p.port | int)) .Values.config.listen }}
+            - name: HANDSHAKE_NODE_LISTEN
+              value: {{ $p2pListen | quote }}
+            {{- if .Values.rpc.enabled }}
+            {{- $rpcListen := default (printf "0.0.0.0:%v" (.Values.rpcService.port | int)) .Values.config.rpclisten }}
+            - name: HANDSHAKE_NODE_RPCLISTEN
+              value: {{ $rpcListen | quote }}
+            {{- $rpcAllow := required "config.rpcallowip is required when rpc.enabled=true. Set it to a comma-separated CIDR list of trusted RPC client source addresses (normally the Pod CIDR of the calling workloads — account for CNI SNAT which may replace the source with the node IP). A Kubernetes Service CIDR is a destination range and does not match client source addresses, so do not use it here. If you rely on a NetworkPolicy for finer-grained enforcement, still set config.rpcallowip to the same allowlist explicitly." .Values.config.rpcallowip }}
+            - name: HANDSHAKE_NODE_RPCALLOWIP
+              value: {{ $rpcAllow | quote }}
+            {{- end }}
+            {{- if .Values.rpc.enabled }}
+            {{- $secretName := required "rpc.existingSecret is required when rpc.enabled=true" .Values.rpc.existingSecret }}
+            - name: HANDSHAKE_NODE_RPCUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ .Values.rpc.userKey }}
+            - name: HANDSHAKE_NODE_RPCPASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ .Values.rpc.passwordKey }}
+            {{- end }}
+            {{- if and .Values.stratum.enabled .Values.stratum.auth.existingSecret }}
+            - name: HANDSHAKE_NODE_STRATUMUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.stratum.auth.existingSecret }}
+                  key: {{ .Values.stratum.auth.userKey }}
+            - name: HANDSHAKE_NODE_STRATUMPASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.stratum.auth.existingSecret }}
+                  key: {{ .Values.stratum.auth.passwordKey }}
+            {{- end }}
+            {{- /* Reserve chart-managed env names from user-supplied override
+                 mechanisms. Duplicates in the env list cause kubelet to warn
+                 and the later definition wins, which lets config.extra or
+                 extraEnv silently shadow validated listener values or
+                 Secret-sourced credentials. Failing render here keeps the
+                 chart's invariants intact. */ -}}
+            {{- $reserved := list
+              "HANDSHAKE_NODE_LISTEN"
+              "HANDSHAKE_NODE_RPCLISTEN"
+              "HANDSHAKE_NODE_RPCALLOWIP"
+              "HANDSHAKE_NODE_RPCUSER"
+              "HANDSHAKE_NODE_RPCPASS"
+              "HANDSHAKE_NODE_STRATUMUSER"
+              "HANDSHAKE_NODE_STRATUMPASS"
+            }}
+            {{- range $k, $v := .Values.config.extra }}
+            {{- if not (kindIs "invalid" $v) }}
+            {{- $rendered := printf "HANDSHAKE_NODE_%s" ($k | upper | replace "-" "_") }}
+            {{- if has $rendered $reserved }}
+              {{- fail (printf "config.extra key %q renders env %q which is reserved by the chart. Use the corresponding chart value (service.p2p.port / rpcService.port / config.listen / config.rpclisten / config.rpcallowip / rpc.existingSecret / stratum.auth.existingSecret) instead." $k $rendered) }}
+            {{- end }}
+            - name: {{ $rendered }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- end }}
+            {{- range .Values.extraEnv }}
+            {{- if has .name $reserved }}
+              {{- fail (printf "extraEnv name %q is reserved by the chart. Use the corresponding chart value (service.p2p.port / rpcService.port / config.listen / config.rpclisten / config.rpcallowip / rpc.existingSecret / stratum.auth.existingSecret) instead." .name) }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: p2p
+              containerPort: {{ .Values.service.p2p.port }}
+              protocol: TCP
+            {{- if .Values.rpc.enabled }}
+            - name: rpc
+              containerPort: {{ .Values.rpcService.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.service.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.stratum.enabled }}
+            - name: stratum
+              containerPort: {{ .Values.stratum.service.port }}
+              protocol: TCP
+            {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            tcpSocket:
+              port: {{ .Values.startupProbe.tcpSocket.port }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.readinessProbe.tcpSocket.port }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.livenessProbe.tcpSocket.port }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /home/handshake/.handshake-node
+            - name: tmp
+              mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if and .Values.persistence.enabled .Values.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+        {{- else if not .Values.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+  {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        # Use stable selector labels only. StatefulSet volumeClaimTemplates
+        # is immutable, so a chart-version bump in helm.sh/chart would break
+        # subsequent upgrades.
+        labels:
+          {{- include "handshake-node.matchLabels" . | nindent 10 }}
+        {{- with .Values.persistence.annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.accessModes | nindent 10 }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}
