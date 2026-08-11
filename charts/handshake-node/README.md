@@ -182,8 +182,8 @@ stratum:
   # listen: ""
   allowPublic: true
   # Required whenever stratum.enabled=true (even for private/loopback binds).
-  # handshake-node v0.2.0-rc1 refuses to start if --stratumlisten is set
-  # without --miningaddr.
+  # handshake-node refuses to start if --stratumlisten is set without
+  # --miningaddr.
   miningAddress: hs1qyourhandshakeaddress
   auth:
     existingSecret: handshake-node-stratum
@@ -235,7 +235,7 @@ Full mainnet node with private RPC, metrics enabled, and a beefier PVC:
 ```yaml
 network: main
 image:
-  tag: "0.2.0-rc1"
+  tag: "0.4.0-rc2"
 
 persistence:
   size: 400Gi
@@ -293,7 +293,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | Key                              | Description                                                  | Default                              |
 | -------------------------------- | ------------------------------------------------------------ | ------------------------------------ |
 | `image.repository`               | Image name                                                   | `ghcr.io/blinklabs-io/handshake-node` |
-| `image.tag`                      | Image tag (never `latest`)                                   | `0.2.0-rc1`                          |
+| `image.tag`                      | Image tag (never `latest`)                                   | `0.4.0-rc2`                          |
 | `network`                        | Handshake network: `main`, `regtest`                         | `main`                               |
 | `persistence.size`               | PVC size                                                     | `200Gi`                              |
 | `persistence.storageClass`       | StorageClass name                                            | cluster default                      |
