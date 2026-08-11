@@ -15,7 +15,7 @@ image:
   # image whose binary self-reports the matching version and whose named user
   # ("handshake", UID 100 / GID 101) matches the numeric runAsUser/runAsGroup
   # defaults below.
-  tag: "0.2.0-rc1"
+  tag: "0.4.0-rc2"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
