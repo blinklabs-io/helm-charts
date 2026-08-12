@@ -147,7 +147,7 @@ spec:
             {{- if .Values.stratum.enabled }}
             {{- $stratumBind := ternary "0.0.0.0" "127.0.0.1" .Values.stratum.allowPublic }}
             {{- $stratumListen := default (printf "%s:%v" $stratumBind (.Values.stratum.service.port | int)) .Values.stratum.listen }}
-            {{- /* handshake-node v0.2.0-rc1 refuses to start when --stratumlisten
+            {{- /* handshake-node refuses to start when --stratumlisten
                  is set without --miningaddr, regardless of allowPublic. Require
                  stratum.miningAddress whenever Stratum is enabled and always
                  emit --miningaddr. Auth credentials remain required only for

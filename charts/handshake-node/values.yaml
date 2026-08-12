@@ -11,11 +11,10 @@ fullnameOverride: ""
 
 image:
   repository: ghcr.io/blinklabs-io/handshake-node
-  # Explicit tag; do not rely on "latest". 0.2.0-rc1 is the earliest published
-  # image whose binary self-reports the matching version and whose named user
-  # ("handshake", UID 100 / GID 101) matches the numeric runAsUser/runAsGroup
-  # defaults below.
-  tag: "0.2.0-rc1"
+  # Explicit tag; do not rely on "latest". The pinned image's binary
+  # self-reports this version, and its named user ("handshake", UID 100 /
+  # GID 101) matches the numeric runAsUser/runAsGroup defaults below.
+  tag: "0.4.0-rc2"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -203,8 +202,8 @@ stratum:
   listen: ""
   allowPublic: false
   # miningAddress is REQUIRED whenever stratum.enabled=true. handshake-node
-  # v0.2.0-rc1 refuses to start when --stratumlisten is set without
-  # --miningaddr, even for a private (loopback) bind. Stratum credentials
+  # refuses to start when --stratumlisten is set without --miningaddr, even
+  # for a private (loopback) bind. Stratum credentials
   # (auth.existingSecret) are only required when allowPublic=true.
   miningAddress: ""
   auth:

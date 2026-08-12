@@ -4,8 +4,8 @@ description: |
   Deploys handshake-node, the Go implementation of a Handshake (HNS) blockchain
   full node from Blink Labs. This is distinct from the JavaScript hsd chart.
 type: application
-version: 0.1.0
-appVersion: "0.2.0-rc1"
+version: 0.1.1
+appVersion: "0.4.0-rc2"
 # 1.27+ is required for the StatefulSet .spec.persistentVolumeClaimRetentionPolicy
 # field that the chart renders by default. Older clusters silently drop the field.
 kubeVersion: ">=1.27.0-0"
