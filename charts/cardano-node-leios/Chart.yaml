@@ -1,0 +1,8 @@
+apiVersion: v2
+name: cardano-node-leios
+description: "Runs an Ouroboros Leios prototype cardano-node build for the musashi testnet. The upstream image is a bare binary with no entrypoint wrapper, so this chart supplies pinned network config/genesis files and invokes cardano-node directly via explicit command/args."
+version: 0.1.0
+appVersion: "11.1.0.164"
+maintainers:
+  - name: wcatz
+    email: wayne@blinklabs.io

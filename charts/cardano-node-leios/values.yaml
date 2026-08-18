@@ -1,0 +1,61 @@
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+cardano_network: musashi
+
+extraPodLabels: {}
+
+image:
+  repository: ghcr.io/input-output-hk/ouroboros-leios/cardano-node-leios
+  tag: prototype-2026w32
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: "2"
+    memory: 4Gi
+  requests:
+    cpu: "2"
+    memory: 4Gi
+
+service:
+  type: ClusterIP
+  ports:
+    ntn:
+      port: 3001
+      targetPort: 3001
+    metrics:
+      port: 12798
+      targetPort: 12798
+
+storage:
+  size: 30Gi
+  storageClassName: ""
+
+# Custom P2P topology. peerSnapshotFile and publicRoots are fixed by the
+# chart (see templates/configmap.yaml) — only bootstrapPeers/localRoots/
+# useLedgerAfterSlot are configurable here.
+topology:
+  bootstrapPeers:
+    - address: leios-node.play.dev.cardano.org
+      port: 3001
+  localRoots: []
+  useLedgerAfterSlot: 64800
+
+affinity: {}
+
+tolerations:
+  - effect: NoSchedule
+    key: kubernetes.io/arch
+    operator: Equal
+    value: arm64
+
+podMonitor:
+  enabled: false
+  fallbackScrapeProtocol: "PrometheusText0.0.4"
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

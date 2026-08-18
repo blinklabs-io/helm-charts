@@ -1,0 +1,49 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cardano-node-leios.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "cardano-node-leios.labels" . | indent 4 }}
+data:
+  config.json: |-
+{{ .Files.Get "files/musashi/config.json" | indent 4 }}
+  byron-genesis.json: |-
+{{ .Files.Get "files/musashi/byron-genesis.json" | indent 4 }}
+  shelley-genesis.json: |-
+{{ .Files.Get "files/musashi/shelley-genesis.json" | indent 4 }}
+  alonzo-genesis.json: |-
+{{ .Files.Get "files/musashi/alonzo-genesis.json" | indent 4 }}
+  conway-genesis.json: |-
+{{ .Files.Get "files/musashi/conway-genesis.json" | indent 4 }}
+  dijkstra-genesis.json: |-
+{{ .Files.Get "files/musashi/dijkstra-genesis.json" | indent 4 }}
+  peer-snapshot.json: |-
+{{ .Files.Get "files/musashi/peer-snapshot.json" | indent 4 }}
+  topology.json: |
+    {
+      "bootstrapPeers": [{{- range $i, $peer := .Values.topology.bootstrapPeers }}
+        {{- if $i }},{{ end }}
+        { "address": "{{ $peer.address }}", "port": {{ $peer.port }} }
+      {{- end }}],
+      "localRoots": [
+      {{- range $i, $local := .Values.topology.localRoots }}
+        {{- if $i }},{{ end }}
+        {
+          "accessPoints": [
+          {{- range $j, $peer := $local.accessPoints }}
+            {{- if $j }},{{ end }}
+            { "address": "{{ $peer.address }}", "port": {{ $peer.port }}, "name": "{{ $peer.name }}" }
+          {{- end }}
+          ],
+          "advertise": {{ $local.advertise | default false | toJson }},
+          "trustable": {{ $local.trustable | default false | toJson }},
+          "valency": {{ $local.valency }}
+        }
+      {{- end }}
+      ],
+      "peerSnapshotFile": "peer-snapshot.json",
+      "publicRoots": [],
+      "useLedgerAfterSlot": {{ .Values.topology.useLedgerAfterSlot | int }}
+    }
