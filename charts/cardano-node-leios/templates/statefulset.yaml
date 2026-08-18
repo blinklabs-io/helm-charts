@@ -16,7 +16,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/musashi-config: {{ printf "%s%s%s%s%s%s%s" (include "cardano-node-leios.renderedConfig" .) (.Files.Get "files/musashi/byron-genesis.json") (.Files.Get "files/musashi/shelley-genesis.json") (.Files.Get "files/musashi/alonzo-genesis.json") (.Files.Get "files/musashi/conway-genesis.json") (.Files.Get "files/musashi/dijkstra-genesis.json") (.Files.Get "files/musashi/peer-snapshot.json") | sha256sum }}
+        checksum/musashi-config: {{ printf "%s%s" (include "cardano-node-leios.renderedConfig" .) (.Files.Glob "files/musashi/*").AsConfig | sha256sum }}
         checksum/topology: {{ .Values.topology | toJson | sha256sum }}
       labels:
 {{ include "cardano-node-leios.labels" . | indent 8 }}
