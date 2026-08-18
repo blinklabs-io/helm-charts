@@ -22,6 +22,7 @@ resources:
 
 service:
   type: ClusterIP
+  annotations: {}
   ports:
     ntn:
       port: 3001
