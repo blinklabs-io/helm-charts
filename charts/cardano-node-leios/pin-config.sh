@@ -25,7 +25,14 @@ FILES=(
 mkdir -p "$DEST_DIR"
 
 for f in "${FILES[@]}"; do
-  curl -fsSL "${SOURCE_URL}/${f}" -o "${DEST_DIR}/${f}"
+  tmp="$(mktemp)"
+  curl -fsSL "${SOURCE_URL}/${f}" -o "$tmp"
+  if ! jq empty "$tmp" 2>/dev/null; then
+    echo "error: ${f} is not valid JSON, leaving ${DEST_DIR}/${f} untouched" >&2
+    rm -f "$tmp"
+    exit 1
+  fi
+  mv "$tmp" "${DEST_DIR}/${f}"
   echo "${f} ($(wc -c < "${DEST_DIR}/${f}") bytes)"
 done
 

@@ -16,6 +16,7 @@ spec:
   template:
     metadata:
       annotations:
+        checksum/musashi-config: {{ (.Files.Glob "files/musashi/*").AsConfig | sha256sum }}
         checksum/topology: {{ .Values.topology | toJson | sha256sum }}
       labels:
 {{ include "cardano-node-leios.labels" . | indent 8 }}
@@ -34,6 +35,13 @@ spec:
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command: ["/bin/cardano-node"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
         args:
           - run
           - --config

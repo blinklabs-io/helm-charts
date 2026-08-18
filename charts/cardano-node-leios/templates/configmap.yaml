@@ -7,8 +7,11 @@ metadata:
   labels:
 {{ include "cardano-node-leios.labels" . | indent 4 }}
 data:
+  # The pinned config.json binds Prometheus to 127.0.0.1, which is unreachable
+  # from the Service/PodMonitor via the pod IP. Rebind to 0.0.0.0 at render
+  # time (not in the static file) so this survives a pin-config.sh refresh.
   config.json: |-
-{{ .Files.Get "files/musashi/config.json" | indent 4 }}
+{{ .Files.Get "files/musashi/config.json" | replace "PrometheusSimple suffix 127.0.0.1 12798" "PrometheusSimple suffix 0.0.0.0 12798" | indent 4 }}
   byron-genesis.json: |-
 {{ .Files.Get "files/musashi/byron-genesis.json" | indent 4 }}
   shelley-genesis.json: |-
@@ -25,7 +28,7 @@ data:
     {
       "bootstrapPeers": [{{- range $i, $peer := .Values.topology.bootstrapPeers }}
         {{- if $i }},{{ end }}
-        { "address": "{{ $peer.address }}", "port": {{ $peer.port }} }
+        { "address": {{ $peer.address | toJson }}, "port": {{ $peer.port }} }
       {{- end }}],
       "localRoots": [
       {{- range $i, $local := .Values.topology.localRoots }}
@@ -34,7 +37,7 @@ data:
           "accessPoints": [
           {{- range $j, $peer := $local.accessPoints }}
             {{- if $j }},{{ end }}
-            { "address": "{{ $peer.address }}", "port": {{ $peer.port }}, "name": "{{ $peer.name }}" }
+            { "address": {{ $peer.address | toJson }}, "port": {{ $peer.port }}, "name": {{ $peer.name | toJson }} }
           {{- end }}
           ],
           "advertise": {{ $local.advertise | default false | toJson }},
