@@ -7,11 +7,8 @@ metadata:
   labels:
 {{ include "cardano-node-leios.labels" . | indent 4 }}
 data:
-  # The pinned config.json binds Prometheus to 127.0.0.1, which is unreachable
-  # from the Service/PodMonitor via the pod IP. Rebind to 0.0.0.0 at render
-  # time (not in the static file) so this survives a pin-config.sh refresh.
   config.json: |-
-{{ .Files.Get "files/musashi/config.json" | replace "PrometheusSimple suffix 127.0.0.1 12798" "PrometheusSimple suffix 0.0.0.0 12798" | indent 4 }}
+{{ include "cardano-node-leios.renderedConfig" . | indent 4 }}
   byron-genesis.json: |-
 {{ .Files.Get "files/musashi/byron-genesis.json" | indent 4 }}
   shelley-genesis.json: |-
