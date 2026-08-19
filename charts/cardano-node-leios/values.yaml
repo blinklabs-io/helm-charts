@@ -14,9 +14,16 @@ image:
 
 # Populates /config/<cardano_network>/* (config.json, genesis files,
 # peer-snapshot.json, ...) via an initContainer before the main container
-# starts. Maintained by Blink Labs, kept current with each network's actual
-# genesis/config - this chart only overrides topology.json on top of it
-# (see templates/configmap.yaml).
+# starts. This chart only overrides topology.json on top of it (see
+# templates/configmap.yaml).
+#
+# NOT covered by scripts/upstream-versions.json / check-image-versions.yml -
+# that mechanism assumes one upstream image per chart, and this chart
+# already has one there (`image` above) for the leios node itself. This tag
+# will NOT auto-bump. When musashi's genesis/config changes (a new
+# blinklabs-io/cardano-configs respin), bump it manually - check
+# https://github.com/blinklabs-io/cardano-configs/pkgs/container/cardano-configs
+# for the latest date tag.
 cardanoConfigs:
   image:
     repository: ghcr.io/blinklabs-io/cardano-configs
