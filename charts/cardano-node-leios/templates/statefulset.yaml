@@ -16,7 +16,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/musashi-config: {{ printf "%s%s" (include "cardano-node-leios.renderedConfig" .) (.Files.Glob "files/musashi/*").AsConfig | sha256sum }}
+        checksum/cardano-configs-image: {{ printf "%s:%s" .Values.cardanoConfigs.image.repository .Values.cardanoConfigs.image.tag | sha256sum }}
         checksum/topology: {{ .Values.topology | toJson | sha256sum }}
       labels:
 {{ include "cardano-node-leios.labels" . | indent 8 }}
@@ -30,6 +30,23 @@ spec:
 {{- if .Values.tolerations }}
       tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
 {{- end }}
+      initContainers:
+      - name: cardano-configs
+        image: "{{ .Values.cardanoConfigs.image.repository }}:{{ .Values.cardanoConfigs.image.tag }}"
+        imagePullPolicy: {{ .Values.cardanoConfigs.image.pullPolicy }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        args:
+          - /config
+          - {{ .Values.cardano_network }}
+        volumeMounts:
+        - name: config
+          mountPath: /config
       containers:
       - name: cardano-node-leios
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -45,9 +62,9 @@ spec:
         args:
           - run
           - --config
-          - /config/config.json
+          - /config/{{ .Values.cardano_network }}/config.json
           - --topology
-          - /config/topology.json
+          - /config/{{ .Values.cardano_network }}/topology.json
           - --database-path
           - /data
           - --socket-path
@@ -66,15 +83,19 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /config
-          readOnly: true
+        - name: topology
+          mountPath: /config/{{ .Values.cardano_network }}/topology.json
+          subPath: topology.json
         - name: node-db
           mountPath: /data
         - name: node-ipc
           mountPath: /ipc
       volumes:
       - name: config
+        emptyDir: {}
+      - name: topology
         configMap:
-          name: {{ include "cardano-node-leios.fullname" . }}-config
+          name: {{ include "cardano-node-leios.fullname" . }}-topology
       - name: node-ipc
         emptyDir: {}
   volumeClaimTemplates:

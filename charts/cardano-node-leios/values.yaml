@@ -12,6 +12,17 @@ image:
   tag: prototype-2026w32
   pullPolicy: IfNotPresent
 
+# Populates /config/<cardano_network>/* (config.json, genesis files,
+# peer-snapshot.json, ...) via an initContainer before the main container
+# starts. Maintained by Blink Labs, kept current with each network's actual
+# genesis/config - this chart only overrides topology.json on top of it
+# (see templates/configmap.yaml).
+cardanoConfigs:
+  image:
+    repository: ghcr.io/blinklabs-io/cardano-configs
+    tag: "20260817-1"
+    pullPolicy: IfNotPresent
+
 resources:
   limits:
     cpu: "2"
@@ -35,9 +46,10 @@ storage:
   size: 30Gi
   storageClassName: ""
 
-# Custom P2P topology. peerSnapshotFile and publicRoots are fixed by the
-# chart (see templates/configmap.yaml) — only bootstrapPeers/localRoots/
-# useLedgerAfterSlot are configurable here.
+# Custom P2P topology, overlaid onto the cardanoConfigs-provided directory
+# via a subPath ConfigMap mount. peerSnapshotFile and publicRoots are fixed
+# by the chart (see templates/configmap.yaml) — only bootstrapPeers/
+# localRoots/useLedgerAfterSlot are configurable here.
 topology:
   bootstrapPeers:
     - address: leios-node.play.dev.cardano.org
