@@ -10,7 +10,10 @@ extraPodLabels: {}
 image:
   repository: ghcr.io/input-output-hk/ouroboros-leios/cardano-node-leios
   tag: prototype-2026w32
-  pullPolicy: IfNotPresent
+  # "prototype-*" is a mutable tag Blink/IOG can rebuild without bumping.
+  # Always, not IfNotPresent, so a respin gets picked up on the next pod
+  # restart instead of nodes silently running whatever they cached.
+  pullPolicy: Always
 
 # Populates /config/<cardano_network>/* (config.json, genesis files,
 # peer-snapshot.json, ...) via an initContainer before the main container
