@@ -1,0 +1,116 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "cardano-node-leios.fullname" . }}
+  labels:
+{{ include "cardano-node-leios.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "cardano-node-leios.fullname" . }}-headless
+  selector:
+    matchLabels:
+{{ include "cardano-node-leios.matchLabels" . | indent 6 }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        checksum/cardano-configs-image: {{ printf "%s:%s" .Values.cardanoConfigs.image.repository .Values.cardanoConfigs.image.tag | sha256sum }}
+        checksum/topology: {{ .Values.topology | toJson | sha256sum }}
+      labels:
+{{ include "cardano-node-leios.labels" . | indent 8 }}
+{{- with .Values.extraPodLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+{{- if .Values.affinity }}
+      affinity: {{ .Values.affinity | toYaml | nindent 8 }}
+{{- end }}
+{{- if .Values.tolerations }}
+      tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
+{{- end }}
+      initContainers:
+      - name: cardano-configs
+        image: "{{ .Values.cardanoConfigs.image.repository }}:{{ .Values.cardanoConfigs.image.tag }}"
+        imagePullPolicy: {{ .Values.cardanoConfigs.image.pullPolicy }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        args:
+          - /config
+          - {{ .Values.cardano_network }}
+        volumeMounts:
+        - name: config
+          mountPath: /config
+      containers:
+      - name: cardano-node-leios
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/bin/cardano-node"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        args:
+          - run
+          - --config
+          - /config/{{ .Values.cardano_network }}/config.json
+          - --topology
+          - /config/{{ .Values.cardano_network }}/topology.json
+          - --database-path
+          - /data
+          - --socket-path
+          - /ipc/node.socket
+          - --port
+          - "{{ .Values.service.ports.ntn.targetPort }}"
+          - --host-addr
+          - "0.0.0.0"
+        ports:
+        - name: ntn
+          containerPort: {{ .Values.service.ports.ntn.targetPort }}
+        - name: metrics
+          containerPort: {{ .Values.service.ports.metrics.targetPort }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: topology
+          mountPath: /config/{{ .Values.cardano_network }}/topology.json
+          subPath: topology.json
+          readOnly: true
+        - name: node-db
+          mountPath: /data
+        - name: node-ipc
+          mountPath: /ipc
+      volumes:
+      - name: config
+        emptyDir: {}
+      - name: topology
+        configMap:
+          name: {{ include "cardano-node-leios.fullname" . }}-topology
+      - name: node-ipc
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: node-db
+      labels:
+        cardano_network: {{ .Values.cardano_network }}
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ .Values.storage.size }}
+{{- if .Values.storage.storageClassName }}
+      storageClassName: {{ .Values.storage.storageClassName }}
+{{- end }}

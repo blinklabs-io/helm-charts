@@ -1,0 +1,84 @@
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+cardano_network: musashi
+
+extraPodLabels: {}
+
+image:
+  repository: ghcr.io/input-output-hk/ouroboros-leios/cardano-node-leios
+  tag: prototype-2026w32
+  # "prototype-*" is a mutable tag Blink/IOG can rebuild without bumping.
+  # Always, not IfNotPresent, so a respin gets picked up on the next pod
+  # restart instead of nodes silently running whatever they cached.
+  pullPolicy: Always
+
+# Populates /config/<cardano_network>/* (config.json, genesis files,
+# peer-snapshot.json, ...) via an initContainer before the main container
+# starts. This chart only overrides topology.json on top of it (see
+# templates/configmap.yaml).
+#
+# NOT covered by scripts/upstream-versions.json / check-image-versions.yml -
+# that mechanism assumes one upstream image per chart, and this chart
+# already has one there (`image` above) for the leios node itself. This tag
+# will NOT auto-bump. When musashi's genesis/config changes (a new
+# blinklabs-io/cardano-configs respin), bump it manually - check
+# https://github.com/blinklabs-io/cardano-configs/pkgs/container/cardano-configs
+# for the latest date tag.
+cardanoConfigs:
+  image:
+    repository: ghcr.io/blinklabs-io/cardano-configs
+    tag: "20260817-1"
+    pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: "2"
+    memory: 4Gi
+  requests:
+    cpu: "2"
+    memory: 4Gi
+
+service:
+  type: ClusterIP
+  annotations: {}
+  ports:
+    ntn:
+      port: 3001
+      targetPort: 3001
+    metrics:
+      port: 12798
+      targetPort: 12798
+
+storage:
+  size: 30Gi
+  storageClassName: ""
+
+# Custom P2P topology, overlaid onto the cardanoConfigs-provided directory
+# via a subPath ConfigMap mount. peerSnapshotFile and publicRoots are fixed
+# by the chart (see templates/configmap.yaml) — only bootstrapPeers/
+# localRoots/useLedgerAfterSlot are configurable here.
+topology:
+  bootstrapPeers:
+    - address: leios-node.play.dev.cardano.org
+      port: 3001
+  localRoots: []
+  useLedgerAfterSlot: 64800
+
+affinity: {}
+
+tolerations:
+  - effect: NoSchedule
+    key: kubernetes.io/arch
+    operator: Equal
+    value: arm64
+
+podMonitor:
+  enabled: false
+  fallbackScrapeProtocol: "PrometheusText0.0.4"
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
