@@ -42,11 +42,11 @@ spec:
           seccompProfile:
             type: RuntimeDefault
         args:
-          - /config
+          - /output
           - {{ .Values.cardano_network }}
         volumeMounts:
         - name: config
-          mountPath: /config
+          mountPath: /output
       containers:
       - name: cardano-node-leios
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

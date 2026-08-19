@@ -1,7 +1,7 @@
 apiVersion: v2
 name: cardano-node-leios
 description: "Runs an Ouroboros Leios prototype cardano-node build for the musashi testnet. The upstream image is a bare binary with no entrypoint wrapper, so this chart invokes cardano-node directly via explicit command/args, using an initContainer (ghcr.io/blinklabs-io/cardano-configs) to supply the network's config/genesis files."
-version: 0.1.0
+version: 0.1.1
 appVersion: "prototype-2026w32"
 maintainers:
   - name: wcatz
