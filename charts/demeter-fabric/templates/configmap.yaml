@@ -23,6 +23,7 @@ data:
     [kafka_producer]
     "bootstrap.servers" = "{{ required "config.kafka.brokerUrls is required" .Values.config.kafka.brokerUrls }}"
     "security.protocol" = "SASL_SSL"
+    "socket.keepalive.enable" = "true"
     "message.timeout.ms" = "30000"
     "sasl.mechanisms" = "SCRAM-SHA-256"
     "sasl.username" = "{{ required "config.kafka.username is required" .Values.config.kafka.username }}"
@@ -33,6 +34,7 @@ data:
     "group.id"= "{{ required "config.kafka.consumerMonitorName is required" .Values.config.kafka.consumerMonitorName }}"
     "auto.offset.reset" = "earliest"
     "security.protocol" = "SASL_SSL"
+    "socket.keepalive.enable" = "true"
     "sasl.mechanisms" = "SCRAM-SHA-256"
     "sasl.username" = "{{ required "config.kafka.username is required" .Values.config.kafka.username }}"
     "sasl.password" = "{{ required "config.kafka.password is required" .Values.config.kafka.password }}"
@@ -42,6 +44,7 @@ data:
     "group.id"= "{{ required "config.kafka.consumerCacheName is required" .Values.config.kafka.consumerCacheName }}"
     "auto.offset.reset" = "earliest"
     "security.protocol" = "SASL_SSL"
+    "socket.keepalive.enable" = "true"
     "sasl.mechanisms" = "SCRAM-SHA-256"
     "sasl.username" = "{{ required "config.kafka.username is required" .Values.config.kafka.username }}"
     "sasl.password" = "{{ required "config.kafka.password is required" .Values.config.kafka.password }}"
