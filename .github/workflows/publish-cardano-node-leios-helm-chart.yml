@@ -1,22 +1,22 @@
-name: publish-rbac-helm-chart
+name: publish-cardano-node-leios-helm-chart
 
 on:
   push:
     branches: ['main']
-    paths: ['charts/rbac/**','.github/workflows/publish-rbac-helm-chart.yml']
+    paths: ['charts/cardano-node-leios/**','.github/workflows/publish-cardano-node-leios-helm-chart.yml']
 
 jobs:
-  build-and-push-rbac-helm-chart:
+  build-and-push-cardano-node-leios-helm-chart:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-        with:
-          version: v3.18.3
       - name: Package and upload chart
         shell: bash
         env:
@@ -27,7 +27,7 @@ jobs:
         run: |
           rm -rf dist
           mkdir dist
-          helm package charts/rbac/ -d dist/
+          helm package charts/cardano-node-leios/ -d dist/
           echo "${TOKEN}" | helm registry login "${REGISTRY}" -u "${USER}" --password-stdin
           for file in dist/*; do
             helm push "$file" "oci://${REGISTRY}/${REPOSITORY,,}/charts"

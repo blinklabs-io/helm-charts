@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cardano-node-leios.fullname" . }}-headless
+  labels:
+{{ include "cardano-node-leios.labels" . | indent 4 }}
+spec:
+  clusterIP: None
+  ports:
+  - name: ntn
+    port: {{ .Values.service.ports.ntn.port }}
+    protocol: TCP
+    targetPort: {{ .Values.service.ports.ntn.targetPort }}
+  selector:
+{{ include "cardano-node-leios.matchLabels" . | indent 4 }}
