@@ -66,7 +66,7 @@ spec:
           - --topology
           - /config/{{ .Values.cardano_network }}/topology.json
           - --database-path
-          - /data
+          - /data/db
           - --socket-path
           - /ipc/node.socket
           - --port
