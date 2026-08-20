@@ -33,6 +33,9 @@ spec:
         - $(LOG_LEVEL)
         - --node-config
         - $(CARDANO_CONFIG)
+        {{- with .Values.extraArgs }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         env:
         - name: OGMIOS_NETWORK
           value: {{ .Values.cardano_network }}
