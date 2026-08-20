@@ -16,6 +16,10 @@ image:
 replicaCount: 1
 resources: {}
 
+# Extra CLI flags appended to the ogmios command
+# (e.g. --include-cbor, --metadata-detailed-schema).
+extraArgs: []
+
 # Liveness probe configuration
 livenessProbe:
   httpGet:
