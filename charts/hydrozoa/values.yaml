@@ -166,7 +166,18 @@ readinessProbe:
   timeoutSeconds: 5
   failureThreshold: 3
 
-resources: {}
+# Default resource requests and limits. No CPU limit is set so the peer can
+# burst on the host; only a CPU request is used for scheduling. The 8Gi memory
+# limit leaves ample headroom above the JVM heap (javaOpts -Xmx2g) for
+# metaspace, off-heap buffers, and the RocksDB stores under
+# /opt/docker/.hydrozoa-data. Raise javaOpts alongside the memory limit if you
+# need a larger heap.
+resources:
+  limits:
+    memory: "8Gi"
+  requests:
+    cpu: "500m"
+    memory: "4Gi"
 
 nodeSelector: {}
 tolerations: []
