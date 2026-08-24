@@ -26,14 +26,14 @@ spec:
       port: {{ .Values.service.http.port }}
       targetPort: http
       protocol: TCP
-      {{- if and (eq .Values.service.type "NodePort") .Values.service.http.nodePort }}
+      {{- if and (or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer")) .Values.service.http.nodePort }}
       nodePort: {{ .Values.service.http.nodePort }}
       {{- end }}
     - name: peer
       port: {{ .Values.service.peer.port }}
       targetPort: peer
       protocol: TCP
-      {{- if and (eq .Values.service.type "NodePort") .Values.service.peer.nodePort }}
+      {{- if and (or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer")) .Values.service.peer.nodePort }}
       nodePort: {{ .Values.service.peer.nodePort }}
       {{- end }}
   selector:
