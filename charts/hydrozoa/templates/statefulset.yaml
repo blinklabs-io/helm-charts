@@ -1,0 +1,262 @@
+{{- $role := include "hydrozoa.role" . -}}
+{{- $configSecret := required "config.existingSecret is required and must contain head-config.json and private.json (keys are configurable)" .Values.config.existingSecret -}}
+{{- $_ := required "config.headConfigKey is required" .Values.config.headConfigKey -}}
+{{- $_ := required "config.privateConfigKey is required" .Values.config.privateConfigKey -}}
+{{- if not (hasPrefix "/" .Values.config.mountPath) -}}
+{{- fail "config.mountPath must be an absolute path" -}}
+{{- end -}}
+{{- $tlsSecret := "" -}}
+{{- if .Values.tls.enabled -}}
+{{- $tlsSecret = required "tls.existingSecret is required when tls.enabled=true" .Values.tls.existingSecret -}}
+{{- $_ := required "tls.keystoreKey is required when tls.enabled=true" .Values.tls.keystoreKey -}}
+{{- $_ := required "tls.passwordKey is required when tls.enabled=true" .Values.tls.passwordKey -}}
+{{- $_ := required "tls.fileName is required when tls.enabled=true" .Values.tls.fileName -}}
+{{- if contains "/" .Values.tls.fileName -}}
+{{- fail "tls.fileName must be a file name without path separators; use tls.mountPath for the directory" -}}
+{{- end -}}
+{{- if not (hasPrefix "/" .Values.tls.mountPath) -}}
+{{- fail "tls.mountPath must be an absolute path" -}}
+{{- end -}}
+{{- end -}}
+{{- $reservedEnv := list "JAVA_OPTS" "HYDROZOA_KEYSTORE_PASSWORD" -}}
+{{- range .Values.extraEnv -}}
+{{- if has .name $reservedEnv -}}
+{{- fail (printf "extraEnv name %q is reserved by the chart; use javaOpts or tls values instead" .name) -}}
+{{- end -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "hydrozoa.fullname" . }}
+  labels:
+    {{- include "hydrozoa.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "hydrozoa.headlessName" . }}
+  # A Hydrozoa peer is a unique signing identity. Scaling would duplicate the
+  # same private key and database, so each release is intentionally fixed at 1.
+  replicas: 1
+  {{- with .Values.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) .Values.persistence.retention }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ .Values.persistence.retention.whenDeleted | default "Retain" }}
+    whenScaled: {{ .Values.persistence.retention.whenScaled | default "Retain" }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "hydrozoa.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hydrozoa.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        kubectl.kubernetes.io/default-container: hydrozoa
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "hydrozoa.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if or .Values.persistence.chownInitContainer.enabled .Values.initContainers .Values.sidecars }}
+      initContainers:
+        {{- if .Values.persistence.chownInitContainer.enabled }}
+        - name: init-chown-data
+          image: {{ .Values.persistence.chownInitContainer.image | quote }}
+          imagePullPolicy: {{ .Values.persistence.chownInitContainer.imagePullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              find /opt/docker/.hydrozoa-data \( ! -user {{ .Values.podSecurityContext.runAsUser }} -o ! -group {{ .Values.podSecurityContext.runAsGroup }} \) -exec chown {{ .Values.podSecurityContext.runAsUser }}:{{ .Values.podSecurityContext.runAsGroup }} {} +
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - DAC_READ_SEARCH
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: data
+              mountPath: /opt/docker/.hydrozoa-data
+        {{- end }}
+        {{- with .Values.initContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range $container := .Values.sidecars }}
+        - name: {{ required "every sidecars entry requires a name" $container.name }}
+          restartPolicy: Always
+          {{- omit $container "name" "restartPolicy" | toYaml | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: hydrozoa
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            {{- if .Values.args }}
+            {{- toYaml .Values.args | nindent 12 }}
+            {{- else }}
+            - serve
+            - {{ printf "%s/head-config.json" .Values.config.mountPath | quote }}
+            - {{ printf "%s/private.json" .Values.config.mountPath | quote }}
+            {{- end }}
+          {{- if eq $role "head" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.http.port }}
+              protocol: TCP
+            - name: peer
+              containerPort: {{ .Values.service.peer.port }}
+              protocol: TCP
+          {{- end }}
+          env:
+            {{- if .Values.tls.enabled }}
+            - name: HYDROZOA_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $tlsSecret }}
+                  key: {{ .Values.tls.passwordKey }}
+            {{- end }}
+            {{- $javaOpts := .Values.javaOpts }}
+            {{- if .Values.tls.enabled }}
+            {{- $keystorePath := printf "%s/%s" .Values.tls.mountPath .Values.tls.fileName }}
+            {{- $javaOpts = printf "%s -Djavax.net.ssl.keyStore=%s -Djavax.net.ssl.keyStoreType=PKCS12 -Djavax.net.ssl.keyStorePassword=$(HYDROZOA_KEYSTORE_PASSWORD)" $javaOpts $keystorePath }}
+            {{- end }}
+            - name: JAVA_OPTS
+              value: {{ trim $javaOpts | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: {{ .Values.config.mountPath }}
+              readOnly: true
+            - name: data
+              mountPath: /opt/docker/.hydrozoa-data
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.tls.enabled }}
+            - name: keystore
+              mountPath: {{ .Values.tls.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if eq $role "head" }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: config
+          secret:
+            secretName: {{ $configSecret }}
+            defaultMode: {{ .Values.config.defaultMode }}
+            items:
+              - key: {{ .Values.config.headConfigKey }}
+                path: head-config.json
+              - key: {{ .Values.config.privateConfigKey }}
+                path: private.json
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.tls.enabled }}
+        - name: keystore
+          secret:
+            secretName: {{ $tlsSecret }}
+            defaultMode: {{ .Values.tls.defaultMode }}
+            items:
+              - key: {{ .Values.tls.keystoreKey }}
+                path: {{ .Values.tls.fileName }}
+        {{- end }}
+        {{- if .Values.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+        {{- else if not .Values.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+  {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        {{- with .Values.persistence.annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.accessModes | nindent 10 }}
+        {{- with .Values.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | quote }}
+  {{- end }}

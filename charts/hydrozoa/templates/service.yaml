@@ -1,0 +1,41 @@
+{{- if eq (include "hydrozoa.role" .) "head" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hydrozoa.fullname" . }}
+  labels:
+    {{- include "hydrozoa.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- with .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  {{- with .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  ports:
+    - name: http
+      port: {{ .Values.service.http.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.http.nodePort }}
+      nodePort: {{ .Values.service.http.nodePort }}
+      {{- end }}
+    - name: peer
+      port: {{ .Values.service.peer.port }}
+      targetPort: peer
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.peer.nodePort }}
+      nodePort: {{ .Values.service.peer.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "hydrozoa.selectorLabels" . | nindent 4 }}
+{{- end }}

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hydrozoa.headlessName" . }}
+  labels:
+    {{- include "hydrozoa.labels" . | nindent 4 }}
+  {{- with .Values.headlessService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    # Coil peers dial out and do not listen here, but StatefulSet identity
+    # still requires a governing Service. Keeping the agreed peer port makes
+    # the per-release DNS contract stable if the role changes before launch.
+    - name: peer
+      port: {{ .Values.service.peer.port }}
+      targetPort: peer
+      protocol: TCP
+  selector:
+    {{- include "hydrozoa.selectorLabels" . | nindent 4 }}

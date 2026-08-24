@@ -1,0 +1,174 @@
+---
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # Hydrozoa is not packaged by Blink Labs. This is the official image from
+  # the upstream project named in Chart.yaml.
+  repository: ghcr.io/cardano-hydrozoa/hydrozoa
+  tag: "0.1.11"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# One chart release represents exactly one Hydrozoa peer. Install separate
+# releases for each head or coil so every peer has distinct private config,
+# PKCS12 material, network identity, and persistent state.
+node:
+  # Supported values: head, coil. This controls Kubernetes Services and HTTP
+  # probes only; it must agree with the identity in peer-private.json.
+  role: head
+
+# The image entrypoint is /opt/docker/bin/hydrozoa. Leave command empty to use
+# it. Leave args empty to run the upstream serve command with the mounted
+# head-config.json and private.json files.
+command: []
+args: []
+
+# Base JVM settings. When tls.enabled=true, the chart appends the standard
+# javax.net.ssl PKCS12 properties and a Secret-sourced password reference.
+javaOpts: "-Xmx2g -Xms512m"
+
+# Hydrozoa's shared head config and per-peer private config are mounted from
+# one existing Secret. The private config contains wallet and Blockfrost
+# credentials, so the chart never accepts either file inline in values.yaml.
+config:
+  existingSecret: ""
+  headConfigKey: head-config.json
+  privateConfigKey: private.json
+  mountPath: /configs
+  # Decimal representation of file mode 0440. podSecurityContext.fsGroup makes
+  # the files group-readable without making them world-readable.
+  defaultMode: 288
+
+# Optional JVM TLS keystore. The selected PKCS12 file is mounted read-only and
+# its password is loaded independently from the same Secret via secretKeyRef.
+tls:
+  enabled: false
+  existingSecret: ""
+  keystoreKey: hydrozoa.p12
+  passwordKey: password
+  fileName: hydrozoa.p12
+  mountPath: /etc/hydrozoa/tls
+  # Decimal representation of file mode 0440.
+  defaultMode: 288
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+priorityClassName: ""
+terminationGracePeriodSeconds: 120
+
+podSecurityContext:
+  runAsUser: 1001
+  runAsGroup: 1001
+  runAsNonRoot: true
+  fsGroup: 1001
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+
+updateStrategy:
+  type: RollingUpdate
+
+# Hydrozoa keeps its RocksDB stores under /opt/docker/.hydrozoa-data. The PVC
+# is retained by default because deleting it can strand an active head's state.
+persistence:
+  enabled: true
+  existingClaim: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  storageClass: ""
+  annotations: {}
+  retention:
+    whenDeleted: Retain
+    whenScaled: Retain
+  chownInitContainer:
+    enabled: true
+    image: busybox:1.36.1
+    imagePullPolicy: IfNotPresent
+
+# One-shot init containers run to completion before the main container.
+initContainers: []
+
+# Kubernetes native sidecars are rendered as restartable init containers with
+# restartPolicy: Always. They start before the Hydrozoa container and remain
+# running for the Pod lifetime. Add a startupProbe when the main container must
+# wait until a sidecar is actually ready.
+sidecars: []
+
+# Additional environment entries for the Hydrozoa container. JAVA_OPTS and
+# HYDROZOA_KEYSTORE_PASSWORD are reserved and rejected here.
+extraEnv: []
+envFrom: []
+
+# Arbitrary Pod volumes and mounts for the Hydrozoa container. Init containers
+# and sidecars refer to extra volumes by name in their own volumeMounts.
+extraVolumes: []
+extraVolumeMounts: []
+
+# The headless Service supplies stable StatefulSet DNS. Its peer port must
+# match webSocketAddress/peerBindPort in Hydrozoa's JSON configuration.
+headlessService:
+  annotations: {}
+
+# Rendered only for node.role=head. Both ports must match peer-private.json and
+# head-config.json; this chart deliberately does not rewrite secret config.
+service:
+  type: ClusterIP
+  annotations: {}
+  http:
+    port: 8080
+    nodePort: ""
+  peer:
+    port: 4001
+    nodePort: ""
+  externalTrafficPolicy: ""
+  loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+
+# Hydrozoa exposes these endpoints only on head peers. A startup probe prevents
+# liveness from restarting a head while the HTTP server is still booting.
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 60
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []

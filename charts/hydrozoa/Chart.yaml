@@ -1,0 +1,24 @@
+apiVersion: v2
+name: hydrozoa
+description: Deploys one Hydrozoa head or coil peer as a stateful Kubernetes workload
+type: application
+version: 0.1.0
+appVersion: "0.1.11"
+# Kubernetes 1.29 enables native sidecar containers (restartable init
+# containers) by default. The chart exposes that behavior through `sidecars`.
+kubeVersion: ">=1.29.0-0"
+home: https://github.com/cardano-hydrozoa/hydrozoa
+sources:
+  - https://github.com/cardano-hydrozoa/hydrozoa
+keywords:
+  - cardano
+  - hydrozoa
+  - layer-2
+  - state-channel
+maintainers:
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
+  - name: aurora
+    email: aurora@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io

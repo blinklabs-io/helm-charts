@@ -1,0 +1,38 @@
+config:
+  existingSecret: hydrozoa-ci-config
+
+tls:
+  enabled: true
+  existingSecret: hydrozoa-ci-tls
+  keystoreKey: coil-0.p12
+  passwordKey: password
+  fileName: coil-0.p12
+
+initContainers:
+  - name: prepare-shared-data
+    image: busybox:1.36.1
+    command: [sh, -c, "touch /shared/prepared"]
+    volumeMounts:
+      - name: shared
+        mountPath: /shared
+
+sidecars:
+  - name: tls-proxy
+    image: busybox:1.36.1
+    command: [sh, -c, "touch /shared/sidecar-ready; exec sleep 86400"]
+    startupProbe:
+      exec:
+        command: [sh, -c, "test -f /shared/sidecar-ready"]
+      periodSeconds: 1
+      failureThreshold: 30
+    volumeMounts:
+      - name: shared
+        mountPath: /shared
+
+extraVolumes:
+  - name: shared
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: shared
+    mountPath: /shared
