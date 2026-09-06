@@ -2,8 +2,8 @@ apiVersion: v2
 name: hydrozoa
 description: Deploys one Hydrozoa head or coil peer as a stateful Kubernetes workload
 type: application
-version: 0.1.2
-appVersion: "0.1.11"
+version: 0.1.3
+appVersion: "0.1.14"
 # Kubernetes 1.29 enables native sidecar containers (restartable init
 # containers) by default. The chart exposes that behavior through `sidecars`.
 kubeVersion: ">=1.29.0-0"

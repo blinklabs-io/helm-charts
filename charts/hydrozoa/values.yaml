@@ -6,7 +6,7 @@ image:
   # Hydrozoa is not packaged by Blink Labs. This is the official image from
   # the upstream project named in Chart.yaml.
   repository: ghcr.io/cardano-hydrozoa/hydrozoa
-  tag: "0.1.11"
+  tag: "0.1.14"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
