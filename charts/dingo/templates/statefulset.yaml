@@ -20,7 +20,7 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: dingo
-{{- if .Values.blockProducer.enabled }}
+{{- if and .Values.blockProducer.enabled (not .Values.blockProducer.existingSecret) }}
         checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}
 {{- end }}
 {{- if .Values.topology.enabled }}
@@ -197,7 +197,7 @@ spec:
       - name: block-producer-keys
         secret:
           defaultMode: 0600
-          secretName: {{ include "dingo.fullname" . }}-keys
+          secretName: {{ include "dingo.blockProducer.keysSecretName" . }}
 {{- end }}
   volumeClaimTemplates:
     - metadata:

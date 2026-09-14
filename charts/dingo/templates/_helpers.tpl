@@ -68,9 +68,24 @@ cardano_service: dingo
 {{- end -}}
 
 {{/*
+Name of the Secret holding the block producer keys.
+Returns blockProducer.existingSecret when set, otherwise the chart-managed Secret.
+*/}}
+{{- define "dingo.blockProducer.keysSecretName" -}}
+{{- if .Values.blockProducer.existingSecret -}}
+{{- .Values.blockProducer.existingSecret -}}
+{{- else -}}
+{{- printf "%s-keys" (include "dingo.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Validate required block producer key files when block production is enabled.
+Skipped when blockProducer.existingSecret is set, since the key material then
+lives in a Secret that is managed outside of this chart.
 */}}
 {{- define "dingo.blockProducer.validateKeys" -}}
+{{- if not .Values.blockProducer.existingSecret -}}
 {{- $keys := required "blockProducer.keys is required when blockProducer.enabled=true" .Values.blockProducer.keys -}}
 {{- $keyNames := dict -}}
 {{- range $keys }}
@@ -79,4 +94,5 @@ Validate required block producer key files when block production is enabled.
 {{- $_ := required "blockProducer.keys must include kes.skey" (get $keyNames "kes.skey") -}}
 {{- $_ := required "blockProducer.keys must include node.cert" (get $keyNames "node.cert") -}}
 {{- $_ := required "blockProducer.keys must include vrf.skey" (get $keyNames "vrf.skey") -}}
+{{- end -}}
 {{- end -}}
