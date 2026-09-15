@@ -1,0 +1,25 @@
+# CI test values for chart-testing
+# Exercises the SIGHUP-reloadable topology path: the ConfigMap is mounted as a
+# directory (no subPath) and no checksum/topology annotation is rendered.
+
+cardano_network: preview
+
+topology:
+  enabled: true
+  reloadable: true
+  bootstrapPeers:
+    - address: preview-node.play.dev.cardano.org
+      port: 3001
+  localRoots:
+    - accessPoints:
+        - name: Example
+          address: preview-node.play.dev.cardano.org
+          port: 3001
+      advertise: false
+      trustable: true
+      valency: 1
+  publicRoots: []
+  useLedgerAfterSlot: -1
+
+service:
+  type: ClusterIP

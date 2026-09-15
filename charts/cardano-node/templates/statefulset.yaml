@@ -15,10 +15,10 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: cardano-node
-{{- if .Values.blockProducer.enabled }}
+{{- if and (or .Values.blockProducer.enabled .Values.blockProducer.keysAlwaysMounted) (not .Values.blockProducer.reloadableKeys) }}
         checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}
 {{- end }}
-{{- if .Values.topology.enabled }}
+{{- if and .Values.topology.enabled (not .Values.topology.reloadable) }}
         checksum/topology: {{ .Values.topology | toJson | sha256sum }}
 {{- end }}
       labels:
@@ -211,7 +211,14 @@ spec:
         - name: CARDANO_SOCKET_PATH
           value: /ipc/node.socket
         - name: CARDANO_TOPOLOGY
+{{- if and .Values.topology.enabled .Values.topology.reloadable }}
+{{- /* Mounted as a whole directory (not subPath) so ConfigMap updates propagate
+       into the running container. Lives outside the image's config directory so
+       it does not shadow the baked-in genesis and config files. */}}
+          value: "/opt/cardano/topology/topology.json"
+{{- else }}
           value: "/opt/cardano/config/{{ .Values.cardano_network }}/topology.json"
+{{- end }}
         - name: RESTORE_SNAPSHOT
           value: "false"
 {{- if .Values.blockProducer.enabled }}
@@ -223,6 +230,10 @@ spec:
           value: "/opt/cardano/config/keys/node.cert"
         - name: CARDANO_SHELLEY_VRF_KEY
           value: "/opt/cardano/config/keys/vrf.skey"
+{{- if .Values.blockProducer.startAsNonProducing }}
+        - name: START_AS_NON_PRODUCING
+          value: "true"
+{{- end }}
 {{- end }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -240,10 +251,14 @@ spec:
           name: node-ipc
 {{- if .Values.topology.enabled }}
         - name: topology
+{{- if .Values.topology.reloadable }}
+          mountPath: /opt/cardano/topology
+{{- else }}
           mountPath: /opt/cardano/config/{{ .Values.cardano_network }}/topology.json
           subPath: topology.json
 {{- end }}
-{{- if .Values.blockProducer.enabled }}
+{{- end }}
+{{- if or .Values.blockProducer.enabled .Values.blockProducer.keysAlwaysMounted }}
         - name: block-producer-keys
           mountPath: /opt/cardano/config/keys
 {{- end }}
@@ -282,7 +297,7 @@ spec:
           name: {{ include "cardano-node.fullname" . }}-topology
           defaultMode: 0644
 {{- end }}
-{{- if .Values.blockProducer.enabled }}
+{{- if or .Values.blockProducer.enabled .Values.blockProducer.keysAlwaysMounted }}
       - name: block-producer-keys
         secret:
           defaultMode: 0600
