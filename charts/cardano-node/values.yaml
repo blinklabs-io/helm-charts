@@ -54,6 +54,25 @@ mithril:
 
 blockProducer:
   enabled: false
+  # Render the keys Secret and mount it even when enabled=false. Lets a relay run a
+  # sidecar that needs the keys (e.g. mithril-signer) without turning on forging, and
+  # keeps the volume present so toggling forging never changes the pod spec.
+  keysAlwaysMounted: false
+  # Omit the checksum/keys pod annotation so changing blockProducer.keys updates the
+  # Secret WITHOUT restarting the pod. The node does not notice on its own: send SIGHUP
+  # (`pkill -HUP cardano-node`) once the files have propagated. Missing credential files
+  # at SIGHUP time disable forging; restoring them and sending SIGHUP re-enables it.
+  # NOTE: credential files must exist at container START, or the node will not boot.
+  reloadableKeys: false
+  # Start with credentials loaded but forging disabled (--start-as-non-producing-node).
+  # Forging begins only on an explicit SIGHUP, so a restart never silently resumes block
+  # production. Recommended whenever two nodes share a VRF key during a cutover.
+  #
+  # REQUIRES an image whose entrypoint handles START_AS_NON_PRODUCING (dynamic forging,
+  # docker-cardano-node#281, first released in 10.5.1-3 / 10.1.4-5; verified on 11.0.1).
+  # On an older image the variable is ignored and the node starts FORGING -- which is the
+  # opposite of what this flag promises, with no warning. Check your image tag.
+  startAsNonProducing: false
 # These are placeholder keys used as an example. You will need to generate your own.
 #  keys:
 #    - name: kes.skey
@@ -72,6 +91,11 @@ blockProducer:
 # Custom topology. When disabled the image will load the default topology for chosen cardano_network
 topology:
   enabled: false
+  # Omit the checksum/topology pod annotation so topology changes update the ConfigMap
+  # WITHOUT restarting the pod. cardano-node re-reads the topology file and restarts DNS
+  # resolution on SIGHUP (`pkill -HUP cardano-node`); until then the running node keeps
+  # using the old topology. Do not send SIGHUP during ledger replay.
+  reloadable: false
 #  bootstrapPeers:
 #    - address: preview-node.play.dev.cardano.org
 #      port: 3001
