@@ -67,10 +67,6 @@ cardano_network: {{ include "dingo.network" . }}
 cardano_service: dingo
 {{- end -}}
 
-{{/*
-Name of the Secret holding the block producer keys.
-Returns blockProducer.existingSecret when set, otherwise the chart-managed Secret.
-*/}}
 {{- define "dingo.blockProducer.keysSecretName" -}}
 {{- if .Values.blockProducer.existingSecret -}}
 {{- .Values.blockProducer.existingSecret -}}
@@ -80,12 +76,17 @@ Returns blockProducer.existingSecret when set, otherwise the chart-managed Secre
 {{- end -}}
 
 {{/*
-Validate required block producer key files when block production is enabled.
-Skipped when blockProducer.existingSecret is set, since the key material then
-lives in a Secret that is managed outside of this chart.
+Validate the block producer key source when block production is enabled.
 */}}
 {{- define "dingo.blockProducer.validateKeys" -}}
-{{- if not .Values.blockProducer.existingSecret -}}
+{{- if .Values.blockProducer.existingSecret -}}
+{{- if .Values.blockProducer.keys -}}
+{{- fail "blockProducer.existingSecret and blockProducer.keys are mutually exclusive; remove blockProducer.keys when using an existing Secret" -}}
+{{- end -}}
+{{- $_ := required "blockProducer.kesKey is required when blockProducer.existingSecret is set" .Values.blockProducer.kesKey -}}
+{{- $_ := required "blockProducer.opCertKey is required when blockProducer.existingSecret is set" .Values.blockProducer.opCertKey -}}
+{{- $_ := required "blockProducer.vrfKey is required when blockProducer.existingSecret is set" .Values.blockProducer.vrfKey -}}
+{{- else -}}
 {{- $keys := required "blockProducer.keys is required when blockProducer.enabled=true" .Values.blockProducer.keys -}}
 {{- $keyNames := dict -}}
 {{- range $keys }}

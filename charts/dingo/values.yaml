@@ -52,13 +52,25 @@ blockProducer:
   # Use a pre-existing Kubernetes Secret for the block producer keys, for
   # example one created by an ExternalSecret from a vault, so the key material
   # never has to be placed in values or committed to Git.
-  # When set, the chart does not render its own keys Secret and mounts this
-  # Secret at /keys instead. The Secret must contain the keys kes.skey,
-  # node.cert and vrf.skey - the same file names the chart already uses.
-  # Leave empty to keep using the inline blockProducer.keys below.
+  # When set, the chart does not render its own keys Secret and mounts only
+  # the three keys named below from this Secret, projected to /keys/kes.skey,
+  # /keys/node.cert and /keys/vrf.skey. A missing key fails the volume mount
+  # and the pod does not start.
+  # Mutually exclusive with blockProducer.keys: setting both fails the render.
   existingSecret: ""
+  # Data keys in blockProducer.existingSecret that hold each file. Only used
+  # when existingSecret is set.
+  kesKey: kes.skey
+  opCertKey: node.cert
+  vrfKey: vrf.skey
+  # Extra annotations for the pod template. dingo reads its keys only at
+  # startup, so with existingSecret nothing in the chart rolls the pod when the
+  # Secret changes. Set a value that changes with the key material, for example
+  # checksum/keys: <hash or KES period>, so a rotation triggers a rollout.
+  # With inline keys the chart already sets checksum/keys itself.
+  podAnnotations: {}
   # Block producer keys - stored as a Kubernetes Secret
-  # Ignored when blockProducer.existingSecret is set
+  # Mutually exclusive with blockProducer.existingSecret
   # Generate keys using cardano-cli and provide in the same JSON format
 #  keys:
 #    - name: kes.skey
