@@ -53,6 +53,9 @@ spec:
             - snapshot
             - --variant
             - full
+          {{- with .Values.env }}
+          env: {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
@@ -70,6 +73,9 @@ spec:
             - -c
             - /etc/config/dolos.toml
             - daemon
+          {{- with .Values.env }}
+          env: {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

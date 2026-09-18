@@ -72,7 +72,7 @@ cardano_service: cardano-node
 Validate required block producer key files when block production is enabled.
 */}}
 {{- define "cardano-node.blockProducer.validateKeys" -}}
-{{- $keys := required "blockProducer.keys is required when blockProducer.enabled=true" .Values.blockProducer.keys -}}
+{{- $keys := required "blockProducer.keys is required when blockProducer.enabled=true or blockProducer.keysAlwaysMounted=true" .Values.blockProducer.keys -}}
 {{- $keyNames := dict -}}
 {{- range $keys }}
 {{- $_ := set $keyNames .name true -}}

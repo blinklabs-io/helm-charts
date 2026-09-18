@@ -11,11 +11,16 @@ peerAddress: ""
 # Dolos configuration
 image:
   repository: ghcr.io/txpipe/dolos
-  tag: "v1.6.0"
+  tag: "v1.6.1"
   pullPolicy: IfNotPresent
 
 podAnnotations: {}
 podLabels: {}
+
+# Extra environment variables set on the init and dolos containers, in the
+# standard Kubernetes list form (name/value or name/valueFrom). Use this for
+# runtime tuning such as RUST_MIN_STACK to enlarge worker-thread stacks.
+env: []
 
 resources:
   limits:
