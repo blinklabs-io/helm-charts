@@ -1,0 +1,3 @@
+# chart-testing values: chart defaults (block producer disabled).
+# Kept so the default rendering path is still linted now that this chart has a
+# ci/ directory.
