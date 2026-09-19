@@ -39,3 +39,7 @@ jobs:
       - name: Run chart-testing (lint)
         if: steps.list-changed.outputs.changed == 'true'
         run: ct lint --target-branch ${{ github.event.repository.default_branch }}
+
+      - name: Run Bursa render matrix
+        if: contains(steps.list-changed.outputs.changed_charts, 'charts/bursa')
+        run: charts/bursa/ci/render-test.sh
