@@ -20,8 +20,16 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: dingo
-{{- if .Values.blockProducer.enabled }}
+{{- if and .Values.blockProducer.enabled (not .Values.blockProducer.existingSecret) }}
         checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}
+{{- end }}
+{{- if .Values.blockProducer.enabled }}
+{{- range $key, $value := .Values.blockProducer.podAnnotations }}
+{{- if or (has $key (list "cluster-autoscaler.kubernetes.io/safe-to-evict" "kubectl.kubernetes.io/default-container")) (and (eq $key "checksum/keys") (not $.Values.blockProducer.existingSecret)) (and (eq $key "checksum/topology") $.Values.topology.enabled) }}
+{{- fail (printf "blockProducer.podAnnotations key %q is already set by the chart" $key) }}
+{{- end }}
+        {{ $key }}: {{ $value | toString | quote }}
+{{- end }}
 {{- end }}
 {{- if .Values.topology.enabled }}
         checksum/topology: {{ .Values.topology | toJson | sha256sum }}
@@ -197,7 +205,16 @@ spec:
       - name: block-producer-keys
         secret:
           defaultMode: 0600
-          secretName: {{ include "dingo.fullname" . }}-keys
+          secretName: {{ include "dingo.blockProducer.keysSecretName" . }}
+{{- if .Values.blockProducer.existingSecret }}
+          items:
+          - key: {{ .Values.blockProducer.kesKey | quote }}
+            path: kes.skey
+          - key: {{ .Values.blockProducer.opCertKey | quote }}
+            path: node.cert
+          - key: {{ .Values.blockProducer.vrfKey | quote }}
+            path: vrf.skey
+{{- end }}
 {{- end }}
   volumeClaimTemplates:
     - metadata:
