@@ -1,3 +1,6 @@
+{{- include "bursa.apiValidation" . -}}
+{{- $apiPort := int (default 8080 (get .Values.environment "API_LISTEN_PORT")) -}}
+{{- $apiLoopback := eq (trim (include "bursa.apiLoopback" .)) "true" -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -9,9 +12,11 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
+    {{- if not $apiLoopback }}
     - name: api
       port: {{ .Values.service.ports.api }}
-      targetPort: 8080
+      targetPort: {{ $apiPort }}
+    {{- end }}
     - name: metrics
       port: {{ .Values.service.ports.metrics }}
       targetPort: 8081
