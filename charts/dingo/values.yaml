@@ -7,7 +7,42 @@ updateStrategy:
 image:
   repository: ghcr.io/blinklabs-io/dingo
   tag: "0.70.6"
+  # Optional immutable image digest. When set, the container is referenced by
+  # digest (repository@sha256:...) instead of the mutable tag, so a deployment
+  # pins the exact image content regardless of tag changes. When empty, the
+  # tag above is used. See README.md for provenance and SBOM verification.
+  # digest: "sha256:..."
+  digest: ""
   pullPolicy: IfNotPresent
+
+# Do not automount the ServiceAccount API token. Dingo never talks to the
+# Kubernetes API, so the token is unnecessary and omitting it reduces the blast
+# radius if the pod is compromised.
+automountServiceAccountToken: false
+
+# Pod-level security context. Dingo runs as the non-root "dingo" user baked into
+# the upstream image (UID 1000 / GID 1000), pinned numerically so kubelet can
+# enforce runAsNonRoot without resolving the image's /etc/passwd. fsGroup makes
+# the mounted PVC group-owned by the dingo user on first mount.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level security context. Locked down by default: no privilege
+# escalation, read-only root filesystem, and all Linux capabilities dropped.
+# Writable scratch paths (/tmp and the /ipc socket dir) are provided via
+# emptyDir mounts so the read-only root filesystem does not break the node.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
 
 # Native Mithril snapshot bootstrap via dingo's built-in mithril sync
 # Uses dingo's native Go Mithril client (no external mithril-client binary needed)
@@ -179,19 +214,68 @@ persistence:
   size: 60Gi
   # storageClass: "hyperdisk-balanced"
 
+# Service exposure is intentionally split so public relay (P2P) traffic is
+# separated from the private node API and metrics. Only the relay Service is
+# meant to be published externally; the private and metrics Services are
+# ClusterIP-only and are never exposed by this chart. Restrict access to the
+# private endpoints with a NetworkPolicy (see networkPolicy below) or front
+# them with an authenticated ingress/gateway.
 service:
-  annotations: {}
-  type: ClusterIP
-  sessionAffinity: ClientIP
+  # Canonical container port numbers, shared by the StatefulSet container ports
+  # and the Service definitions below.
   ports:
-    private: 3002
     relay: 3001
+    private: 3002
     metrics: 12798
-    # API ports - only exposed when non-zero
-    # Set corresponding DINGO_*_PORT environment variable to enable
+    # API ports - only exposed when non-zero AND the matching DINGO_*_PORT
+    # environment variable is set. These are private (served by the private
+    # Service), never by the public relay Service.
     utxorpc: 0
     blockfrost: 0
     mesh: 0
+  # Public P2P relay Service. This is the ONLY Service intended for external
+  # exposure. Defaults to ClusterIP; set type to LoadBalancer or NodePort to
+  # publish the relay port. It never carries the private API or metrics ports.
+  relay:
+    type: ClusterIP
+    sessionAffinity: ClientIP
+    annotations: {}
+    # The following only apply to NodePort / LoadBalancer service types.
+    externalTrafficPolicy: ""
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    nodePort: ""
+  # Private Service: node private API plus optional local APIs (UTxO RPC,
+  # Blockfrost, Mesh). ClusterIP-only and never published externally.
+  private:
+    enabled: true
+    sessionAffinity: ClientIP
+    annotations: {}
+  # Metrics Service (Prometheus text on /metrics). ClusterIP-only.
+  metrics:
+    enabled: true
+    annotations: {}
+
+# Optional NetworkPolicy. When enabled, the public relay port stays open to all
+# sources while ingress to the private API and metrics ports is restricted to
+# the peers listed below. Pair this with an authenticated ingress if the
+# private endpoints must be reachable from outside the cluster.
+networkPolicy:
+  enabled: false
+  # Sources allowed to reach the private API ports (private / utxorpc /
+  # blockfrost / mesh). Standard NetworkPolicy peer objects.
+  privateIngressFrom: []
+    # - namespaceSelector:
+    #     matchLabels:
+    #       kubernetes.io/metadata.name: my-app-namespace
+    # - podSelector:
+    #     matchLabels:
+    #       app.kubernetes.io/name: my-client
+  # Sources allowed to reach the metrics port (e.g. your Prometheus).
+  metricsIngressFrom: []
+    # - namespaceSelector:
+    #     matchLabels:
+    #       kubernetes.io/metadata.name: monitoring
 
 serviceAccount:
   annotations: {}
