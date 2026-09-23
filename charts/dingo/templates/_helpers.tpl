@@ -79,10 +79,26 @@ cardano_network: {{ include "dingo.network" . }}
 cardano_service: dingo
 {{- end -}}
 
+{{- define "dingo.blockProducer.keysSecretName" -}}
+{{- if .Values.blockProducer.existingSecret -}}
+{{- .Values.blockProducer.existingSecret -}}
+{{- else -}}
+{{- printf "%s-keys" (include "dingo.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
-Validate required block producer key files when block production is enabled.
+Validate the block producer key source when block production is enabled.
 */}}
 {{- define "dingo.blockProducer.validateKeys" -}}
+{{- if .Values.blockProducer.existingSecret -}}
+{{- if .Values.blockProducer.keys -}}
+{{- fail "blockProducer.existingSecret and blockProducer.keys are mutually exclusive; remove blockProducer.keys when using an existing Secret" -}}
+{{- end -}}
+{{- $_ := required "blockProducer.kesKey is required when blockProducer.existingSecret is set" .Values.blockProducer.kesKey -}}
+{{- $_ := required "blockProducer.opCertKey is required when blockProducer.existingSecret is set" .Values.blockProducer.opCertKey -}}
+{{- $_ := required "blockProducer.vrfKey is required when blockProducer.existingSecret is set" .Values.blockProducer.vrfKey -}}
+{{- else -}}
 {{- $keys := required "blockProducer.keys is required when blockProducer.enabled=true" .Values.blockProducer.keys -}}
 {{- $keyNames := dict -}}
 {{- range $keys }}
@@ -91,4 +107,5 @@ Validate required block producer key files when block production is enabled.
 {{- $_ := required "blockProducer.keys must include kes.skey" (get $keyNames "kes.skey") -}}
 {{- $_ := required "blockProducer.keys must include node.cert" (get $keyNames "node.cert") -}}
 {{- $_ := required "blockProducer.keys must include vrf.skey" (get $keyNames "vrf.skey") -}}
+{{- end -}}
 {{- end -}}
