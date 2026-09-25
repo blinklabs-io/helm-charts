@@ -276,6 +276,16 @@ service:
   metrics:
     enabled: true
     annotations: {}
+  # Backward-compatibility Service. Preserves the original `<release>-dingo`
+  # Service name (the interface that existing consumers, DNS references, and
+  # monitoring bindings target) so upgrades do not break them. It is ClusterIP
+  # only and carries the same ports the pre-split Service did (relay, private,
+  # metrics, and any enabled API ports); it never publishes the relay
+  # externally. Enabled by default for a safe migration — disable it once all
+  # consumers have moved to the tiered relay/private/metrics Services.
+  compatibility:
+    enabled: true
+    annotations: {}
 
 # Optional NetworkPolicy. When enabled, the public relay port stays open to all
 # sources while ingress to the private API and metrics ports is restricted to

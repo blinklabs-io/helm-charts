@@ -46,6 +46,22 @@ the private node API and metrics:
 - `<release>-dingo-metrics` — the Prometheus metrics endpoint. `ClusterIP`
   only.
 
+For a safe upgrade, the chart also renders a backward-compatibility Service that
+preserves the original `<release>-dingo` name:
+
+- `<release>-dingo` — `ClusterIP`-only compatibility Service carrying the same
+  ports the pre-split Service did (relay, private, metrics, and any enabled API
+  ports). It exists so existing consumers, DNS references, and monitoring
+  bindings that still target `<release>-dingo` keep working during migration.
+  It never publishes the relay externally. Enabled by default; disable it once
+  all consumers have moved to the tiered Services:
+
+  ```yaml
+  service:
+    compatibility:
+      enabled: false
+  ```
+
 To publish the relay on the public Cardano network, explicitly opt in:
 
 ```yaml
@@ -140,6 +156,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | `service.relay.type`            | Public relay Service type                                 | `ClusterIP`                    |
 | `service.private.enabled`       | Render the private (ClusterIP) API Service                | `true`                         |
 | `service.metrics.enabled`       | Render the metrics (ClusterIP) Service                    | `true`                         |
+| `service.compatibility.enabled` | Render the `<release>-dingo` compatibility Service        | `true`                         |
 | `networkPolicy.enabled`         | Restrict private/metrics ports to explicit peers          | `false`                        |
 | `mithril.enabled`               | Bootstrap the DB from a Mithril snapshot                  | `true`                         |
 | `persistence.size`              | PVC size                                                  | `60Gi`                         |

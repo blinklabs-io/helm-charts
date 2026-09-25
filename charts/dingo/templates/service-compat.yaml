@@ -1,0 +1,46 @@
+{{- if .Values.service.compatibility.enabled }}
+---
+# Backward-compatibility Service preserving the original `<release>-dingo` name.
+# ClusterIP only: it keeps existing in-cluster consumers, DNS references, and
+# monitoring bindings working during migration to the tiered relay/private/
+# metrics Services. It never publishes the relay externally.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dingo.fullname" . }}
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+    dingo.blinklabs.io/service-tier: compatibility
+  {{- if .Values.service.compatibility.annotations }}
+  annotations: {{- toYaml .Values.service.compatibility.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: relay
+      port: {{ .Values.service.ports.relay }}
+      targetPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+    - name: private
+      port: {{ .Values.service.ports.private }}
+      targetPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
+    - name: metrics
+      port: {{ .Values.service.ports.metrics }}
+      targetPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
+{{- if gt (int (default "0" (default .Values.service.ports.utxorpc .Values.environment.DINGO_UTXORPC_PORT))) 0 }}
+    - name: utxorpc
+      port: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+      targetPort: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.blockfrost .Values.environment.DINGO_BLOCKFROST_PORT))) 0 }}
+    - name: blockfrost
+      port: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+      targetPort: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.mesh .Values.environment.DINGO_MESH_PORT))) 0 }}
+    - name: mesh
+      port: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+      targetPort: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+{{- end }}
+  selector:
+    {{- include "dingo.matchLabels" . | nindent 4 }}
+{{- end }}
