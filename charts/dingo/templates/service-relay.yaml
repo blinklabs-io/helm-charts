@@ -1,0 +1,35 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dingo.fullname" . }}-relay
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+    dingo.blinklabs.io/service-tier: public
+  {{- if .Values.service.relay.annotations }}
+  annotations: {{- toYaml .Values.service.relay.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.relay.type }}
+  {{- if .Values.service.relay.sessionAffinity }}
+  sessionAffinity: {{ .Values.service.relay.sessionAffinity }}
+  {{- end }}
+  {{- if and (ne .Values.service.relay.type "ClusterIP") .Values.service.relay.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.relay.externalTrafficPolicy }}
+  {{- end }}
+  {{- if and (eq .Values.service.relay.type "LoadBalancer") .Values.service.relay.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.relay.loadBalancerIP }}
+  {{- end }}
+  {{- if and (eq .Values.service.relay.type "LoadBalancer") .Values.service.relay.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.service.relay.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  ports:
+    - name: relay
+      port: {{ .Values.service.ports.relay }}
+      targetPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+      {{- if and (eq .Values.service.relay.type "NodePort") .Values.service.relay.nodePort }}
+      nodePort: {{ .Values.service.relay.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "dingo.matchLabels" . | nindent 4 }}

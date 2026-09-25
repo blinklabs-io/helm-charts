@@ -1,0 +1,40 @@
+{{- if .Values.service.private.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dingo.fullname" . }}-private
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+    dingo.blinklabs.io/service-tier: private
+  {{- if .Values.service.private.annotations }}
+  annotations: {{- toYaml .Values.service.private.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  # ClusterIP only. This Service is never published externally by the chart.
+  type: ClusterIP
+  {{- if .Values.service.private.sessionAffinity }}
+  sessionAffinity: {{ .Values.service.private.sessionAffinity }}
+  {{- end }}
+  ports:
+    - name: private
+      port: {{ .Values.service.ports.private }}
+      targetPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
+{{- if gt (int (default "0" (default .Values.service.ports.utxorpc .Values.environment.DINGO_UTXORPC_PORT))) 0 }}
+    - name: utxorpc
+      port: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+      targetPort: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.blockfrost .Values.environment.DINGO_BLOCKFROST_PORT))) 0 }}
+    - name: blockfrost
+      port: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+      targetPort: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.mesh .Values.environment.DINGO_MESH_PORT))) 0 }}
+    - name: mesh
+      port: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+      targetPort: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+{{- end }}
+  selector:
+    {{- include "dingo.matchLabels" . | nindent 4 }}
+{{- end }}
