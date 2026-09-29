@@ -1,9 +1,17 @@
 {{- if .Values.service.compatibility.enabled }}
+{{- $compatType := .Values.service.compatibility.type | default .Values.service.type | default "ClusterIP" }}
+{{- $compatSessionAffinity := .Values.service.compatibility.sessionAffinity | default .Values.service.sessionAffinity }}
+{{- $compatAnnotations := merge (dict) (default (dict) .Values.service.compatibility.annotations) (default (dict) .Values.service.annotations) }}
 ---
 # Backward-compatibility Service preserving the original `<release>-dingo` name.
-# ClusterIP only: it keeps existing in-cluster consumers, DNS references, and
-# monitoring bindings working during migration to the tiered relay/private/
-# metrics Services. It never publishes the relay externally.
+# It keeps existing consumers, DNS references, and monitoring bindings working
+# during migration to the tiered relay/private/metrics Services. To avoid
+# dropping external reachability on upgrade, it inherits the legacy
+# `service.type` (and `service.sessionAffinity` / `service.annotations`): a
+# release that previously set `service.type: LoadBalancer` keeps the same
+# Service name, and therefore the same cloud load balancer, after upgrade.
+# Fresh installs default to ClusterIP. Once consumers have moved to the tiered
+# relay Service, disable this Service to complete the hardened split.
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,11 +19,18 @@ metadata:
   labels:
     {{- include "dingo.labels" . | nindent 4 }}
     dingo.blinklabs.io/service-tier: compatibility
-  {{- if .Values.service.compatibility.annotations }}
-  annotations: {{- toYaml .Values.service.compatibility.annotations | nindent 4 }}
+  {{- if $compatAnnotations }}
+  annotations: {{- toYaml $compatAnnotations | nindent 4 }}
   {{- end }}
 spec:
-  type: ClusterIP
+  type: {{ $compatType }}
+  {{- if $compatSessionAffinity }}
+  sessionAffinity: {{ $compatSessionAffinity }}
+  {{- end }}
+  {{- if and (eq $compatType "LoadBalancer") .Values.service.compatibility.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.service.compatibility.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
   ports:
     - name: relay
       port: {{ .Values.service.ports.relay }}

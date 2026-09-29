@@ -49,12 +49,22 @@ the private node API and metrics:
 For a safe upgrade, the chart also renders a backward-compatibility Service that
 preserves the original `<release>-dingo` name:
 
-- `<release>-dingo` — `ClusterIP`-only compatibility Service carrying the same
-  ports the pre-split Service did (relay, private, metrics, and any enabled API
-  ports). It exists so existing consumers, DNS references, and monitoring
-  bindings that still target `<release>-dingo` keep working during migration.
-  It never publishes the relay externally. Enabled by default; disable it once
-  all consumers have moved to the tiered Services:
+- `<release>-dingo` — compatibility Service carrying the same ports the
+  pre-split Service did (relay, private, metrics, and any enabled API ports). It
+  exists so existing consumers, DNS references, and monitoring bindings that
+  still target `<release>-dingo` keep working during migration. Enabled by
+  default.
+
+  To avoid dropping external reachability on upgrade, it inherits the legacy
+  `service.type` (and `service.sessionAffinity` / `service.annotations`). A
+  release that previously set `service.type: LoadBalancer` keeps the same
+  Service name — and therefore the same cloud load balancer and external
+  address — after upgrade; no manual migration is required to retain exposure.
+  Fresh installs default to `ClusterIP`.
+
+  To complete the hardened split, move consumers to the tiered
+  relay/private/metrics Services (publish the relay via `service.relay.type`),
+  then disable the compatibility Service:
 
   ```yaml
   service:
