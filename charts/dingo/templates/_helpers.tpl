@@ -32,6 +32,18 @@ Create chart name and version as used by the chart label.
 {{- end -}}
 
 {{/*
+Container image reference. Prefers an immutable digest when image.digest is set
+(repository@sha256:...); otherwise falls back to repository:tag.
+*/}}
+{{- define "dingo.image" -}}
+{{- if .Values.image.digest -}}
+{{- printf "%s@%s" .Values.image.repository .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.image.repository (.Values.image.tag | toString) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Define Cardano network from environment map.
 */}}
 {{- define "dingo.network" -}}

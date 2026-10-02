@@ -1,0 +1,61 @@
+{{- if .Values.service.compatibility.enabled }}
+{{- $compatType := .Values.service.compatibility.type | default .Values.service.type | default "ClusterIP" }}
+{{- $compatSessionAffinity := .Values.service.compatibility.sessionAffinity | default .Values.service.sessionAffinity }}
+{{- $compatAnnotations := merge (dict) (default (dict) .Values.service.compatibility.annotations) (default (dict) .Values.service.annotations) }}
+---
+# Backward-compatibility Service preserving the original `<release>-dingo` name.
+# It keeps existing consumers, DNS references, and monitoring bindings working
+# during migration to the tiered relay/private/metrics Services. To avoid
+# dropping external reachability on upgrade, it inherits the legacy
+# `service.type` (and `service.sessionAffinity` / `service.annotations`): a
+# release that previously set `service.type: LoadBalancer` keeps the same
+# Service name, and therefore the same cloud load balancer, after upgrade.
+# Fresh installs default to ClusterIP. Once consumers have moved to the tiered
+# relay Service, disable this Service to complete the hardened split.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dingo.fullname" . }}
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+    dingo.blinklabs.io/service-tier: compatibility
+  {{- if $compatAnnotations }}
+  annotations: {{- toYaml $compatAnnotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $compatType }}
+  {{- if $compatSessionAffinity }}
+  sessionAffinity: {{ $compatSessionAffinity }}
+  {{- end }}
+  {{- if and (eq $compatType "LoadBalancer") .Values.service.compatibility.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.service.compatibility.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  ports:
+    - name: relay
+      port: {{ .Values.service.ports.relay }}
+      targetPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+    - name: private
+      port: {{ .Values.service.ports.private }}
+      targetPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
+    - name: metrics
+      port: {{ .Values.service.ports.metrics }}
+      targetPort: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
+{{- if gt (int (default "0" (default .Values.service.ports.utxorpc .Values.environment.DINGO_UTXORPC_PORT))) 0 }}
+    - name: utxorpc
+      port: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+      targetPort: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.blockfrost .Values.environment.DINGO_BLOCKFROST_PORT))) 0 }}
+    - name: blockfrost
+      port: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+      targetPort: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.mesh .Values.environment.DINGO_MESH_PORT))) 0 }}
+    - name: mesh
+      port: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+      targetPort: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+{{- end }}
+  selector:
+    {{- include "dingo.matchLabels" . | nindent 4 }}
+{{- end }}

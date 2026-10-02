@@ -1,0 +1,45 @@
+# CI test values for chart-testing (rendered-manifest test: external opt-ins).
+#
+# Exercises the explicit external-exposure path and immutable digest pinning:
+#   - relay Service is opted into LoadBalancer with source ranges (public P2P)
+#   - private API ports (UTxO RPC) enabled but kept on the ClusterIP private
+#     Service, never on the public relay Service
+#   - a NetworkPolicy restricts the private and metrics ports to explicit peers
+#   - the image is pinned by immutable digest instead of a mutable tag
+#   - the backward-compatibility Service is disabled (fully-migrated consumers)
+#
+# CI only; not a production configuration. The digest below is a syntactically
+# valid placeholder used purely to verify digest rendering.
+
+mithril:
+  enabled: false
+
+image:
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+environment:
+  CARDANO_NETWORK: preview
+  CARDANO_DATABASE_PATH: "/data"
+  DINGO_STORAGE_MODE: "api"
+  DINGO_UTXORPC_PORT: "9090"
+
+service:
+  relay:
+    type: LoadBalancer
+    loadBalancerSourceRanges:
+      - 0.0.0.0/0
+  ports:
+    utxorpc: 9090
+  compatibility:
+    enabled: false
+
+networkPolicy:
+  enabled: true
+  privateIngressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: my-app-namespace
+  metricsIngressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
