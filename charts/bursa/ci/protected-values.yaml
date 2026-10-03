@@ -1,0 +1,9 @@
+environment:
+  API_LISTEN_ADDRESS: "0.0.0.0"
+  API_LISTEN_PORT: 9090
+  API_JWT_ISSUER: "https://issuer.example"
+  API_JWT_AUDIENCE: "bursa"
+api:
+  auth:
+    existingSecret: bursa-api-jwt
+    existingSecretKey: API_JWT_SECRET

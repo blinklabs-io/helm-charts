@@ -1,0 +1,7 @@
+environment:
+  API_LISTEN_ADDRESS: "0.0.0.0"
+  API_JWKS_URL: "https://issuer.example/.well-known/jwks.json"
+api:
+  auth:
+    existingSecret: bursa-api-jwt
+    existingSecretKey: API_JWT_SECRET

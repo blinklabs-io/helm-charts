@@ -1,3 +1,7 @@
+{{- include "bursa.apiValidation" . -}}
+{{- $apiPort := int (default 8080 (get .Values.environment "API_LISTEN_PORT")) -}}
+{{- $apiSecretName := trim (toString .Values.api.auth.existingSecret) -}}
+{{- $apiSecretKey := trim (toString .Values.api.auth.existingSecretKey) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,12 +40,19 @@ spec:
           {{- range $key, $value := .Values.environment }}
           {{- if $value }}
           - name: {{ $key }}
-            value: "{{ $value }}"
+            value: {{ $value | toString | quote }}
           {{- end }}
+          {{- end }}
+          {{- if $apiSecretName }}
+          - name: API_JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: {{ $apiSecretName | quote }}
+                key: {{ $apiSecretKey | quote }}
           {{- end }}
         ports:
           - name: api
-            containerPort: 8080
+            containerPort: {{ $apiPort }}
           - name: metrics
             containerPort: 8081
         {{- if .Values.resources }}
