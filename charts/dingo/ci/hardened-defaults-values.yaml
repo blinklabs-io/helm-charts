@@ -1,0 +1,18 @@
+# CI test values for chart-testing (rendered-manifest test: hardened defaults).
+#
+# Renders the chart with defaults plus mithril disabled so chart-testing can
+# install it without a long snapshot sync. It exercises the hardened baseline:
+#   - non-root pod/container security contexts + RuntimeDefault seccomp
+#   - automountServiceAccountToken: false
+#   - read-only root filesystem with writable /tmp and /ipc emptyDir mounts
+#   - relay Service is ClusterIP (not externally published)
+#   - private and metrics Services are ClusterIP only
+#
+# CI only; not a production configuration.
+
+mithril:
+  enabled: false
+
+environment:
+  CARDANO_NETWORK: preview
+  CARDANO_DATABASE_PATH: "/data"

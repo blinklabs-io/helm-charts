@@ -41,21 +41,46 @@ spec:
 {{- end }}
     spec:
       serviceAccountName: {{ include "dingo.fullname" . }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
 {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
 {{- end }}
 {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
 {{- end }}
-{{- if .Values.mithril.enabled }}
+{{- if or .Values.mithril.enabled .Values.blockProducer.enabled }}
       initContainers:
-      # Native Mithril bootstrap using dingo's built-in mithril sync
-      - name: mithril-sync
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+{{- if .Values.blockProducer.enabled }}
+      - name: prepare-block-producer-keys
+        image: {{ include "dingo.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         securityContext:
-          runAsUser: 0
-          readOnlyRootFilesystem: false
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            umask 077
+            for name in kes.skey vrf.skey node.cert; do
+              cp "/var/run/dingo-keys-source/$name" "/keys/$name"
+              chmod 0600 "/keys/$name"
+            done
+        volumeMounts:
+          - name: block-producer-keys-source
+            mountPath: /var/run/dingo-keys-source
+            readOnly: true
+          - name: block-producer-keys
+            mountPath: /keys
+{{- end }}
+{{- if .Values.mithril.enabled }}
+      # Native Mithril bootstrap using dingo's built-in mithril sync
+      - name: mithril-sync
+        image: {{ include "dingo.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
         command: ["/bin/sh", "-c"]
         args:
           - |
@@ -115,24 +140,30 @@ spec:
         volumeMounts:
           - name: dingo-data
             mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
+          - name: tmp
+            mountPath: /tmp
         {{- if .Values.mithril.resources }}
         resources: {{- toYaml .Values.mithril.resources | nindent 12 }}
         {{- end }}
 {{- end }}
+{{- end }}
       containers:
       - name: dingo
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: {{ include "dingo.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         securityContext:
-          runAsUser: 0
-          readOnlyRootFilesystem: false
+          {{- toYaml .Values.securityContext | nindent 10 }}
         env:
           {{- range $key, $value := .Values.environment }}
-          {{- if not (kindIs "invalid" $value) }}
+          {{- if and (not (kindIs "invalid" $value)) (not (and $.Values.service.private.enabled (eq $key "CARDANO_PRIVATE_BIND_ADDR"))) }}
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
           {{- end }}
+{{- if .Values.service.private.enabled }}
+          - name: CARDANO_PRIVATE_BIND_ADDR
+            value: {{ .Values.environment.CARDANO_PRIVATE_BIND_ADDR | default "0.0.0.0" | quote }}
+{{- end }}
 {{- if .Values.blockProducer.enabled }}
           - name: CARDANO_BLOCK_PRODUCER
             value: "true"
@@ -177,6 +208,10 @@ spec:
         volumeMounts:
           - name: dingo-data
             mountPath: {{ .Values.environment.CARDANO_DATABASE_PATH }}
+          - name: tmp
+            mountPath: /tmp
+          - name: ipc
+            mountPath: /ipc
 {{- if .Values.topology.enabled }}
           - name: topology
             mountPath: /config/topology.json
@@ -195,6 +230,10 @@ spec:
 {{- end }}
       restartPolicy: Always
       volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: ipc
+        emptyDir: {}
 {{- if .Values.topology.enabled }}
       - name: topology
         configMap:
@@ -203,6 +242,9 @@ spec:
 {{- end }}
 {{- if .Values.blockProducer.enabled }}
       - name: block-producer-keys
+        emptyDir:
+          medium: Memory
+      - name: block-producer-keys-source
         secret:
           defaultMode: 0600
           secretName: {{ include "dingo.blockProducer.keysSecretName" . }}

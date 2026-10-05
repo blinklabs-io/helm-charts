@@ -39,3 +39,7 @@ jobs:
       - name: Run chart-testing (lint)
         if: steps.list-changed.outputs.changed == 'true'
         run: ct lint --target-branch ${{ github.event.repository.default_branch }}
+
+      - name: Test Dingo rendered manifests
+        if: contains(steps.list-changed.outputs.changed_charts, 'charts/dingo')
+        run: python3 scripts/test-dingo-chart.py

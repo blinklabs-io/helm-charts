@@ -1,0 +1,51 @@
+{{- if or .Values.networkPolicy.enabled .Values.blockProducer.enabled .Values.service.private.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "dingo.fullname" . }}
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "dingo.matchLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:{{ if and .Values.blockProducer.enabled (not .Values.networkPolicy.relayIngressFrom) (not .Values.networkPolicy.privateIngressFrom) (not .Values.networkPolicy.metricsIngressFrom) }} []{{ end }}
+{{- if or (not .Values.blockProducer.enabled) .Values.networkPolicy.relayIngressFrom }}
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+{{- with .Values.networkPolicy.relayIngressFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+{{- end }}
+{{- end }}
+{{- if .Values.networkPolicy.privateIngressFrom }}
+    - from:
+        {{- toYaml .Values.networkPolicy.privateIngressFrom | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
+{{- if gt (int (default "0" (default .Values.service.ports.utxorpc .Values.environment.DINGO_UTXORPC_PORT))) 0 }}
+        - protocol: TCP
+          port: {{ .Values.environment.DINGO_UTXORPC_PORT | default .Values.service.ports.utxorpc }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.blockfrost .Values.environment.DINGO_BLOCKFROST_PORT))) 0 }}
+        - protocol: TCP
+          port: {{ .Values.environment.DINGO_BLOCKFROST_PORT | default .Values.service.ports.blockfrost }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.mesh .Values.environment.DINGO_MESH_PORT))) 0 }}
+        - protocol: TCP
+          port: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+{{- end }}
+{{- end }}
+{{- if .Values.networkPolicy.metricsIngressFrom }}
+    - from:
+        {{- toYaml .Values.networkPolicy.metricsIngressFrom | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics }}
+{{- end }}
+{{- end }}
