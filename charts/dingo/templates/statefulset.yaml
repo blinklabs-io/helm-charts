@@ -155,11 +155,15 @@ spec:
           {{- toYaml .Values.securityContext | nindent 10 }}
         env:
           {{- range $key, $value := .Values.environment }}
-          {{- if not (kindIs "invalid" $value) }}
+          {{- if and (not (kindIs "invalid" $value)) (not (and $.Values.service.private.enabled (eq $key "CARDANO_PRIVATE_BIND_ADDR"))) }}
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
           {{- end }}
+{{- if .Values.service.private.enabled }}
+          - name: CARDANO_PRIVATE_BIND_ADDR
+            value: {{ .Values.environment.CARDANO_PRIVATE_BIND_ADDR | default "0.0.0.0" | quote }}
+{{- end }}
 {{- if .Values.blockProducer.enabled }}
           - name: CARDANO_BLOCK_PRODUCER
             value: "true"

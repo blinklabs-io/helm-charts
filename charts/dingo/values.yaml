@@ -99,9 +99,10 @@ blockProducer:
   kesKey: kes.skey
   opCertKey: node.cert
   vrfKey: vrf.skey
-  # Extra annotations for the pod template. dingo reads its keys only at
-  # startup, so with existingSecret nothing in the chart rolls the pod when the
-  # Secret changes. Set a value that changes with the key material, for example
+  # Extra annotations for the pod template. Keys are staged once per Pod;
+  # a process or container restart does not reload an updated Secret. Replace
+  # the Pod after rotation. With existingSecret, set an annotation that changes
+  # with the key material, for example
   # checksum/keys: <hash or KES period>, so a rotation triggers a rollout.
   # With inline keys the chart already sets checksum/keys itself.
   podAnnotations: {}
@@ -269,8 +270,12 @@ service:
     nodePort: ""
   # Private Service: node private API plus optional local APIs (UTxO RPC,
   # Blockfrost, Mesh). ClusterIP-only and never published externally.
+  # Enabling this sets CARDANO_PRIVATE_BIND_ADDR to 0.0.0.0 unless explicitly
+  # overridden, and always renders a NetworkPolicy. Configure authorized
+  # networkPolicy.privateIngressFrom peers before enabling; empty peers deny
+  # access. Requires a CNI that enforces NetworkPolicy.
   private:
-    enabled: true
+    enabled: false
     sessionAffinity: ClientIP
     annotations: {}
   # Metrics Service (Prometheus text on /metrics). ClusterIP-only.
@@ -302,7 +307,8 @@ service:
     # Only applied when the compatibility Service resolves to LoadBalancer.
     loadBalancerSourceRanges: []
 
-# NetworkPolicy is always rendered for block producers and optional for relays.
+# NetworkPolicy is always rendered for block producers and private-Service
+# opt-ins; otherwise it is optional for relays.
 # Empty peer lists deny private and metrics ingress. Empty relayIngressFrom
 # allows public relay traffic for relay nodes, but denies it for block producers.
 # Egress remains open for DNS, Cardano peers, and Mithril.

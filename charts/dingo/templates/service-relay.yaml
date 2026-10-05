@@ -28,7 +28,7 @@ spec:
     - name: relay
       port: {{ .Values.service.ports.relay }}
       targetPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
-      {{- if and (eq .Values.service.relay.type "NodePort") .Values.service.relay.nodePort }}
+      {{- if and (or (eq .Values.service.relay.type "NodePort") (eq .Values.service.relay.type "LoadBalancer")) .Values.service.relay.nodePort }}
       nodePort: {{ .Values.service.relay.nodePort }}
       {{- end }}
   selector:

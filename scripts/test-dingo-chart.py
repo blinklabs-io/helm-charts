@@ -65,7 +65,49 @@ class DingoChartTests(unittest.TestCase):
         for name in ("private", "metrics"):
             self.assertEqual(services[f"review-dingo-{name}"]["spec"]["type"], "ClusterIP")
         container = one(objects, "StatefulSet")["spec"]["template"]["spec"]["containers"][0]
-        self.assertEqual(container["image"], "ghcr.io/blinklabs-io/dingo@sha256:" + "0" * 64)
+        fixture = yaml.safe_load((CHART / "ci/external-optin-values.yaml").read_text())
+        self.assertEqual(container["image"], "ghcr.io/blinklabs-io/dingo@" + fixture["image"]["digest"])
+
+    def test_relay_node_port(self):
+        for service_type in ("NodePort", "LoadBalancer", "ClusterIP"):
+            for node_port in ("", 31001):
+                with self.subTest(service_type=service_type, node_port=node_port):
+                    objects = render({"service": {"relay": {"type": service_type, "nodePort": node_port}}})
+                    relay = next(o for o in objects if o["kind"] == "Service" and
+                                 o["metadata"]["name"] == "review-dingo-relay")
+                    port = relay["spec"]["ports"][0]
+                    if service_type in ("NodePort", "LoadBalancer") and node_port:
+                        self.assertEqual(port.get("nodePort"), node_port)
+                    else:
+                        self.assertNotIn("nodePort", port)
+
+    def test_private_listener_requires_opt_in(self):
+        objects = render()
+        self.assertFalse(any(o["kind"] == "Service" and o["metadata"]["name"] == "review-dingo-private"
+                             for o in objects))
+        container = one(objects, "StatefulSet")["spec"]["template"]["spec"]["containers"][0]
+        self.assertNotIn("CARDANO_PRIVATE_BIND_ADDR", {e["name"] for e in container["env"]})
+
+    def test_private_opt_in_sets_listener_and_policy(self):
+        for bind in (None, "", "127.0.0.1"):
+            with self.subTest(bind=bind):
+                peers = [{"podSelector": {"matchLabels": {"access": "allowed"}}}]
+                values = {"service": {"private": {"enabled": True}},
+                          "networkPolicy": {"enabled": False, "privateIngressFrom": peers}}
+                if bind is not None:
+                    values["environment"] = {"CARDANO_PRIVATE_BIND_ADDR": bind}
+                objects = render(values)
+                container = one(objects, "StatefulSet")["spec"]["template"]["spec"]["containers"][0]
+                addresses = [e["value"] for e in container["env"] if e["name"] == "CARDANO_PRIVATE_BIND_ADDR"]
+                self.assertEqual(addresses, [bind or "0.0.0.0"])
+                self.assertTrue(any(o["kind"] == "NetworkPolicy" for o in objects))
+                rules = one(objects, "NetworkPolicy")["spec"]["ingress"]
+                private_rule = next(r for r in rules if any(p["port"] == 3002 for p in r["ports"]))
+                self.assertEqual(private_rule["from"], peers)
+        objects = render({"service": {"private": {"enabled": True}}, "networkPolicy": {"enabled": False}})
+        self.assertTrue(any(o["kind"] == "NetworkPolicy" for o in objects))
+        self.assertEqual(one(objects, "NetworkPolicy")["spec"]["ingress"],
+                         [{"ports": [{"protocol": "TCP", "port": 3001}]}])
 
     def test_legacy_external_service_is_relay_only(self):
         for service_type in ("LoadBalancer", "NodePort"):
@@ -84,7 +126,7 @@ class DingoChartTests(unittest.TestCase):
         self.assertEqual([p["name"] for p in compat["spec"]["ports"]], ["relay", "private", "metrics", "utxorpc"])
 
     def test_long_tiered_service_names(self):
-        objects = render({"fullnameOverride": "d" * 63})
+        objects = render({"fullnameOverride": "d" * 63, "service": {"private": {"enabled": True}}})
         names = [o["metadata"]["name"] for o in objects if o["kind"] == "Service" and
                  o["metadata"].get("labels", {}).get("dingo.blinklabs.io/service-tier") in ("public", "private")]
         self.assertEqual(len(names), 3)

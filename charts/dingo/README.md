@@ -33,6 +33,10 @@ built-in Mithril client.
   memory-backed volume with mode `0600`, then mounted read-only by Dingo.
   The projected Secret is visible only to that init container: `fsGroup` can
   widen Secret file permissions, and Dingo rejects group-readable signing keys.
+  Keys are staged once per Pod. After updating an external Secret, replace the
+  Pod: restarting only the process or container keeps the previous staged keys.
+  Set `blockProducer.podAnnotations` to a credential revision that changes with
+  each rotation to trigger replacement; inline keys already have a checksum.
 - The ServiceAccount API token is not automounted
   (`automountServiceAccountToken: false`); dingo does not talk to the
   Kubernetes API.
@@ -47,6 +51,7 @@ the private node API and metrics:
   port. It defaults to `ClusterIP`.
 - `<release>-dingo-private` — the node private API plus optional local APIs
   (UTxO RPC, Blockfrost, Mesh). `ClusterIP` only; never published externally.
+  Disabled by default, matching the operator's node-to-client opt-in.
 - `<release>-dingo-metrics` — the Prometheus metrics endpoint. `ClusterIP`
   only.
 
@@ -65,7 +70,8 @@ preserves the original `<release>-dingo` name:
   release that previously set `service.type: LoadBalancer` keeps the same
   Service name — and therefore the same cloud load balancer and external
   address — after upgrade. Before upgrading an externally exposed legacy
-  Service, move private API and metrics clients to the internal `-private`
+  Service, enable private access with its authorized peers and move private API
+  and metrics clients to the internal `-private`
   and `-metrics` Services or an authenticated gateway. External access to
   those ports is intentionally removed. Fresh installs default to `ClusterIP`.
 
@@ -90,10 +96,16 @@ service:
 ```
 
 The private API and metrics ports stay internal. To reach them from outside the
-cluster, front them with an authenticated ingress/gateway. A NetworkPolicy
-can restrict which peers may reach the internal endpoints:
+cluster, front them with an authenticated ingress/gateway. Before enabling
+`service.private.enabled`, configure authorized peers and ensure the CNI
+enforces NetworkPolicy. The opt-in sets `CARDANO_PRIVATE_BIND_ADDR` to
+`0.0.0.0` unless explicitly overridden, and always renders a NetworkPolicy,
+even if `networkPolicy.enabled` is false. Empty peer lists deny private access:
 
 ```yaml
+service:
+  private:
+    enabled: true
 networkPolicy:
   enabled: true
   privateIngressFrom:
@@ -207,10 +219,10 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | `podSecurityContext`            | Pod-level security context                                | non-root, seccomp RuntimeDefault |
 | `securityContext`               | Container security context                                | drop ALL, read-only rootfs     |
 | `service.relay.type`            | Public relay Service type                                 | `ClusterIP`                    |
-| `service.private.enabled`       | Render the private (ClusterIP) API Service                | `true`                         |
+| `service.private.enabled`       | Opt into the private API listener, Service and ingress policy | `false`                    |
 | `service.metrics.enabled`       | Render the metrics (ClusterIP) Service                    | `true`                         |
 | `service.compatibility.enabled` | Render the `<release>-dingo` compatibility Service        | `true`                         |
-| `networkPolicy.enabled`         | Enable policy for relays; always enabled for block producers | `false`                     |
+| `networkPolicy.enabled`         | Enable relay policy; always rendered for producers and private-Service opt-ins | `false`       |
 | `networkPolicy.relayIngressFrom` | P2P peers; empty allows relay ingress and denies block-producer ingress | `[]`             |
 | `mithril.enabled`               | Bootstrap the DB from a Mithril snapshot                  | `true`                         |
 | `persistence.size`              | PVC size                                                  | `60Gi`                         |
