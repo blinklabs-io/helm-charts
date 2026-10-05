@@ -50,8 +50,31 @@ spec:
 {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
 {{- end }}
-{{- if .Values.mithril.enabled }}
+{{- if or .Values.mithril.enabled .Values.blockProducer.enabled }}
       initContainers:
+{{- if .Values.blockProducer.enabled }}
+      - name: prepare-block-producer-keys
+        image: {{ include "dingo.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            umask 077
+            for name in kes.skey vrf.skey node.cert; do
+              cp "/var/run/dingo-keys-source/$name" "/keys/$name"
+              chmod 0600 "/keys/$name"
+            done
+        volumeMounts:
+          - name: block-producer-keys-source
+            mountPath: /var/run/dingo-keys-source
+            readOnly: true
+          - name: block-producer-keys
+            mountPath: /keys
+{{- end }}
+{{- if .Values.mithril.enabled }}
       # Native Mithril bootstrap using dingo's built-in mithril sync
       - name: mithril-sync
         image: {{ include "dingo.image" . }}
@@ -122,6 +145,7 @@ spec:
         {{- if .Values.mithril.resources }}
         resources: {{- toYaml .Values.mithril.resources | nindent 12 }}
         {{- end }}
+{{- end }}
 {{- end }}
       containers:
       - name: dingo
@@ -214,6 +238,9 @@ spec:
 {{- end }}
 {{- if .Values.blockProducer.enabled }}
       - name: block-producer-keys
+        emptyDir:
+          medium: Memory
+      - name: block-producer-keys-source
         secret:
           defaultMode: 0600
           secretName: {{ include "dingo.blockProducer.keysSecretName" . }}

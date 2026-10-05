@@ -29,6 +29,7 @@ podSecurityContext:
   runAsUser: 1000
   runAsGroup: 1000
   fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
   seccompProfile:
     type: RuntimeDefault
 
@@ -248,9 +249,9 @@ service:
     relay: 3001
     private: 3002
     metrics: 12798
-    # API ports - only exposed when non-zero AND the matching DINGO_*_PORT
-    # environment variable is set. These are private (served by the private
-    # Service), never by the public relay Service.
+    # API ports - rendered when the matching DINGO_*_PORT environment variable
+    # (or the fallback port below) is non-zero. These are private, served by the
+    # private Service, never by the public relay Service.
     utxorpc: 0
     blockfrost: 0
     mesh: 0
@@ -279,8 +280,9 @@ service:
   # Backward-compatibility Service. Preserves the original `<release>-dingo`
   # Service name (the interface that existing consumers, DNS references, and
   # monitoring bindings target) so upgrades do not break them. It carries the
-  # same ports the pre-split Service did (relay, private, metrics, and any
-  # enabled API ports).
+  # same ports the pre-split Service did when its type is ClusterIP. For
+  # LoadBalancer or NodePort, it carries only relay; move private API and
+  # metrics clients to the internal tiered Services before upgrading.
   #
   # To avoid dropping external reachability on upgrade, it inherits the legacy
   # `service.type` (and `service.sessionAffinity` / `service.annotations`): a
@@ -300,12 +302,15 @@ service:
     # Only applied when the compatibility Service resolves to LoadBalancer.
     loadBalancerSourceRanges: []
 
-# Optional NetworkPolicy. When enabled, the public relay port stays open to all
-# sources while ingress to the private API and metrics ports is restricted to
-# the peers listed below. Pair this with an authenticated ingress if the
-# private endpoints must be reachable from outside the cluster.
+# NetworkPolicy is always rendered for block producers and optional for relays.
+# Empty peer lists deny private and metrics ingress. Empty relayIngressFrom
+# allows public relay traffic for relay nodes, but denies it for block producers.
+# Egress remains open for DNS, Cardano peers, and Mithril.
 networkPolicy:
   enabled: false
+  # Sources allowed to reach the P2P port. Block producers must explicitly
+  # grant their relays access. Standard NetworkPolicy peer objects.
+  relayIngressFrom: []
   # Sources allowed to reach the private API ports (private / utxorpc /
   # blockfrost / mesh). Standard NetworkPolicy peer objects.
   privateIngressFrom: []

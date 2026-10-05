@@ -3,15 +3,6 @@
 {{- $compatSessionAffinity := .Values.service.compatibility.sessionAffinity | default .Values.service.sessionAffinity }}
 {{- $compatAnnotations := merge (dict) (default (dict) .Values.service.compatibility.annotations) (default (dict) .Values.service.annotations) }}
 ---
-# Backward-compatibility Service preserving the original `<release>-dingo` name.
-# It keeps existing consumers, DNS references, and monitoring bindings working
-# during migration to the tiered relay/private/metrics Services. To avoid
-# dropping external reachability on upgrade, it inherits the legacy
-# `service.type` (and `service.sessionAffinity` / `service.annotations`): a
-# release that previously set `service.type: LoadBalancer` keeps the same
-# Service name, and therefore the same cloud load balancer, after upgrade.
-# Fresh installs default to ClusterIP. Once consumers have moved to the tiered
-# relay Service, disable this Service to complete the hardened split.
 apiVersion: v1
 kind: Service
 metadata:
@@ -35,6 +26,7 @@ spec:
     - name: relay
       port: {{ .Values.service.ports.relay }}
       targetPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+{{- if eq $compatType "ClusterIP" }}
     - name: private
       port: {{ .Values.service.ports.private }}
       targetPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
@@ -55,6 +47,7 @@ spec:
     - name: mesh
       port: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
       targetPort: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
+{{- end }}
 {{- end }}
   selector:
     {{- include "dingo.matchLabels" . | nindent 4 }}

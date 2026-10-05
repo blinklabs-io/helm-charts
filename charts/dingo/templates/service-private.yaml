@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "dingo.fullname" . }}-private
+  name: {{ include "dingo.tieredServiceName" (dict "root" . "tier" "private") }}
   labels:
     {{- include "dingo.labels" . | nindent 4 }}
     dingo.blinklabs.io/service-tier: private
@@ -11,7 +11,6 @@ metadata:
   annotations: {{- toYaml .Values.service.private.annotations | nindent 4 }}
   {{- end }}
 spec:
-  # ClusterIP only. This Service is never published externally by the chart.
   type: ClusterIP
   {{- if .Values.service.private.sessionAffinity }}
   sessionAffinity: {{ .Values.service.private.sessionAffinity }}

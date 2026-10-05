@@ -1,4 +1,4 @@
-{{- if .Values.networkPolicy.enabled }}
+{{- if or .Values.networkPolicy.enabled .Values.blockProducer.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -12,13 +12,17 @@ spec:
       {{- include "dingo.matchLabels" . | nindent 6 }}
   policyTypes:
     - Ingress
-  ingress:
-    # Public P2P relay: reachable from any source.
+  ingress:{{ if and .Values.blockProducer.enabled (not .Values.networkPolicy.relayIngressFrom) (not .Values.networkPolicy.privateIngressFrom) (not .Values.networkPolicy.metricsIngressFrom) }} []{{ end }}
+{{- if or (not .Values.blockProducer.enabled) .Values.networkPolicy.relayIngressFrom }}
     - ports:
         - protocol: TCP
           port: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+{{- with .Values.networkPolicy.relayIngressFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+{{- end }}
+{{- end }}
 {{- if .Values.networkPolicy.privateIngressFrom }}
-    # Private API ports: restricted to the configured peers.
     - from:
         {{- toYaml .Values.networkPolicy.privateIngressFrom | nindent 8 }}
       ports:
@@ -38,7 +42,6 @@ spec:
 {{- end }}
 {{- end }}
 {{- if .Values.networkPolicy.metricsIngressFrom }}
-    # Metrics: restricted to the configured scrapers.
     - from:
         {{- toYaml .Values.networkPolicy.metricsIngressFrom | nindent 8 }}
       ports:

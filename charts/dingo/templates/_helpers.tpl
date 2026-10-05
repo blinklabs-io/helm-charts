@@ -43,6 +43,11 @@ Container image reference. Prefers an immutable digest when image.digest is set
 {{- end -}}
 {{- end -}}
 
+{{- define "dingo.tieredServiceName" -}}
+{{- $maxBase := int (sub 62 (len .tier)) -}}
+{{- printf "%s-%s" (include "dingo.fullname" .root | trunc $maxBase | trimSuffix "-") .tier -}}
+{{- end -}}
+
 {{/*
 Define Cardano network from environment map.
 */}}

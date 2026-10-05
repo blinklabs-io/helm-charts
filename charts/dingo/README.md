@@ -29,6 +29,10 @@ built-in Mithril client.
   `RuntimeDefault` seccomp profile. Writable scratch paths — `/tmp` and the
   `/ipc` socket directory — are provided as `emptyDir` mounts so the read-only
   root filesystem does not break the node.
+- Block-producer keys are copied by a non-root init container into a
+  memory-backed volume with mode `0600`, then mounted read-only by Dingo.
+  The projected Secret is visible only to that init container: `fsGroup` can
+  widen Secret file permissions, and Dingo rejects group-readable signing keys.
 - The ServiceAccount API token is not automounted
   (`automountServiceAccountToken: false`); dingo does not talk to the
   Kubernetes API.
@@ -49,8 +53,9 @@ the private node API and metrics:
 For a safe upgrade, the chart also renders a backward-compatibility Service that
 preserves the original `<release>-dingo` name:
 
-- `<release>-dingo` — compatibility Service carrying the same ports the
-  pre-split Service did (relay, private, metrics, and any enabled API ports). It
+- `<release>-dingo` — compatibility Service carrying relay, private, metrics,
+  and enabled API ports when its type is `ClusterIP`. For `LoadBalancer` and
+  `NodePort`, it carries **only relay** so private endpoints stay internal. It
   exists so existing consumers, DNS references, and monitoring bindings that
   still target `<release>-dingo` keep working during migration. Enabled by
   default.
@@ -59,8 +64,10 @@ preserves the original `<release>-dingo` name:
   `service.type` (and `service.sessionAffinity` / `service.annotations`). A
   release that previously set `service.type: LoadBalancer` keeps the same
   Service name — and therefore the same cloud load balancer and external
-  address — after upgrade; no manual migration is required to retain exposure.
-  Fresh installs default to `ClusterIP`.
+  address — after upgrade. Before upgrading an externally exposed legacy
+  Service, move private API and metrics clients to the internal `-private`
+  and `-metrics` Services or an authenticated gateway. External access to
+  those ports is intentionally removed. Fresh installs default to `ClusterIP`.
 
   To complete the hardened split, move consumers to the tiered
   relay/private/metrics Services (publish the relay via `service.relay.type`),
@@ -83,8 +90,8 @@ service:
 ```
 
 The private API and metrics ports stay internal. To reach them from outside the
-cluster, front them with an authenticated ingress/gateway, or restrict access
-with a NetworkPolicy:
+cluster, front them with an authenticated ingress/gateway. A NetworkPolicy
+can restrict which peers may reach the internal endpoints:
 
 ```yaml
 networkPolicy:
@@ -99,8 +106,33 @@ networkPolicy:
           kubernetes.io/metadata.name: monitoring
 ```
 
-When enabled, the NetworkPolicy leaves the relay port open to all sources and
-restricts the private API and metrics ports to the configured peers.
+For relay nodes, enabling NetworkPolicy leaves P2P open to all sources unless
+`networkPolicy.relayIngressFrom` restricts it. Private API and metrics ports
+are allowed only from their configured peers; empty peer lists deny ingress.
+
+Block producers always get a NetworkPolicy, even when `networkPolicy.enabled`
+is false. All ingress is denied until explicitly granted. Before upgrading a
+block producer, grant its relays access with `relayIngressFrom` and its
+monitoring clients access with `metricsIngressFrom`. For example:
+
+```yaml
+networkPolicy:
+  relayIngressFrom:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: my-relay
+  metricsIngressFrom:
+    - namespaceSelector:
+        matchLabels:
+          dingo.blinklabs.io/metrics: allowed
+      podSelector:
+        matchLabels:
+          dingo.blinklabs.io/metrics: allowed
+```
+
+The metrics example matches the operator's explicit grant: label both the
+monitoring pod and its namespace. Metrics access does not grant private API
+access. Egress remains open for DNS, Cardano peers, and Mithril.
 
 ## Image pinning, provenance, and SBOM
 
@@ -120,30 +152,41 @@ resolves to the exact image content.
 Resolve the digest for a given tag:
 
 ```console
-docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.70.6 \
-  --format '{{ "{{" }}.Manifest.Digest{{ "}}" }}'
+docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.73.2 \
+  --format '{{.Manifest.Digest}}'
 ```
 
 ### Verify provenance and SBOM before pinning
 
-Blink Labs publishes signed provenance (SLSA build attestations) and an SBOM
-alongside the image. Verify them before recording a digest:
+The [image release workflow](https://github.com/blinklabs-io/dingo/blob/main/.github/workflows/publish.yml)
+creates GitHub build provenance attestations for architecture-specific images.
+Resolve the digest for the architecture you will run (for example, the
+`0.73.2-amd64` or `0.73.2-arm64` tag) and verify it before pinning:
 
 ```console
-# Keyless signature / provenance attestation (GitHub OIDC issuer)
-cosign verify-attestation \
-  --type slsaprovenance \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/blinklabs-io/dingo' \
-  ghcr.io/blinklabs-io/dingo@sha256:<digest>
-
-# Download and inspect the SBOM attestation
-cosign download attestation \
-  --predicate-type https://spdx.dev/Document \
-  ghcr.io/blinklabs-io/dingo@sha256:<digest>
+gh attestation verify oci://ghcr.io/blinklabs-io/dingo@sha256:<digest> \
+  --repo blinklabs-io/dingo \
+  --signer-workflow blinklabs-io/dingo/.github/workflows/publish.yml
 ```
 
-Only pin a digest that passes verification.
+Do not assume the combined multi-architecture index has its own attestation;
+verify each selected architecture's image. The release workflow does not
+currently publish a signed SBOM. If your deployment requires an SBOM, obtain
+one tied to the same digest and verify its issuer before pinning. When an SPDX
+SBOM attestation is available, use
+[GitHub CLI attestation verification](https://cli.github.com/manual/gh_attestation_verify)
+to verify and inspect it:
+
+```console
+gh attestation verify oci://ghcr.io/blinklabs-io/dingo@sha256:<digest> \
+  --repo blinklabs-io/dingo \
+  --signer-workflow blinklabs-io/dingo/.github/workflows/publish.yml \
+  --predicate-type https://spdx.dev/Document/v2.3 \
+  --format json --jq '.[].verificationResult.statement.predicate'
+```
+
+Only pin a digest after the required verification succeeds. Missing provenance
+or SBOM attestations do not count as successful verification.
 
 ## Prerequisites
 
@@ -158,7 +201,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | Key                             | Description                                               | Default                        |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------ |
 | `image.repository`              | Image name                                                | `ghcr.io/blinklabs-io/dingo`   |
-| `image.tag`                     | Image tag (used when `image.digest` is empty)             | `0.70.6`                       |
+| `image.tag`                     | Image tag (used when `image.digest` is empty)             | `0.73.2`                       |
 | `image.digest`                  | Immutable image digest (`sha256:...`); overrides tag      | `""`                           |
 | `automountServiceAccountToken`  | Mount the SA token into the pod                           | `false`                        |
 | `podSecurityContext`            | Pod-level security context                                | non-root, seccomp RuntimeDefault |
@@ -167,6 +210,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | `service.private.enabled`       | Render the private (ClusterIP) API Service                | `true`                         |
 | `service.metrics.enabled`       | Render the metrics (ClusterIP) Service                    | `true`                         |
 | `service.compatibility.enabled` | Render the `<release>-dingo` compatibility Service        | `true`                         |
-| `networkPolicy.enabled`         | Restrict private/metrics ports to explicit peers          | `false`                        |
+| `networkPolicy.enabled`         | Enable policy for relays; always enabled for block producers | `false`                     |
+| `networkPolicy.relayIngressFrom` | P2P peers; empty allows relay ingress and denies block-producer ingress | `[]`             |
 | `mithril.enabled`               | Bootstrap the DB from a Mithril snapshot                  | `true`                         |
 | `persistence.size`              | PVC size                                                  | `60Gi`                         |

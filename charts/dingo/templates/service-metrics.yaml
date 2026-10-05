@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "dingo.fullname" . }}-metrics
+  name: {{ include "dingo.tieredServiceName" (dict "root" . "tier" "metrics") }}
   labels:
     {{- include "dingo.labels" . | nindent 4 }}
     dingo.blinklabs.io/service-tier: private
@@ -11,7 +11,6 @@ metadata:
   annotations: {{- toYaml .Values.service.metrics.annotations | nindent 4 }}
   {{- end }}
 spec:
-  # ClusterIP only. Metrics are never published externally by the chart.
   type: ClusterIP
   ports:
     - name: metrics
