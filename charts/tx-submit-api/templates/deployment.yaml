@@ -44,7 +44,7 @@ spec:
           containerPort: {{ .Values.service.metricsPort | default 8081 }}
         readinessProbe:
           httpGet:
-            path: {{ .Values.readinessProbe.path }}
+            path: {{ .Values.readinessProbe.path | quote }}
             port: api
         resources: {{ .Values.resources | toYaml | nindent 10 }}
         volumeMounts:
