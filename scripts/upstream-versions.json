@@ -34,13 +34,6 @@
     "tag_pattern": "",
     "app_version_prefix": ""
   },
-  "cardano-node-api": {
-    "registry": "ghcr",
-    "image": "blinklabs-io/cardano-node-api",
-    "tag_regex": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-    "tag_pattern": "",
-    "app_version_prefix": ""
-  },
   "cdnsd": {
     "registry": "ghcr",
     "image": "blinklabs-io/cdnsd",
