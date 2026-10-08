@@ -270,7 +270,7 @@ spec:
         - socat
         args:
         - "TCP-LISTEN:{{ .Values.service.ports.socatNtc.targetPort }},fork,reuseaddr"
-        - "UNIX-CLIENT:/ipc/node.socket,ignoreeof"
+        - "UNIX-CLIENT:/ipc/node.socket"
         ports:
         - containerPort: {{ .Values.service.ports.socatNtc.targetPort }}
         resources: {{ .Values.socat.resources | toYaml | nindent 10 }}
