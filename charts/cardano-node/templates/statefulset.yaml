@@ -19,7 +19,7 @@ spec:
         checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}
 {{- end }}
 {{- if and .Values.topology.enabled (not .Values.topology.reloadable) }}
-        checksum/topology: {{ .Values.topology | toJson | sha256sum }}
+        checksum/topology: {{ ternary .Values.topology (omit .Values.topology "mesh") .Values.topology.mesh.enabled | toJson | sha256sum }}
 {{- end }}
       labels:
 {{ include "cardano-node.labels" . | indent 8 }}
@@ -34,8 +34,44 @@ spec:
 {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
 {{- end }}
-{{- if .Values.mithril.enabled }}
+{{- if or .Values.mithril.enabled .Values.topology.mesh.enabled }}
       initContainers:
+{{- if .Values.topology.mesh.enabled }}
+      - name: generate-topology
+        image: {{ .Values.topology.mesh.image | quote }}
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "/mesh/generate.sh"]
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: HEADLESS_SERVICE
+          value: {{ printf "%s-headless" (include "cardano-node.fullname" .) | quote }}
+        - name: CLUSTER_DOMAIN
+          value: {{ .Values.topology.mesh.clusterDomain | quote }}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
+        volumeMounts:
+        - name: mesh
+          mountPath: /mesh
+          readOnly: true
+        - name: topology
+          mountPath: /base-topology
+          readOnly: true
+        - name: generated-topology
+          mountPath: /generated
+{{- end }}
+{{- end }}
+{{- if .Values.mithril.enabled }}
       # Download Cardano snapshot using mithril-client
       - name: mithril-snapshot
         securityContext:
@@ -250,7 +286,7 @@ spec:
         - mountPath: /ipc
           name: node-ipc
 {{- if .Values.topology.enabled }}
-        - name: topology
+        - name: {{ if .Values.topology.mesh.enabled }}generated-topology{{ else }}topology{{ end }}
 {{- if .Values.topology.reloadable }}
           mountPath: /opt/cardano/topology
 {{- else }}
@@ -286,6 +322,13 @@ spec:
       tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
 {{- end }}
       volumes:
+{{- if .Values.topology.mesh.enabled }}
+      - name: mesh
+        configMap:
+          name: {{ include "cardano-node.fullname" . }}-mesh
+      - name: generated-topology
+        emptyDir: {}
+{{- end }}
       - name: node-db
         persistentVolumeClaim:
           claimName: node-db

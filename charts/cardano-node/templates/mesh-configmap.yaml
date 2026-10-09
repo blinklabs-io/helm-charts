@@ -1,0 +1,62 @@
+{{- if .Values.topology.mesh.enabled }}
+{{- if not .Values.topology.mesh.statefulSets }}
+{{- fail "topology.mesh.statefulSets must include the network's StatefulSets" }}
+{{- end }}
+{{- if not .Values.topology.enabled }}
+{{- fail "topology.mesh requires topology.enabled=true" }}
+{{- end }}
+{{- if .Values.topology.reloadable }}
+{{- fail "topology.mesh does not support topology.reloadable; regenerate topology by restarting the pod" }}
+{{- end }}
+{{- $peers := list }}
+{{- $selfFound := false }}
+{{- range .Values.topology.mesh.statefulSets }}
+{{- $name := required "mesh StatefulSet name is required" .name }}
+{{- $service := required "mesh headless service is required" .service }}
+{{- $namespace := required "mesh namespace is required" .namespace }}
+{{- if or (not (hasKey . "replicas")) (not (regexMatch "^[0-9]+$" (toString .replicas))) }}
+{{- fail "mesh replicas must be a nonnegative integer" }}
+{{- end }}
+{{- if not (regexMatch "^[0-9]+$" (toString .port)) }}
+{{- fail "mesh pod listener port must be an integer" }}
+{{- end }}
+{{- $port := int (required "mesh pod listener port is required" .port) }}
+{{- if or (lt $port 1) (gt $port 65535) }}
+{{- fail "mesh pod listener port must be between 1 and 65535" }}
+{{- end }}
+{{- if and (eq $name (include "cardano-node.fullname" $)) (eq $namespace $.Release.Namespace) }}
+{{- if or (ne $service (printf "%s-headless" (include "cardano-node.fullname" $))) (ne (int .replicas) (int $.Values.replicaCount)) (ne $port (int $.Values.service.ports.ntn.targetPort)) }}
+{{- fail "mesh self membership must match this release's headless service, replicaCount, and pod listener port" }}
+{{- end }}
+{{- $selfFound = true }}
+{{- end }}
+{{- range $ordinal := until (int .replicas) }}
+{{- $address := printf "%s-%d.%s.%s.svc.%s" $name $ordinal $service $namespace $.Values.topology.mesh.clusterDomain }}
+{{- $peers = append $peers (dict "address" $address "port" $port) }}
+{{- end }}
+{{- end }}
+{{- if not $selfFound }}
+{{- fail "mesh statefulSets must include this release in its namespace" }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cardano-node.fullname" . }}-mesh
+  labels:
+{{ include "cardano-node.labels" . | indent 4 }}
+data:
+  peers.json: {{ $peers | toJson | quote }}
+  generate.sh: |
+    #!/bin/sh
+    set -eu
+    self="${POD_NAME}.${HEADLESS_SERVICE}.${POD_NAMESPACE}.svc.${CLUSTER_DOMAIN}"
+    jq --arg self "$self" --slurpfile peers /mesh/peers.json '
+      ($peers[0] | unique_by(.address, .port) | map(select(.address != $self))) as $others
+      | .localRoots = ((.localRoots // []) + ($others | map({
+          accessPoints: [.], advertise: false, trustable: true,
+          valency: 1, diffusionMode: "InitiatorAndResponder"
+        })))
+    ' /base-topology/topology.json > /generated/topology.json.tmp
+    mv /generated/topology.json.tmp /generated/topology.json
+{{- end }}

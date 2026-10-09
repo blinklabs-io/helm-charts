@@ -61,6 +61,20 @@ storage:
 # by the chart (see templates/configmap.yaml) — only bootstrapPeers/
 # localRoots/useLedgerAfterSlot are configurable here.
 topology:
+  # Generate a per-pod topology at startup. The image must provide /bin/sh and jq.
+  # Membership is explicit: update replica counts here when scaling peer StatefulSets.
+  mesh:
+    enabled: false
+    image: ghcr.io/blinklabs-io/cardano-node:11.1.3-1
+    clusterDomain: cluster.local
+    # Include this StatefulSet and every other StatefulSet on the same network.
+    # Ports are pod listener ports, not Service ports. Self is excluded at startup.
+    statefulSets: []
+    # - name: cardano-node-preview-az1
+    #   service: cardano-node-preview-az1-headless
+    #   namespace: ext-nodes-m1
+    #   replicas: 1
+    #   port: 3001
   bootstrapPeers:
     - address: leios-node.play.dev.cardano.org
       port: 3001
