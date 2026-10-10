@@ -43,3 +43,7 @@ jobs:
       - name: Test Dingo rendered manifests
         if: contains(steps.list-changed.outputs.changed_charts, 'charts/dingo')
         run: python3 scripts/test-dingo-chart.py
+
+      - name: Test Cardano peer mesh
+        if: contains(steps.list-changed.outputs.changed_charts, 'charts/cardano-node')
+        run: python3 scripts/test-cardano-mesh.py

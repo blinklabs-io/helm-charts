@@ -17,7 +17,7 @@ spec:
     metadata:
       annotations:
         checksum/cardano-configs-image: {{ printf "%s:%s" .Values.cardanoConfigs.image.repository .Values.cardanoConfigs.image.tag | sha256sum }}
-        checksum/topology: {{ .Values.topology | toJson | sha256sum }}
+        checksum/topology: {{ ternary .Values.topology (omit .Values.topology "mesh") .Values.topology.mesh.enabled | toJson | sha256sum }}
       labels:
 {{ include "cardano-node-leios.labels" . | indent 8 }}
 {{- with .Values.extraPodLabels }}
@@ -31,6 +31,47 @@ spec:
       tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
 {{- end }}
       initContainers:
+{{- if .Values.topology.mesh.enabled }}
+      - name: generate-topology
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        image: {{ .Values.topology.mesh.image | quote }}
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "/mesh/generate.sh"]
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: HEADLESS_SERVICE
+          value: {{ printf "%s-headless" (include "cardano-node-leios.fullname" .) | quote }}
+        - name: CLUSTER_DOMAIN
+          value: {{ .Values.topology.mesh.clusterDomain | quote }}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
+        volumeMounts:
+        - name: mesh
+          mountPath: /mesh
+          readOnly: true
+        - name: topology
+          mountPath: /base-topology
+          readOnly: true
+        - name: generated-topology
+          mountPath: /generated
+{{- end }}
       - name: cardano-configs
         image: "{{ .Values.cardanoConfigs.image.repository }}:{{ .Values.cardanoConfigs.image.tag }}"
         imagePullPolicy: {{ .Values.cardanoConfigs.image.pullPolicy }}
@@ -84,7 +125,7 @@ spec:
         - name: config
           mountPath: /config
           readOnly: true
-        - name: topology
+        - name: {{ if .Values.topology.mesh.enabled }}generated-topology{{ else }}topology{{ end }}
           mountPath: /config/{{ .Values.cardano_network }}/topology.json
           subPath: topology.json
           readOnly: true
@@ -93,6 +134,13 @@ spec:
         - name: node-ipc
           mountPath: /ipc
       volumes:
+{{- if .Values.topology.mesh.enabled }}
+      - name: mesh
+        configMap:
+          name: {{ include "cardano-node-leios.fullname" . }}-mesh
+      - name: generated-topology
+        emptyDir: {}
+{{- end }}
       - name: config
         emptyDir: {}
       - name: topology
