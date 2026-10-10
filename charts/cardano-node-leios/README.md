@@ -8,6 +8,7 @@ release. Each peer uses its ordinal DNS name through its headless Service. The
 current pod is excluded. Existing bootstrap, public, and local roots are retained.
 
 ```yaml
+fullnameOverride: relay-a
 replicaCount: 2
 topology:
   mesh:
@@ -43,4 +44,5 @@ must match its chart values. Zero replicas omit that StatefulSet's peers.
 Regenerate topology by restarting pods after membership changes, respecting the
 chart's update strategy. The generated file is not updated by SIGHUP.
 
-The example assumes the current release has `fullnameOverride: relay-a`.
+Install the example release in namespace `nodes` so its self-membership entry
+matches the release namespace.

@@ -91,6 +91,11 @@ class MeshTests(unittest.TestCase):
                 pod_spec = next(o for o in objects if o['kind'] == 'StatefulSet')['spec']['template']['spec']
                 init = pod_spec['initContainers'][0]
                 self.assertEqual(init['name'], 'generate-topology')
+                if chart == 'cardano-node-leios':
+                    security = init['securityContext']
+                    self.assertFalse(security['allowPrivilegeEscalation'])
+                    self.assertEqual(security['capabilities']['drop'], ['ALL'])
+                    self.assertEqual(security['seccompProfile']['type'], 'RuntimeDefault')
                 self.assertEqual(init['command'], ['/bin/sh', '/mesh/generate.sh'])
                 volumes = {v['name']: v for v in pod_spec['volumes']}
                 self.assertIn('emptyDir', volumes['generated-topology'])

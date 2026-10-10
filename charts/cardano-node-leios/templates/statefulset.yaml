@@ -33,6 +33,13 @@ spec:
       initContainers:
 {{- if .Values.topology.mesh.enabled }}
       - name: generate-topology
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
         image: {{ .Values.topology.mesh.image | quote }}
         imagePullPolicy: IfNotPresent
         command: ["/bin/sh", "/mesh/generate.sh"]

@@ -3,11 +3,13 @@
 ## Internal peer mesh
 
 `topology.mesh.enabled` generates a topology for each pod before the node starts.
+It requires `topology.enabled: true`.
 Include every StatefulSet on the same Cardano network, including the current
 release. Each peer uses its ordinal DNS name through its headless Service. The
 current pod is excluded. Existing bootstrap, public, and local roots are retained.
 
 ```yaml
+fullnameOverride: relay-a
 replicaCount: 2
 topology:
   enabled: true
@@ -45,4 +47,5 @@ Regenerate topology by restarting pods after membership changes, respecting the
 chart's update strategy. The generated file is not updated by SIGHUP.
 `topology.reloadable` cannot be combined with the mesh.
 
-The example assumes the current release has `fullnameOverride: relay-a`.
+Install the example release in namespace `nodes` so its self-membership entry
+matches the release namespace.
