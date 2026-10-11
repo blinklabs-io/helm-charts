@@ -96,11 +96,12 @@ service:
 ```
 
 A LoadBalancer or NodePort Service with `externalTrafficPolicy: Cluster`
-source-NATs inbound peers, so dingo sees every peer arrive from one node
-address. dingo keys inbound accounting by host, so it then treats all peers as
-one. When the node has a public address, bind the relay directly to it instead.
-This needs a CNI with the `portmap` plugin, and nothing else on the node may
-use that port:
+source-NATs inbound peers. Peers that enter through the same node then reach
+dingo from that node's address, and dingo keys inbound accounting by host, so it
+treats them as one. `externalTrafficPolicy: Local` preserves client source IPs
+where the Service allows it. Otherwise, when the node has a public address, bind
+the relay directly to it. This needs a CNI with the `portmap` plugin, and nothing
+else on the node may use that port:
 
 ```yaml
 service:
