@@ -268,6 +268,11 @@ service:
     loadBalancerIP: ""
     loadBalancerSourceRanges: []
     nodePort: ""
+    # Bind the relay container port to this port on the node's own addresses.
+    # Unlike a Service with externalTrafficPolicy Cluster, a hostPort keeps each
+    # peer's source IP, which dingo's per-host inbound accounting needs.
+    # Requires a CNI with the portmap plugin.
+    hostPort: ""
   # Private Service: node private API plus optional local APIs (UTxO RPC,
   # Blockfrost, Mesh). ClusterIP-only and never published externally.
   # Enabling this sets CARDANO_PRIVATE_BIND_ADDR to 0.0.0.0 unless explicitly

@@ -1,0 +1,13 @@
+# CI test values for chart-testing (rendered-manifest test: relay hostPort).
+#
+# Publishes the relay port on the node through a hostPort, which keeps each
+# peer's source IP. The private API and metrics ports must not get one.
+#
+# CI only; not a production configuration.
+
+mithril:
+  enabled: false
+
+service:
+  relay:
+    hostPort: 6000

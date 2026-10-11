@@ -189,6 +189,9 @@ spec:
         ports:
           - name: relay
             containerPort: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay }}
+            {{- with .Values.service.relay.hostPort }}
+            hostPort: {{ . }}
+            {{- end }}
           - name: private
             containerPort: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private }}
           - name: metrics
