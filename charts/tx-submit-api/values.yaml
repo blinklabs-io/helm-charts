@@ -10,7 +10,7 @@ cardano_node:
 
 image:
   repository: ghcr.io/blinklabs-io/tx-submit-api
-  tag: "0.22.0"
+  tag: "0.22.1"
 
 # tx-submit-api 0.22.0 serves readiness on /healthz (ready once the node is
 # reachable). Images before 0.22.0 only serve /healthcheck.
