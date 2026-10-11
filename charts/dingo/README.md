@@ -95,6 +95,19 @@ service:
       - 0.0.0.0/0
 ```
 
+A LoadBalancer or NodePort Service with `externalTrafficPolicy: Cluster`
+source-NATs inbound peers, so dingo sees every peer arrive from one node
+address. dingo keys inbound accounting by host, so it then treats all peers as
+one. When the node has a public address, bind the relay directly to it instead.
+This needs a CNI with the `portmap` plugin, and nothing else on the node may
+use that port:
+
+```yaml
+service:
+  relay:
+    hostPort: 6000
+```
+
 The private API and metrics ports stay internal. To reach them from outside the
 cluster, front them with an authenticated ingress/gateway. Before enabling
 `service.private.enabled`, configure authorized peers and ensure the CNI
@@ -219,6 +232,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | `podSecurityContext`            | Pod-level security context                                | non-root, seccomp RuntimeDefault |
 | `securityContext`               | Container security context                                | drop ALL, read-only rootfs     |
 | `service.relay.type`            | Public relay Service type                                 | `ClusterIP`                    |
+| `service.relay.hostPort`        | Bind the relay port on the node; keeps peer source IPs     | `""` (disabled)                |
 | `service.private.enabled`       | Opt into the private API listener, Service and ingress policy | `false`                    |
 | `service.metrics.enabled`       | Render the metrics (ClusterIP) Service                    | `true`                         |
 | `service.compatibility.enabled` | Render the `<release>-dingo` compatibility Service        | `true`                         |
