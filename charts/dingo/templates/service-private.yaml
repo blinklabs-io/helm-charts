@@ -34,6 +34,21 @@ spec:
       port: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
       targetPort: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
 {{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.kupo .Values.environment.DINGO_PLUGINS_API_KUPO_CONFIG_PORT))) 0 }}
+    - name: kupo
+      port: {{ .Values.environment.DINGO_PLUGINS_API_KUPO_CONFIG_PORT | default .Values.service.ports.kupo }}
+      targetPort: {{ .Values.environment.DINGO_PLUGINS_API_KUPO_CONFIG_PORT | default .Values.service.ports.kupo }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.bark .Values.environment.DINGO_BARK_PORT))) 0 }}
+    - name: bark
+      port: {{ .Values.environment.DINGO_BARK_PORT | default .Values.service.ports.bark }}
+      targetPort: {{ .Values.environment.DINGO_BARK_PORT | default .Values.service.ports.bark }}
+{{- end }}
+{{- if gt (int (default "0" (default .Values.service.ports.midnight .Values.environment.DINGO_MIDNIGHT_PORT))) 0 }}
+    - name: midnight
+      port: {{ .Values.environment.DINGO_MIDNIGHT_PORT | default .Values.service.ports.midnight }}
+      targetPort: {{ .Values.environment.DINGO_MIDNIGHT_PORT | default .Values.service.ports.midnight }}
+{{- end }}
   selector:
     {{- include "dingo.matchLabels" . | nindent 4 }}
 {{- end }}

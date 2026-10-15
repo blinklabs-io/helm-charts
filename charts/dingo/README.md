@@ -178,7 +178,7 @@ resolves to the exact image content.
 Resolve the digest for a given tag:
 
 ```console
-docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.81.0 \
+docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.83.0 \
   --format '{{.Manifest.Digest}}'
 ```
 
@@ -187,7 +187,7 @@ docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.81.0 \
 The [image release workflow](https://github.com/blinklabs-io/dingo/blob/main/.github/workflows/publish.yml)
 creates GitHub build provenance attestations for architecture-specific images.
 Resolve the digest for the architecture you will run (for example, the
-`0.81.0-amd64` or `0.81.0-arm64` tag) and verify it before pinning:
+`0.83.0-amd64` or `0.83.0-arm64` tag) and verify it before pinning:
 
 ```console
 gh attestation verify oci://ghcr.io/blinklabs-io/dingo@sha256:<digest> \
@@ -227,7 +227,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | Key                             | Description                                               | Default                        |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------ |
 | `image.repository`              | Image name                                                | `ghcr.io/blinklabs-io/dingo`   |
-| `image.tag`                     | Image tag (used when `image.digest` is empty)             | `0.81.0`                       |
+| `image.tag`                     | Image tag (used when `image.digest` is empty)             | `0.83.0`                       |
 | `image.digest`                  | Immutable image digest (`sha256:...`); overrides tag      | `""`                           |
 | `automountServiceAccountToken`  | Mount the SA token into the pod                           | `false`                        |
 | `podSecurityContext`            | Pod-level security context                                | non-root, seccomp RuntimeDefault |
@@ -241,3 +241,18 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | `networkPolicy.relayIngressFrom` | P2P peers; empty allows relay ingress and denies block-producer ingress | `[]`             |
 | `mithril.enabled`               | Bootstrap the DB from a Mithril snapshot                  | `true`                         |
 | `persistence.size`              | PVC size                                                  | `60Gi`                         |
+
+### Additional private APIs
+
+Kupo, Bark, and Midnight ports default to zero. Set `service.ports.kupo`,
+`service.ports.bark`, and `service.ports.midnight` alongside the corresponding
+Dingo listener configuration. Non-zero `DINGO_PLUGINS_API_KUPO_CONFIG_PORT`,
+`DINGO_BARK_PORT`, and `DINGO_MIDNIGHT_PORT` environment values override those
+ports. Both private and ClusterIP compatibility Services require
+`service.private.enabled` before exposing these endpoints. The private Service
+and its NetworkPolicy include these endpoints;
+externally exposed relay and compatibility Services exclude them.
+
+Enable `service.private.enabled` and configure `networkPolicy.privateIngressFrom`
+for authorized clients. Midnight indexing and serving require their separate
+Dingo enable flags; a Service port alone does not start a listener.
