@@ -241,3 +241,16 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | `networkPolicy.relayIngressFrom` | P2P peers; empty allows relay ingress and denies block-producer ingress | `[]`             |
 | `mithril.enabled`               | Bootstrap the DB from a Mithril snapshot                  | `true`                         |
 | `persistence.size`              | PVC size                                                  | `60Gi`                         |
+
+### Additional private APIs
+
+Kupo, Bark, and Midnight ports default to zero. Set `service.ports.kupo`,
+`service.ports.bark`, and `service.ports.midnight` alongside the corresponding
+Dingo listener configuration. Non-zero `DINGO_PLUGINS_API_KUPO_CONFIG_PORT`,
+`DINGO_BARK_PORT`, and `DINGO_MIDNIGHT_PORT` environment values override those
+ports. The private Service and its NetworkPolicy include these endpoints;
+externally exposed relay and compatibility Services exclude them.
+
+Enable `service.private.enabled` and configure `networkPolicy.privateIngressFrom`
+for authorized clients. Midnight indexing and serving require their separate
+Dingo enable flags; a Service port alone does not start a listener.

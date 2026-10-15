@@ -256,6 +256,9 @@ service:
     utxorpc: 0
     blockfrost: 0
     mesh: 0
+    kupo: 0
+    bark: 0
+    midnight: 0
   # Public P2P relay Service. This is the ONLY Service intended for external
   # exposure. Defaults to ClusterIP; set type to LoadBalancer or NodePort to
   # publish the relay port. It never carries the private API or metrics ports.
@@ -274,7 +277,7 @@ service:
     # Requires a CNI with the portmap plugin.
     hostPort: ""
   # Private Service: node private API plus optional local APIs (UTxO RPC,
-  # Blockfrost, Mesh). ClusterIP-only and never published externally.
+  # Blockfrost, Mesh, Kupo, Bark, Midnight). ClusterIP-only and never published externally.
   # Enabling this sets CARDANO_PRIVATE_BIND_ADDR to 0.0.0.0 unless explicitly
   # overridden, and always renders a NetworkPolicy. Configure authorized
   # networkPolicy.privateIngressFrom peers before enabling; empty peers deny
@@ -323,7 +326,7 @@ networkPolicy:
   # grant their relays access. Standard NetworkPolicy peer objects.
   relayIngressFrom: []
   # Sources allowed to reach the private API ports (private / utxorpc /
-  # blockfrost / mesh). Standard NetworkPolicy peer objects.
+  # blockfrost / mesh / kupo / bark / midnight). Standard NetworkPolicy peer objects.
   privateIngressFrom: []
     # - namespaceSelector:
     #     matchLabels:
