@@ -24,6 +24,20 @@ class PrivateAPIs(unittest.TestCase):
             if d['kind'] == 'Service':
                 self.assertFalse(set(PORTS) & {p['name'] for p in d['spec']['ports']})
 
+    def test_configured_apis_require_private_opt_in(self):
+        for use_env in [False, True]:
+            with self.subTest(use_env=use_env):
+                values = {'service': {'ports': PORTS}}
+                if use_env:
+                    values['environment'] = {ENVS[k]: str(v) for k, v in PORTS.items()}
+                docs = render(values)
+                for d in docs:
+                    if d['kind'] == 'Service':
+                        self.assertFalse(
+                            set(PORTS) & {p['name'] for p in d['spec']['ports']},
+                            'configured private APIs exposed without private-Service opt-in',
+                        )
+
     def test_private_ports_and_policy(self):
         for use_env in [False, True]:
             with self.subTest(use_env=use_env):

@@ -248,7 +248,9 @@ Kupo, Bark, and Midnight ports default to zero. Set `service.ports.kupo`,
 `service.ports.bark`, and `service.ports.midnight` alongside the corresponding
 Dingo listener configuration. Non-zero `DINGO_PLUGINS_API_KUPO_CONFIG_PORT`,
 `DINGO_BARK_PORT`, and `DINGO_MIDNIGHT_PORT` environment values override those
-ports. The private Service and its NetworkPolicy include these endpoints;
+ports. Both private and ClusterIP compatibility Services require
+`service.private.enabled` before exposing these endpoints. The private Service
+and its NetworkPolicy include these endpoints;
 externally exposed relay and compatibility Services exclude them.
 
 Enable `service.private.enabled` and configure `networkPolicy.privateIngressFrom`

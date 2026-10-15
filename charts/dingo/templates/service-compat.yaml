@@ -48,6 +48,7 @@ spec:
       port: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
       targetPort: {{ .Values.environment.DINGO_MESH_PORT | default .Values.service.ports.mesh }}
 {{- end }}
+{{- if .Values.service.private.enabled }}
 {{- if gt (int (default "0" (default .Values.service.ports.kupo .Values.environment.DINGO_PLUGINS_API_KUPO_CONFIG_PORT))) 0 }}
     - name: kupo
       port: {{ .Values.environment.DINGO_PLUGINS_API_KUPO_CONFIG_PORT | default .Values.service.ports.kupo }}
@@ -62,6 +63,7 @@ spec:
     - name: midnight
       port: {{ .Values.environment.DINGO_MIDNIGHT_PORT | default .Values.service.ports.midnight }}
       targetPort: {{ .Values.environment.DINGO_MIDNIGHT_PORT | default .Values.service.ports.midnight }}
+{{- end }}
 {{- end }}
 {{- end }}
   selector:
