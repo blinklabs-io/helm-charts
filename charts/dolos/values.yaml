@@ -1,5 +1,40 @@
 replicaCount: 1
 
+# A pod must stay Ready for this duration before the next ordinal is updated.
+minReadySeconds: 0
+terminationGracePeriodSeconds: 180
+
+# Opt-in because availability depends on reachable reference relay metrics.
+availability:
+  enabled: false
+  image:
+    repository: docker.io/library/python
+    tag: 3.13.16-alpine3.24
+    digest: sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+    pullPolicy: IfNotPresent
+  # At least one URL is required. Multiple relays allow reference failover.
+  referenceTipURLs: []
+  maxSlotLag: 60
+  # Prevent a stalled reference and backend from agreeing on an old tip.
+  maxTipAgeSeconds: 600
+  requestTimeoutSeconds: 2
+  pollIntervalSeconds: 5
+  maxCheckAgeSeconds: 30
+  port: 18081
+  # Let EndpointSlice changes propagate and finite requests finish before SIGTERM.
+  # Uses native lifecycle sleep (Kubernetes 1.30+); zero omits the hook.
+  drainDelaySeconds: 30
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 1
+
 updateStrategy:
   type: RollingUpdate
 
