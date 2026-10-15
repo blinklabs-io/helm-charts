@@ -89,7 +89,7 @@ def main():
                 "resources": {"requests": {"cpu": "10m", "memory": "64Mi"}, "limits": {"memory": "128Mi"}},
                 "ports": {"minikupo": 1442}, "service": {"ports": {"minikupo": 11442}},
                 "availability": {"enabled": True, "referenceTipURLs": ["http://reference:8080/metrics"], "maxSlotLag": 5, "drainDelaySeconds": 15},
-                "podDisruptionBudget": {"enabled": True},
+                "podDisruptionBudget": {"enabled": True, "maxUnavailable": 1},
             }
             values_file = directory / "values.json"
             values_file.write_text(json.dumps(values))

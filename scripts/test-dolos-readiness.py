@@ -25,6 +25,7 @@ class ReadinessTests(unittest.TestCase):
             "grpcPort": 50051,
             "referenceTipURLs": ["http://reference-a/metrics", "http://reference-b/metrics"],
             "maxCheckAgeSeconds": 30,
+            "pollIntervalSeconds": 5,
         }
         self.responses = {
             "http://127.0.0.1:3001/blocks/latest": json.dumps({"slot": 100, "time": 1000}),
@@ -84,6 +85,23 @@ class ReadinessTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.run_check()
 
+    def test_invalid_reference_samples_fail_closed(self):
+        for sample in ["-1", "-0.1", "1e999"]:
+            with self.subTest(sample=sample):
+                for url in self.config["referenceTipURLs"]:
+                    self.responses[url] = "cardano_node_metrics_slotNum_int " + sample + "\n"
+                with self.assertRaisesRegex(ValueError, "no reference"):
+                    self.run_check()
+
+    def test_checker_stall_is_not_live(self):
+        monitor = readiness.Monitor(self.config)
+        with patch.object(monitor.worker, "is_alive", return_value=True):
+            self.assertTrue(monitor.is_live())
+            with patch.object(readiness.time, "monotonic", return_value=monitor.started_at + 61):
+                self.assertFalse(monitor.is_live())
+            monitor.checked_at = time.monotonic()
+            self.assertTrue(monitor.is_live())
+
     def test_optional_minikupo(self):
         self.config["minikupoPort"] = 0
         del self.responses["http://127.0.0.1:1442/health"]
@@ -121,7 +139,7 @@ class ChartTests(unittest.TestCase):
         return [d for d in yaml.safe_load_all(result.stdout) if d]
 
     def enabled(self):
-        return {"availability": {"enabled": True, "referenceTipURLs": ["http://relay:12798/metrics"]}, "replicaCount": 2, "minReadySeconds": 60, "podDisruptionBudget": {"enabled": True}}
+        return {"availability": {"enabled": True, "referenceTipURLs": ["http://relay:12798/metrics"]}, "replicaCount": 2, "minReadySeconds": 60, "podDisruptionBudget": {"enabled": True, "maxUnavailable": 1}}
 
     def test_default_compatibility(self):
         docs = self.render({})
@@ -146,7 +164,9 @@ class ChartTests(unittest.TestCase):
         self.assertEqual(helper["readinessProbe"]["httpGet"], {"path": "/readyz", "port": "availability"})
         self.assertFalse(pod["automountServiceAccountToken"])
         self.assertTrue(helper["securityContext"]["readOnlyRootFilesystem"])
-        self.assertEqual(pod["containers"][0]["lifecycle"]["preStop"], {"sleep": {"seconds": 30}})
+        for container in pod["containers"]:
+            if container["name"] in ["dolos", "socat-ntc"]:
+                self.assertEqual(container["lifecycle"]["preStop"], {"sleep": {"seconds": 30}})
         pdb = next(d for d in docs if d["kind"] == "PodDisruptionBudget")
         self.assertEqual(pdb["spec"]["selector"], sts["spec"]["selector"])
         self.assertEqual(pdb["spec"]["maxUnavailable"], 1)
@@ -182,6 +202,15 @@ class ChartTests(unittest.TestCase):
         values = self.enabled()
         values["availability"]["drainDelaySeconds"] = 0
         self.render(values, kube="1.29.0")
+
+    def test_invalid_reference_url(self):
+        values = self.enabled()
+        values["availability"]["referenceTipURLs"] = ["http://["]
+        self.render(values, ok=False)
+
+    def test_single_replica_budget(self):
+        docs = self.render({"podDisruptionBudget": {"enabled": True}})
+        self.assertEqual(next(d for d in docs if d["kind"] == "PodDisruptionBudget")["spec"]["maxUnavailable"], 0)
 
     def test_invalid_limits(self):
         values = self.enabled()

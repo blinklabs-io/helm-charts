@@ -1,6 +1,7 @@
 """Keep API endpoints out of Services until queries and synchronization are healthy."""
 
 import json
+import math
 import re
 import socket
 import sys
@@ -33,7 +34,10 @@ def reference_slot(body):
     )
     if not slots:
         raise ValueError("reference has no Cardano tip metric")
-    return max(int(float(slot)) for slot in slots)
+    samples = [float(slot) for slot in slots]
+    if any(not math.isfinite(slot) or slot < 0 for slot in samples):
+        raise ValueError("reference has an invalid Cardano tip metric")
+    return int(max(samples))
 
 
 def check(config, fetcher=fetch, connector=connect, now=time.time):
@@ -75,6 +79,7 @@ class Monitor:
         self.lock = threading.Lock()
         self.ready = False
         self.checked_at = None
+        self.started_at = time.monotonic()
         self.worker = threading.Thread(target=self.poll, daemon=True)
 
     def poll(self):
@@ -103,6 +108,15 @@ class Monitor:
                 and time.monotonic() - self.checked_at <= self.config["maxCheckAgeSeconds"]
             )
 
+    def is_live(self):
+        with self.lock:
+            progress = self.checked_at if self.checked_at is not None else self.started_at
+            budget = 2 * max(
+                self.config["maxCheckAgeSeconds"],
+                self.config["pollIntervalSeconds"] + self.config["requestTimeoutSeconds"] * (len(self.config["referenceTipURLs"]) + 3),
+            )
+            return self.worker.is_alive() and time.monotonic() - progress <= budget
+
 
 def main():
     with open(sys.argv[1], encoding="utf-8") as source:
@@ -117,7 +131,7 @@ def main():
             if self.path == "/readyz":
                 healthy = monitor.is_ready()
             elif self.path == "/healthz":
-                healthy = monitor.worker.is_alive()
+                healthy = monitor.is_live()
             else:
                 self.send_error(404)
                 return

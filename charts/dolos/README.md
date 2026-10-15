@@ -66,7 +66,7 @@ The opt-in gate adds the mutable `dolos.blinklabs.io/serving="true"` pod label t
 its headless Service selector. It never changes the immutable StatefulSet selector.
 External aggregation Services may use the same label to support explicit drain.
 Before first enabling this on an existing release, label currently healthy pods
-`serving=true`; otherwise the updated Service selector will initially match none.
+`dolos.blinklabs.io/serving=true`; otherwise the updated Service selector will initially match none.
 Pods without the new pre-stop hook must be withdrawn from aggregation Services
 and allowed to drain before their first replacement. Re-admit them on upgrade
 failure only after verifying query and sync health. A deployment orchestrator
@@ -97,9 +97,12 @@ rollback.
 | `minReadySeconds` | `0` | Continuous readiness required before the next ordinal update. |
 | `terminationGracePeriodSeconds` | `180` | Total drain and shutdown budget. |
 | `podDisruptionBudget.enabled` | `false` | Protect against voluntary disruptions. |
-| `podDisruptionBudget.maxUnavailable` | `1` | Allowed unavailable replicas per release. |
+| `podDisruptionBudget.maxUnavailable` | `0` | Allowed unavailable replicas per release. |
 
 ## Validation
+
+Install Python 3, PyYAML (`python3 -m pip install -r scripts/requirements-dolos-tests.txt`),
+and Helm before running the checks.
 
 `python3 -B scripts/test-dolos-readiness.py` exercises query health and the render
 matrix. `python3 -B scripts/test-dolos-rollout.py` uses Docker, k3d, kubectl and Helm

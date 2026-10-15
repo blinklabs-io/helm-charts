@@ -177,6 +177,12 @@ spec:
         - name: socat-ntc
           image: "{{ .Values.socat.image.repository }}:{{ .Values.socat.image.tag }}"
           imagePullPolicy: {{ .Values.socat.image.pullPolicy | default "IfNotPresent" }}
+          {{- if and .Values.availability.enabled (gt (int .Values.availability.drainDelaySeconds) 0) }}
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ .Values.availability.drainDelaySeconds }}
+          {{- end }}
           command:
             - socat
             - TCP-LISTEN:{{ .Values.ports.ouroboros }},fork
