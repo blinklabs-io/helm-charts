@@ -76,6 +76,9 @@ cutoff into a slot and rejects an older tip, even if `syncProgress` rounds to
 on another relay's readiness. UTC on the host must be correct. A network-wide
 block gap longer than `maxTipAgeSeconds` makes all nodes unready; tune the bound
 for the network. The cutoff is clamped to genesis start for new networks.
+The configured age bound governs admission; numeric sync progress is validated
+but is not used as a percentage threshold. `query slot-number` also requires
+local state and has no chain-sync fallback.
 
 The image must supply cardano-cli with `latest query tip` and `latest query
 slot-number`, jq, GNU date and GNU timeout. Query timeouts are bounded; the exec
@@ -110,7 +113,8 @@ readiness cannot move an established connection to another pod.
 
 Keep healthy spare replicas on separate hosts. `minReadySeconds` holds the next
 ordinal until its replacement has stayed ready. `updateStrategy` accepts both
-the existing `RollingUpdate`/`OnDelete` strings and a full StatefulSet strategy:
+the existing `RollingUpdate`/`OnDelete` strings and a full StatefulSet strategy.
+Empty or null strategies retain the `OnDelete` fallback:
 
 ```yaml
 updateStrategy:
@@ -119,11 +123,12 @@ updateStrategy:
     partition: 1
 ```
 
-A disruption budget protects voluntary evictions, not StatefulSet updates. Its
-default `maxUnavailable: 0` protects one replica; explicitly allow one when
-operating redundant replicas. Configure Helm/Helmfile to wait for readiness and
-serialize AZ releases; the chart does not serialize separate releases. Readiness
-is not producer fencing and does not enable or disable forging.
+Disruption budgets are disabled by default and protect voluntary evictions, not
+StatefulSet updates. When enabled, the default `maxUnavailable: 0` blocks all voluntary evictions. Set it
+to `1` only when redundant replicas can keep serving through one eviction.
+Configure Helm/Helmfile to wait for readiness and serialize AZ releases; the
+chart does not serialize separate releases. Readiness is not producer fencing
+and does not enable or disable forging.
 
 For first adoption, existing pods still lack probes and drain hooks. Withdraw
 legacy API backends and drain requests before their first replacement, preserving

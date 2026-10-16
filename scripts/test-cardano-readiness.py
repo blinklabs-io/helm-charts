@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise local ledger readiness and the chart's routing contract."""
 import datetime
+import importlib.util
 import json
 import os
 import pathlib
@@ -58,6 +59,12 @@ else:
         age = time.time() - datetime.datetime.fromisoformat(cutoff.replace("Z", "+00:00")).timestamp()
         self.assertTrue(598 <= age <= 603, age)
 
+    def test_tip_age_governs_admission_instead_of_percentage(self):
+        self.env["CLI_TIP"] = json.dumps({"era": "Conway", "slot": 1000, "syncProgress": "50.00"})
+        self.probe()
+        self.env["CLI_TIP"] = json.dumps({"era": "Conway", "slot": 999, "syncProgress": "100.00"})
+        self.probe(False)
+
     def test_mainnet_uses_mainnet_flag(self):
         genesis = json.loads(self.genesis.read_text())
         genesis["networkId"] = "Mainnet"
@@ -112,6 +119,20 @@ else:
         genesis["systemStart"] = datetime.datetime.fromtimestamp(time.time() - 10, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self.genesis.write_text(json.dumps(genesis))
         self.assertIn(genesis["systemStart"], self.probe()[1])
+
+
+class HarnessTests(unittest.TestCase):
+    def test_partial_output_has_a_deadline(self):
+        spec = importlib.util.spec_from_file_location("rollout_harness", ROOT / "scripts/test-cardano-readiness-rollout.py")
+        harness = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(harness)
+        process = subprocess.Popen([sys.executable, "-c", "import sys,time; sys.stdout.write('partial'); sys.stdout.flush(); time.sleep(1)"], stdout=subprocess.PIPE, text=True)
+        try:
+            with self.assertRaises(TimeoutError):
+                harness.first_line(process, timeout=0.1)
+        finally:
+            process.terminate()
+            process.communicate(timeout=2)
 
 
 class ChartTests(unittest.TestCase):
@@ -169,11 +190,16 @@ class ChartTests(unittest.TestCase):
                 self.assertEqual(env["CARDANO_NETWORK"], network)
 
     def test_legacy_and_full_update_strategy(self):
-        for strategy in ["OnDelete", {"type": "RollingUpdate", "rollingUpdate": {"partition": 1}}, None]:
+        for strategy in ["OnDelete", {"type": "RollingUpdate", "rollingUpdate": {"partition": 1}}, None, ""]:
             with self.subTest(strategy=strategy):
                 sts = self.sts(self.render({"updateStrategy": strategy}))
                 expected = strategy if isinstance(strategy, dict) else {"type": strategy or "OnDelete"}
                 self.assertEqual(sts["spec"]["updateStrategy"], expected)
+
+    def test_strategy_combination_matches_kubernetes(self):
+        self.render({"updateStrategy": {"type": "OnDelete", "rollingUpdate": {"partition": 1}}}, valid=False)
+        self.render({"updateStrategy": {"type": "RollingUpdate", "rollingUpdate": {"partition": -1}}}, valid=False)
+        self.render({"updateStrategy": {"type": "OnDelete", "rollingUpdate": None}})
 
     def test_invalid_shutdown_and_probe_settings(self):
         for values, kube in [({"availability": {"enabled": True, "drainDelaySeconds": 180}}, "1.35.0"), ({"availability": {"enabled": True}}, "1.29.0"), ({"availability": {"cliTimeoutSeconds": 0}}, "1.35.0")]:

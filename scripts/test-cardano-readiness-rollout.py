@@ -7,10 +7,14 @@ The separate devnet test verifies the real cardano-cli contract.
 import json
 import os
 import pathlib
+import select
+import socket
 import subprocess
 import tempfile
 import time
 import uuid
+
+import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLUSTER = "cardano-gate-" + uuid.uuid4().hex[:8]
@@ -36,18 +40,53 @@ def wait_for(check, timeout=120):
     raise TimeoutError("test condition did not complete")
 
 
+def first_line(process, timeout=35):
+    deadline = time.monotonic() + timeout
+    line = bytearray()
+    while not line.endswith(b"\n"):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0 or not select.select([process.stdout], [], [], remaining)[0]:
+            raise TimeoutError("client did not establish its connection")
+        char = os.read(process.stdout.fileno(), 1)
+        if not char:
+            raise RuntimeError("client exited before establishing its connection")
+        line.extend(char)
+        if len(line) > 1024:
+            raise RuntimeError("unexpected client output")
+    return line.decode().strip()
+
+
 def main():
+    defaults = yaml.safe_load((ROOT / "charts/cardano-node/values.yaml").read_text())
+    base = defaults["image"]["repository"] + ":" + defaults["image"]["tag"]
     with tempfile.TemporaryDirectory(prefix="cardano-gate-") as directory:
         root = pathlib.Path(directory)
         kubeconfig = root / "kubeconfig"
         env = dict(os.environ, KUBECONFIG=str(kubeconfig))
         image = CLUSTER + "-fixture"
-        (root / "Dockerfile").write_text('FROM ghcr.io/blinklabs-io/cardano-node:11.1.3-1\nARG LAG_SECONDS\nENV LAG_SECONDS=$LAG_SECONDS\nCOPY cardano-cli /usr/local/bin/cardano-cli\nCOPY entrypoint.sh /fixture.sh\nRUN chmod +x /usr/local/bin/cardano-cli\nENTRYPOINT ["/bin/sh", "/fixture.sh"]\n')
+        (root / "Dockerfile").write_text(f'FROM {base}\n' + 'ARG LAG_SECONDS\nENV LAG_SECONDS=$LAG_SECONDS\nCOPY cardano-cli /usr/local/bin/cardano-cli\nCOPY entrypoint.sh /fixture.sh\nRUN chmod +x /usr/local/bin/cardano-cli\nENTRYPOINT ["/bin/sh", "/fixture.sh"]\n')
         for name in ["cardano-cli", "entrypoint.sh"]:
             (root / name).write_bytes((ROOT / "scripts/fixtures/cardano-readiness" / name).read_bytes())
         for revision, lag in [("old", 0), ("new", 25)]:
             run(["docker", "build", "-t", image + ":" + revision, "--build-arg", "LAG_SECONDS=" + str(lag), str(root)])
         run(["docker", "pull", CLIENT_IMAGE])
+        ipc = root / "ipc"
+        ipc.mkdir()
+        with socket.socket(socket.AF_UNIX) as stale:
+            stale.bind(str(ipc / "node.socket"))
+        fixture = CLUSTER + "-ipc"
+        try:
+            run(["docker", "run", "-d", "--name", fixture, "--network", "none", "-e", "CARDANO_PORT=3001", "-v", str(ipc) + ":/ipc", image + ":old"])
+
+            def ipc_query():
+                return run(["docker", "exec", fixture, "/bin/sh", "-c", "printf ping | timeout 3 socat - UNIX-CONNECT:/ipc/node.socket"], check=False).stdout == "ping"
+
+            wait_for(ipc_query, 15)
+            run(["docker", "restart", "--time", "1", fixture])
+            wait_for(ipc_query, 15)
+            print("PASS: fixture replaces a stale socket and restarts on the existing IPC volume", flush=True)
+        finally:
+            run(["docker", "rm", "-f", fixture], check=False)
         try:
             run(["k3d", "cluster", "create", CLUSTER, "--image", "rancher/k3s:v1.31.5-k3s1", "--k3s-arg", "--disable=traefik@server:0", "--kubeconfig-update-default=false", "--wait"])
             kubeconfig.write_text(run(["k3d", "kubeconfig", "get", CLUSTER]).stdout)
@@ -88,7 +127,7 @@ print(json.dumps(results),flush=True)
             kube("wait", "--for=condition=Ready", "pod/client", "--timeout=60s")
             slow_program = f'import socket,time; connection=socket.create_connection(("{originals[1]["status"]["podIP"]}",30000),timeout=30); print("connected",flush=True); time.sleep(12); connection.sendall(b"pong"); print(connection.recv(4).decode(),flush=True)'
             slow = subprocess.Popen(["kubectl", "-n", NAMESPACE, "exec", "client", "--", "python3", "-c", slow_program], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            assert slow.stdout.readline().strip() == "connected"
+            assert first_line(slow) == "connected"
             values["image"]["tag"] = "new"
             path.write_text(json.dumps(values))
             upgrade = subprocess.Popen(command, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -107,12 +146,17 @@ print(json.dumps(results),flush=True)
             endpoints = obj("endpoints", RELEASE)
             ready = [a["targetRef"]["name"] for s in endpoints.get("subsets", []) for a in s.get("addresses", [])]
             assert ready == ["relay-0"], ready
-            dns = kube("exec", "client", "--", "python3", "-c", 'import socket; print(socket.gethostbyname_ex("relay-headless")[2])').stdout
-            assert replacement["status"]["podIP"] in dns, dns
             wait_for(lambda: obj("pdb", RELEASE)["status"].get("disruptionsAllowed") == 0)
             eviction = {"apiVersion": "policy/v1", "kind": "Eviction", "metadata": {"name": "relay-0", "namespace": NAMESPACE}}
             denied = kube("create", "--raw", f"/api/v1/namespaces/{NAMESPACE}/pods/relay-0/eviction", "-f", "-", input=json.dumps(eviction), check=False)
             assert denied.returncode != 0 and "disruption budget" in denied.stderr.lower()
+            def peer_dns():
+                dns = kube("exec", "client", "--", "python3", "-c", 'import signal,socket; signal.alarm(3); print(socket.gethostbyname_ex("relay-headless")[2])', check=False)
+                pod = obj("pod", "relay-1")
+                unready = not any(c["type"] == "Ready" and c["status"] == "True" for c in pod["status"].get("conditions", []))
+                return dns.returncode == 0 and replacement["status"]["podIP"] in dns.stdout and unready
+
+            wait_for(peer_dns, 20)
             print("PASS: syncing pod excluded from client Service, discoverable by peers; healthy ordinal and PDB preserved", flush=True)
             stdout, stderr = upgrade.communicate(timeout=240)
             assert upgrade.returncode == 0, stderr + stdout

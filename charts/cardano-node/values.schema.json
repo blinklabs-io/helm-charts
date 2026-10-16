@@ -56,6 +56,7 @@
         {
           "type": "string",
           "enum": [
+            "",
             "RollingUpdate",
             "OnDelete"
           ]
@@ -71,6 +72,33 @@
                 "RollingUpdate",
                 "OnDelete"
               ]
+            },
+            "rollingUpdate": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "partition": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647
+                }
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "OnDelete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rollingUpdate": {
+                "type": "null"
+              }
             }
           }
         }
