@@ -1,5 +1,22 @@
 ---
 updateStrategy: RollingUpdate
+minReadySeconds: 0
+
+# Requires cardano-cli, jq, GNU date and timeout in the node image.
+availability:
+  enabled: false
+  maxTipAgeSeconds: 600
+  # Required for YAML node configs; otherwise read ShelleyGenesisFile from JSON.
+  shelleyGenesisPath: ""
+  cliTimeoutSeconds: 10
+  periodSeconds: 30
+  failureThreshold: 2
+  drainDelaySeconds: 30
+  terminationGracePeriodSeconds: 180
+
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 0
 
 cardano_network: preview
 # extraPodLabels: {}

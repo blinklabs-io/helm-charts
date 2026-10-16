@@ -46,6 +46,9 @@ jobs:
           python3 scripts/test-dingo-chart.py
           python3 scripts/test-dingo-private-apis.py
 
-      - name: Test Cardano peer mesh
+      - name: Test Cardano mesh and readiness
         if: contains(steps.list-changed.outputs.changed_charts, 'charts/cardano-node')
-        run: python3 scripts/test-cardano-mesh.py
+        run: |
+          "${pythonLocation}/bin/python3" -m pip install -r scripts/requirements-cardano-tests.txt
+          "${pythonLocation}/bin/python3" scripts/test-cardano-mesh.py
+          "${pythonLocation}/bin/python3" -B scripts/test-cardano-readiness.py

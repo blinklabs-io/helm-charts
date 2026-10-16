@@ -7,6 +7,7 @@ metadata:
   name: {{ include "cardano-node.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
   selector:
     matchLabels: {{ include "cardano-node.matchLabels" . | nindent 6 }}
   serviceName: {{ include "cardano-node.fullname" . }}-headless
@@ -15,6 +16,9 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: cardano-node
+{{- if .Values.availability.enabled }}
+        checksum/readiness: {{ include (print $.Template.BasePath "/readiness-configmap.yaml") . | sha256sum }}
+{{- end }}
 {{- if and (or .Values.blockProducer.enabled .Values.blockProducer.keysAlwaysMounted) (not .Values.blockProducer.reloadableKeys) }}
         checksum/keys: {{ .Values.blockProducer.keys | toJson | sha256sum }}
 {{- end }}
@@ -27,6 +31,9 @@ spec:
 {{ toYaml . | indent 8 }}
 {{- end }}
     spec:
+{{- if .Values.availability.enabled }}
+      terminationGracePeriodSeconds: {{ .Values.availability.terminationGracePeriodSeconds }}
+{{- end }}
 {{- if .Values.mithril.enabled }}
       securityContext:
         fsGroup: 1000
@@ -255,6 +262,14 @@ spec:
 {{- else }}
           value: "/opt/cardano/config/{{ .Values.cardano_network }}/topology.json"
 {{- end }}
+{{- if .Values.availability.enabled }}
+        - name: READINESS_CLI_TIMEOUT_SECONDS
+          value: {{ .Values.availability.cliTimeoutSeconds | quote }}
+        - name: READINESS_SHELLEY_GENESIS_PATH
+          value: {{ .Values.availability.shelleyGenesisPath | quote }}
+        - name: READINESS_MAX_TIP_AGE_SECONDS
+          value: {{ .Values.availability.maxTipAgeSeconds | quote }}
+{{- end }}
         - name: RESTORE_SNAPSHOT
           value: "false"
 {{- if .Values.blockProducer.enabled }}
@@ -274,6 +289,20 @@ spec:
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: cardano-node
+{{- if .Values.availability.enabled }}
+        readinessProbe:
+          exec:
+            command: ["/bin/sh", "/health/readiness.sh"]
+          periodSeconds: {{ .Values.availability.periodSeconds }}
+          timeoutSeconds: {{ add (mul (int .Values.availability.cliTimeoutSeconds) 2) 5 }}
+          failureThreshold: {{ .Values.availability.failureThreshold }}
+{{- if gt (int .Values.availability.drainDelaySeconds) 0 }}
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: {{ .Values.availability.drainDelaySeconds }}
+{{- end }}
+{{- end }}
         ports:
         - containerPort: {{ .Values.service.ports.ntn.targetPort }}
           name: ntn
@@ -281,6 +310,11 @@ spec:
           name: metrics
         resources: {{ .Values.resources | toYaml | nindent 10 }}
         volumeMounts:
+{{- if .Values.availability.enabled }}
+        - mountPath: /health
+          name: readiness
+          readOnly: true
+{{- end }}
         - mountPath: /data
           name: node-db
         - mountPath: /ipc
@@ -300,6 +334,19 @@ spec:
 {{- end }}
 
       - name: socat-ntc
+{{- if .Values.availability.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.service.ports.socatNtc.targetPort }}
+          periodSeconds: {{ .Values.availability.periodSeconds }}
+          failureThreshold: {{ .Values.availability.failureThreshold }}
+{{- if gt (int .Values.availability.drainDelaySeconds) 0 }}
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: {{ .Values.availability.drainDelaySeconds }}
+{{- end }}
+{{- end }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         command:
@@ -322,6 +369,11 @@ spec:
       tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
 {{- end }}
       volumes:
+{{- if .Values.availability.enabled }}
+      - name: readiness
+        configMap:
+          name: {{ include "cardano-node.fullname" . }}-readiness
+{{- end }}
 {{- if .Values.topology.mesh.enabled }}
       - name: mesh
         configMap:
@@ -347,7 +399,13 @@ spec:
           secretName: {{ .Release.Name }}-secret
 {{- end }}
   updateStrategy:
-    type: {{ .Values.updateStrategy | default "OnDelete" }}
+{{- if not .Values.updateStrategy }}
+    type: OnDelete
+{{- else if kindIs "string" .Values.updateStrategy }}
+    type: {{ .Values.updateStrategy }}
+{{- else }}
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+{{- end }}
   volumeClaimTemplates:
   - metadata:
       labels:

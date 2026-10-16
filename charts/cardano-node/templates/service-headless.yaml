@@ -7,6 +7,9 @@ metadata:
   name: {{ include "cardano-node.fullname" . }}-headless
 spec:
   clusterIP: None
+{{- if .Values.availability.enabled }}
+  publishNotReadyAddresses: true
+{{- end }}
   ports:
   - name: ntn
     port: {{ .Values.service.ports.ntn.port }}
