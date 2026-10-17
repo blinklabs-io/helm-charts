@@ -1,0 +1,16 @@
+{{- if .Values.availability.enabled }}
+{{- if and (gt (int .Values.availability.drainDelaySeconds) 0) (not (semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version)) }}
+{{- fail "availability.drainDelaySeconds requires Kubernetes 1.30 or newer; set it to zero to omit lifecycle sleep" }}
+{{- end }}
+{{- if le (int .Values.availability.terminationGracePeriodSeconds) (int .Values.availability.drainDelaySeconds) }}
+{{- fail "availability.terminationGracePeriodSeconds must exceed drainDelaySeconds" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cardano-node.fullname" . }}-readiness
+  labels: {{- include "cardano-node.labels" . | nindent 4 }}
+data:
+  readiness.sh: |
+    {{- .Files.Get "files/readiness.sh" | nindent 4 }}
+{{- end }}

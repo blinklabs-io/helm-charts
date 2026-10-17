@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+case "$3" in
+    tip)
+        elapsed=$(($(date +%s) - $(cat /tmp/started)))
+        slot=1000
+        if [ "$elapsed" -lt "$LAG_SECONDS" ]; then slot=900; fi
+        printf '{"era":"Conway","slot":%s,"syncProgress":"100.00"}\n' "$slot"
+        ;;
+    slot-number) echo 1000 ;;
+    *) exit 1 ;;
+esac
