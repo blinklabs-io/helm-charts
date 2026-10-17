@@ -49,3 +49,9 @@ jobs:
       - name: Test Cardano peer mesh
         if: contains(steps.list-changed.outputs.changed_charts, 'charts/cardano-node')
         run: python3 scripts/test-cardano-mesh.py
+
+      - name: Test Dolos readiness and rollout manifests
+        if: contains(steps.list-changed.outputs.changed_charts, 'charts/dolos')
+        run: |
+          "${pythonLocation}/bin/python3" -m pip install -r scripts/requirements-dolos-tests.txt
+          "${pythonLocation}/bin/python3" -B scripts/test-dolos-readiness.py
