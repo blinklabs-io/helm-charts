@@ -54,3 +54,9 @@ data:
   {{- $chain := mergeOverwrite (deepCopy (default (dict) .Values.configmap.chain)) (dict "magic" $networkMagic "is_testnet" $isTestnet) }}
   {{- $cm := set (deepCopy (omit .Values.configmap "genesis" "chain")) "chain" $chain }}
   {{- regexReplaceAll `(?m)=\s+(\d+)\.0\s*$` ($cm | toToml) "= ${1}" | nindent 4 }}
+
+  {{- if .Values.availability.enabled }}
+  readiness.py: |
+    {{- .Files.Get "files/readiness.py" | nindent 4 }}
+  readiness.json: {{ dict "port" .Values.availability.port "minibfPort" .Values.ports.minibf "minikupoPort" (ternary .Values.ports.minikupo 0 (and (not (empty .Values.ports.minikupo)) (not (empty .Values.service.ports.minikupo)))) "grpcPort" .Values.ports.grpc "referenceTipURLs" .Values.availability.referenceTipURLs "maxSlotLag" .Values.availability.maxSlotLag "maxTipAgeSeconds" .Values.availability.maxTipAgeSeconds "requestTimeoutSeconds" .Values.availability.requestTimeoutSeconds "pollIntervalSeconds" .Values.availability.pollIntervalSeconds "maxCheckAgeSeconds" .Values.availability.maxCheckAgeSeconds | toJson | quote }}
+  {{- end }}

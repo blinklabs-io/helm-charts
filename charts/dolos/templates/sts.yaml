@@ -1,3 +1,24 @@
+{{- if .Values.availability.enabled }}
+{{- if le (int .Values.availability.maxCheckAgeSeconds) (int .Values.availability.pollIntervalSeconds) }}
+{{- fail "availability.maxCheckAgeSeconds must exceed pollIntervalSeconds" }}
+{{- end }}
+{{- $listenerPorts := list (int .Values.ports.grpc) (int .Values.ports.minibf) (int .Values.ports.minikupo) (int .Values.ports.ouroboros) }}
+{{- if has (int .Values.availability.port) $listenerPorts }}
+{{- fail "availability.port must not conflict with an API or Ouroboros port" }}
+{{- end }}
+{{- if hasKey .Values.podLabels "dolos.blinklabs.io/serving" }}
+{{- fail "dolos.blinklabs.io/serving is managed by availability; do not set it in podLabels" }}
+{{- end }}
+{{- if empty .Values.availability.referenceTipURLs }}
+{{- fail "availability.referenceTipURLs requires at least one reference relay metrics URL" }}
+{{- end }}
+{{- if and (gt (int .Values.availability.drainDelaySeconds) 0) (not (semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version)) }}
+{{- fail "availability.drainDelaySeconds requires Kubernetes 1.30 or newer; set it to zero to omit native lifecycle sleep" }}
+{{- end }}
+{{- if ge (int .Values.availability.drainDelaySeconds) (int .Values.terminationGracePeriodSeconds) }}
+{{- fail "terminationGracePeriodSeconds must exceed availability.drainDelaySeconds" }}
+{{- end }}
+{{- end }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -9,10 +30,11 @@ metadata:
     cardano.demeter.run/network: {{ .Values.network }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
   serviceName: {{ .Values.service.name | default .Release.Name }}
   {{- if .Values.updateStrategy }}
   updateStrategy:
-    type: {{ .Values.updateStrategy.type }}
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
   {{- end }}
   selector:
     matchLabels: {{- include "dolos.selectorLabels" . | nindent 6 }}
@@ -24,11 +46,17 @@ spec:
           {{ toYaml .Values.podAnnotations | nindent 4 }}
         {{- end }}
       labels: {{- include "dolos.selectorLabels" . | nindent 8 -}}
+        {{- if .Values.availability.enabled }}
+        dolos.blinklabs.io/serving: "true"
+        {{- end }}
         {{- if .Values.podLabels }}
           {{- toYaml .Values.podLabels | nindent 8 -}}
         {{- end }}
     spec:
-      terminationGracePeriodSeconds: 180
+      {{- if .Values.availability.enabled }}
+      automountServiceAccountToken: false
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- if .Values.tolerations }}
       tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
       {{- end }}
@@ -73,6 +101,12 @@ spec:
             - -c
             - /etc/config/dolos.toml
             - daemon
+          {{- if and .Values.availability.enabled (gt (int .Values.availability.drainDelaySeconds) 0) }}
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ .Values.availability.drainDelaySeconds }}
+          {{- end }}
           {{- with .Values.env }}
           env: {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -97,9 +131,58 @@ spec:
               containerPort: {{ .Values.ports.minikupo }}
               protocol: TCP
             {{- end }}
+        {{- if .Values.availability.enabled }}
+        - name: availability
+          {{- if .Values.availability.image.digest }}
+          image: {{ printf "%s@%s" .Values.availability.image.repository .Values.availability.image.digest | quote }}
+          {{- else }}
+          image: {{ printf "%s:%s" .Values.availability.image.repository .Values.availability.image.tag | quote }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.availability.image.pullPolicy }}
+          command: ["python3", "-B", "/etc/config/readiness.py", "/etc/config/readiness.json"]
+          ports:
+            - name: availability
+              containerPort: {{ .Values.availability.port }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: availability
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: availability
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.availability.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+              readOnly: true
+        {{- end }}
         - name: socat-ntc
           image: "{{ .Values.socat.image.repository }}:{{ .Values.socat.image.tag }}"
           imagePullPolicy: {{ .Values.socat.image.pullPolicy | default "IfNotPresent" }}
+          {{- if and .Values.availability.enabled (gt (int .Values.availability.drainDelaySeconds) 0) }}
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ .Values.availability.drainDelaySeconds }}
+          {{- end }}
           command:
             - socat
             - TCP-LISTEN:{{ .Values.ports.ouroboros }},fork

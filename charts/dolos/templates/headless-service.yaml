@@ -10,6 +10,9 @@ metadata:
 spec:
   clusterIP: None  # Headless service
   selector: {{- include "dolos.selectorLabels" . | nindent 4 }}
+    {{- if .Values.availability.enabled }}
+    dolos.blinklabs.io/serving: "true"
+    {{- end }}
   ports:
     - name: grpc
       port: {{ .Values.service.ports.grpc }}
