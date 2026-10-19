@@ -9,8 +9,6 @@ sources:
   - https://github.com/blinklabs-io/dingo-operator
 
 maintainers:
-  - name: aurora
-    email: aurora@blinklabs.io
   - name: overcookedpanda
     email: overcookedpanda@blinklabs.io
   - name: verbotenj
