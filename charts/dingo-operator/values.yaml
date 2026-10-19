@@ -48,9 +48,8 @@ extraArgs: []
 
 rbac:
   # The operator reads each block producer's key Secret (get only, uncached).
-  # Empty: a cluster-wide ClusterRole grants get on Secrets in every namespace.
-  # Set to the namespaces that hold block-producer DingoNodes to grant it only
-  # there, via one Role per namespace.
+  # Empty grants access only in the release namespace. Set every namespace that
+  # holds block-producer DingoNodes to grant access there via namespaced Roles.
   keySecretsNamespaces: []
 
 serviceAccount:
