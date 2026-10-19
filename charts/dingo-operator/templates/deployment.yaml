@@ -9,6 +9,11 @@ metadata:
   labels: {{ include "dingoOperator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if not .Values.leaderElection.enabled }}
+  # Without leader election, old and new controllers must never overlap.
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels: {{ include "dingoOperator.selectorLabels" . | nindent 6 }}
   template:
