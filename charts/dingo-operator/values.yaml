@@ -1,4 +1,7 @@
 # Dingo operator values
+#
+# Install one release per cluster: the operator reconciles every DingoNode
+# cluster-wide, and the CRD and ClusterRoles are cluster-scoped.
 
 # Only one replica runs the controller at a time. More than one replica
 # requires leaderElection.enabled.
@@ -51,6 +54,8 @@ rbac:
   keySecretsNamespaces: []
 
 serviceAccount:
+  # Set create to false to use an existing ServiceAccount named by name.
+  create: true
   # Defaults to the release fullname.
   name: ""
   annotations: {}
