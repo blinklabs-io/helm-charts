@@ -1,0 +1,72 @@
+{{- if .Values.podMonitor.enabled }}
+{{- $fullname := include "dingoOperator.fullname" . -}}
+{{- if .Values.metrics.secure }}
+# The metrics endpoint authenticates scrapes with TokenReview and authorizes
+# them against the metrics-reader ClusterRole, so the PodMonitor presents the
+# token of a dedicated scraper ServiceAccount bound to that role.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $fullname }}-metrics-scraper
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "dingoOperator.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $fullname }}-metrics-scraper-token
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "dingoOperator.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/service-account.name: {{ $fullname }}-metrics-scraper
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullname }}-metrics-scraper
+  labels: {{ include "dingoOperator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullname }}-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ $fullname }}-metrics-scraper
+    namespace: {{ .Release.Namespace }}
+---
+{{- end }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ $fullname }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dingoOperator.labels" . | nindent 4 }}
+    {{- with .Values.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels: {{ include "dingoOperator.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      {{- with .Values.podMonitor.interval }}
+      interval: {{ . }}
+      {{- end }}
+      {{- if .Values.metrics.secure }}
+      scheme: https
+      tlsConfig:
+        # controller-runtime serves a self-signed certificate
+        insecureSkipVerify: true
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ $fullname }}-metrics-scraper-token
+          key: token
+      {{- else }}
+      scheme: http
+      {{- end }}
+{{- end }}

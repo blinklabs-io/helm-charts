@@ -29,6 +29,14 @@ metrics:
   port: 8080
   secure: true
 
+podMonitor:
+  # Scrape the operator's own metrics (requires the Prometheus Operator CRDs).
+  # With metrics.secure, a scraper ServiceAccount bound to the metrics-reader
+  # ClusterRole supplies the bearer token.
+  enabled: false
+  interval: ""
+  labels: {}
+
 healthProbe:
   port: 8081
 
