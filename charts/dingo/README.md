@@ -178,7 +178,7 @@ resolves to the exact image content.
 Resolve the digest for a given tag:
 
 ```console
-docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.85.0 \
+docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.86.0 \
   --format '{{.Manifest.Digest}}'
 ```
 
@@ -227,7 +227,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | Key                             | Description                                               | Default                        |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------ |
 | `image.repository`              | Image name                                                | `ghcr.io/blinklabs-io/dingo`   |
-| `image.tag`                     | Image tag (used when `image.digest` is empty)             | `0.85.0`                       |
+| `image.tag`                     | Image tag (used when `image.digest` is empty)             | `0.86.0`                       |
 | `image.digest`                  | Immutable image digest (`sha256:...`); overrides tag      | `""`                           |
 | `automountServiceAccountToken`  | Mount the SA token into the pod                           | `false`                        |
 | `podSecurityContext`            | Pod-level security context                                | non-root, seccomp RuntimeDefault |
