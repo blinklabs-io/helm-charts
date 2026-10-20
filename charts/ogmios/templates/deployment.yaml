@@ -80,6 +80,7 @@ spec:
           value: "{{ .Values.cardano_node.port }}"
         image: alpine/socat
         name: socat-socket-server
+        resources: {{ .Values.socat.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /ipc
           name: node-ipc
