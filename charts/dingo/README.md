@@ -187,7 +187,7 @@ docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.86.0 \
 The [image release workflow](https://github.com/blinklabs-io/dingo/blob/main/.github/workflows/publish.yml)
 creates GitHub build provenance attestations for architecture-specific images.
 Resolve the digest for the architecture you will run (for example, the
-`0.83.0-amd64` or `0.83.0-arm64` tag) and verify it before pinning:
+`0.86.0-amd64` or `0.86.0-arm64` tag) and verify it before pinning:
 
 ```console
 gh attestation verify oci://ghcr.io/blinklabs-io/dingo@sha256:<digest> \
