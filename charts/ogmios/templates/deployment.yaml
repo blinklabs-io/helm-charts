@@ -78,8 +78,10 @@ spec:
           value: {{ .Values.cardano_node.host }}
         - name: CARDANO_NODE_SOCKET_TCP_PORT
           value: "{{ .Values.cardano_node.port }}"
-        image: alpine/socat
+        image: "{{ .Values.socat.image.repository }}@{{ .Values.socat.image.digest }}"
+        imagePullPolicy: {{ .Values.socat.image.pullPolicy }}
         name: socat-socket-server
+        resources: {{ .Values.socat.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /ipc
           name: node-ipc
@@ -90,8 +92,8 @@ spec:
         env:
         - name: OGMIOS_NETWORK
           value: {{ .Values.cardano_network }}
-        image: curlimages/curl
-        imagePullPolicy: IfNotPresent
+        image: "{{ .Values.configure.image.repository }}@{{ .Values.configure.image.digest }}"
+        imagePullPolicy: {{ .Values.configure.image.pullPolicy }}
         name: configure
         volumeMounts:
         - mountPath: /config
