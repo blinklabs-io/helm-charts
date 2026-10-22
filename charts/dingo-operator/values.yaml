@@ -1,0 +1,82 @@
+# Dingo operator values
+#
+# Install one release per cluster: the operator reconciles every DingoNode
+# cluster-wide, and the CRD and ClusterRoles are cluster-scoped.
+
+# Only one replica runs the controller at a time. More than one replica
+# requires leaderElection.enabled.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/blinklabs-io/dingo-operator
+  tag: main
+  # Immutable digest (sha256:...); overrides the tag in the image reference.
+  # The main tag moves, so the default pins the build of dingo-operator 0514d72
+  # that the bundled CRD was generated from.
+  digest: "sha256:529c72343dd90e04419013763482949c14498d62898de450724ce41930b39ecb"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+crds:
+  # Install the DingoNode CRD from templates/ so chart upgrades also upgrade it.
+  install: true
+  # Keep the CRD (and every DingoNode) when the release is uninstalled.
+  keep: true
+
+leaderElection:
+  enabled: false
+
+metrics:
+  # controller-runtime metrics endpoint, protected by authn/authz.
+  port: 8080
+  secure: true
+
+podMonitor:
+  # Scrape the operator's own metrics (requires the Prometheus Operator CRDs).
+  # With metrics.secure, a scraper ServiceAccount bound to the metrics-reader
+  # ClusterRole supplies the bearer token.
+  enabled: false
+  interval: ""
+  labels: {}
+
+healthProbe:
+  port: 8081
+
+# Extra controller arguments, e.g. ["--zap-log-level=debug"].
+extraArgs: []
+
+rbac:
+  # The operator reads each block producer's key Secret (get only, uncached).
+  # Empty grants access only in the release namespace. Set every namespace that
+  # holds block-producer DingoNodes to grant access there via namespaced Roles.
+  keySecretsNamespaces: []
+
+serviceAccount:
+  # Set create to false to use an existing ServiceAccount named by name.
+  create: true
+  # Defaults to the release fullname.
+  name: ""
+  annotations: {}
+
+# Labels on the operator pod. The NetworkPolicies the operator renders for
+# DingoNodes admit metrics scrapes and node-to-client queries only from pods
+# carrying these labels. When DingoNodes live in another namespace, that
+# namespace (the operator's) must carry the same labels.
+podLabels:
+  dingo.blinklabs.io/metrics: allowed
+  dingo.blinklabs.io/node-to-client: allowed
+
+podAnnotations: {}
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
