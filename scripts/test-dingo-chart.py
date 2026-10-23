@@ -221,7 +221,7 @@ class DingoChartTests(unittest.TestCase):
                 self.assertEqual(sorted(modes), ["kes.skey", "node.cert", "vrf.skey"])
 
     def test_bls_key_inline(self):
-        bls = {"name": "bls.skey", "type": "LeiosVoteSigningKey_BLS12_381", "description": "Leios BLS Vote Signing Key",
+        bls = {"name": "bls.skey", "type": "BlsSigningKey_bls12-381-BLS-Signature-Minimal-Signature-Size", "description": "Leios BLS Vote Signing Key",
                "cborHex": "5820" + "ab" * 32}
         fixture = "blockproducer-inline-keys-values.yaml"
         base_keys = yaml.safe_load((CHART / "ci" / fixture).read_text())["blockProducer"]["keys"]

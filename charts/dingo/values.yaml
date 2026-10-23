@@ -132,7 +132,7 @@ blockProducer:
 #    # stages it as /keys/bls.skey (0600) and sets
 #    # DINGO_LEIOS_VOTE_SIGNING_KEY_FILE. Omit it to disable Leios voting.
 #    - name: bls.skey
-#      type: LeiosVoteSigningKey_BLS12_381
+#      type: BlsSigningKey_bls12-381-BLS-Signature-Minimal-Signature-Size
 #      description: Leios BLS Vote Signing Key
 #      cborHex: ""
 

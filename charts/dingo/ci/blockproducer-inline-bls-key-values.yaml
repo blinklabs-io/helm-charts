@@ -17,6 +17,6 @@ blockProducer:
       description: VRF Signing Key
       cborHex: "5840ci0000000000000000000000000000000000000000000000000000000000000001"
     - name: bls.skey
-      type: LeiosVoteSigningKey_BLS12_381
+      type: BlsSigningKey_bls12-381-BLS-Signature-Minimal-Signature-Size
       description: Leios BLS Vote Signing Key
       cborHex: "5820ci00000000000000000000000000000000000000000000000000000000000002"
