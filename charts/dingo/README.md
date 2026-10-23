@@ -41,6 +41,28 @@ built-in Mithril client.
   (`automountServiceAccountToken: false`); dingo does not talk to the
   Kubernetes API.
 
+### Leios vote signing key
+
+A block producer can optionally load a Leios BLS12-381 vote signing key. It is
+off by default; without it the node still forges blocks but does not vote on
+Leios endorser blocks.
+
+- Inline keys: add an entry named `bls.skey` to `blockProducer.keys`, in the
+  same JSON key-file format as the other keys.
+- Existing Secret: set `blockProducer.blsKey` to the data key that holds the
+  file. It is projected only when set.
+
+When configured, the init container stages the key as `/keys/bls.skey` with
+mode `0600` and the chart sets `DINGO_LEIOS_VOTE_SIGNING_KEY_FILE=/keys/bls.skey`.
+Dingo rejects a key file readable by group or other users.
+
+### Listener ports
+
+The chart passes `service.ports.relay`, `service.ports.private` and
+`service.ports.metrics` to Dingo as `CARDANO_PORT`, `CARDANO_PRIVATE_PORT` and
+`CARDANO_METRICS_PORT`, so the listener matches the Service and `containerPort`.
+A value set under `environment` takes precedence and is not duplicated.
+
 ### Service exposure
 
 Service exposure is split into tiers so public relay traffic is separated from

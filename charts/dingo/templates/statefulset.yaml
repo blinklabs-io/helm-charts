@@ -63,7 +63,7 @@ spec:
           - |
             set -eu
             umask 077
-            for name in kes.skey vrf.skey node.cert; do
+            for name in kes.skey vrf.skey node.cert{{ if include "dingo.blockProducer.blsEnabled" . }} bls.skey{{ end }}; do
               cp "/var/run/dingo-keys-source/$name" "/keys/$name"
               chmod 0600 "/keys/$name"
             done
@@ -155,11 +155,19 @@ spec:
           {{- toYaml .Values.securityContext | nindent 10 }}
         env:
           {{- range $key, $value := .Values.environment }}
-          {{- if and (not (kindIs "invalid" $value)) (not (and $.Values.service.private.enabled (eq $key "CARDANO_PRIVATE_BIND_ADDR"))) }}
+          {{- if and (not (kindIs "invalid" $value)) (not (and $.Values.service.private.enabled (eq $key "CARDANO_PRIVATE_BIND_ADDR"))) (not (has $key (list "CARDANO_PORT" "CARDANO_PRIVATE_PORT" "CARDANO_METRICS_PORT"))) }}
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
           {{- end }}
+          {{- /* Dingo binds these listeners from its own env vars only, so the
+          Service and containerPort values must be passed through. */}}
+          - name: CARDANO_PORT
+            value: {{ .Values.environment.CARDANO_PORT | default .Values.service.ports.relay | quote }}
+          - name: CARDANO_PRIVATE_PORT
+            value: {{ .Values.environment.CARDANO_PRIVATE_PORT | default .Values.service.ports.private | quote }}
+          - name: CARDANO_METRICS_PORT
+            value: {{ .Values.environment.CARDANO_METRICS_PORT | default .Values.service.ports.metrics | quote }}
 {{- if .Values.service.private.enabled }}
           - name: CARDANO_PRIVATE_BIND_ADDR
             value: {{ .Values.environment.CARDANO_PRIVATE_BIND_ADDR | default "0.0.0.0" | quote }}
@@ -173,6 +181,10 @@ spec:
             value: "/keys/node.cert"
           - name: CARDANO_SHELLEY_VRF_KEY
             value: "/keys/vrf.skey"
+{{- if include "dingo.blockProducer.blsEnabled" . }}
+          - name: DINGO_LEIOS_VOTE_SIGNING_KEY_FILE
+            value: "/keys/bls.skey"
+{{- end }}
           - name: DINGO_FORGE_SYNC_TOLERANCE_SLOTS
             value: {{ .Values.blockProducer.forgeSyncToleranceSlots | quote }}
           - name: DINGO_FORGE_STALE_GAP_THRESHOLD_SLOTS
@@ -271,6 +283,10 @@ spec:
             path: node.cert
           - key: {{ .Values.blockProducer.vrfKey | quote }}
             path: vrf.skey
+{{- if .Values.blockProducer.blsKey }}
+          - key: {{ .Values.blockProducer.blsKey | quote }}
+            path: bls.skey
+{{- end }}
 {{- end }}
 {{- end }}
   volumeClaimTemplates:
