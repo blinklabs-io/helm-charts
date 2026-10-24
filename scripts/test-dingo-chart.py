@@ -189,6 +189,85 @@ class DingoChartTests(unittest.TestCase):
         rules = one(render({"networkPolicy": {"enabled": True}}), "NetworkPolicy")["spec"]["ingress"]
         self.assertEqual(rules, [{"ports": [{"protocol": "TCP", "port": 3001}]}])
 
+    def bls_render(self, values=None, fixture=None):
+        objects = render(values, fixture)
+        pod = one(objects, "StatefulSet")["spec"]["template"]["spec"]
+        init = next(c for c in pod["initContainers"] if c["name"] == "prepare-block-producer-keys")
+        env = {e["name"]: e.get("value") for e in pod["containers"][0]["env"]}
+        return objects, pod, init, env
+
+    def run_init(self, init, names):
+        with tempfile.TemporaryDirectory() as directory:
+            source, dest = Path(directory) / "source", Path(directory) / "keys"
+            source.mkdir()
+            dest.mkdir()
+            for name in names:
+                (source / name).write_text("synthetic key")
+                (source / name).chmod(0o640)
+            script = init["args"][0].replace("/var/run/dingo-keys-source", str(source)).replace("/keys/", str(dest) + "/")
+            subprocess.run(["/bin/sh", "-c", script], check=True)
+            return {f.name: (f.stat().st_mode & 0o777) for f in dest.iterdir()}
+
+    def test_bls_key_absent_by_default(self):
+        for fixture in ("blockproducer-inline-keys-values.yaml", "blockproducer-existing-secret-values.yaml"):
+            with self.subTest(fixture=fixture):
+                _, pod, init, env = self.bls_render(fixture=fixture)
+                self.assertNotIn("DINGO_LEIOS_VOTE_SIGNING_KEY_FILE", env)
+                self.assertNotIn("bls.skey", init["args"][0])
+                volumes = {v["name"]: v for v in pod["volumes"]}
+                items = volumes["block-producer-keys-source"]["secret"].get("items", [])
+                self.assertNotIn("bls.skey", [i["path"] for i in items])
+                modes = self.run_init(init, ("kes.skey", "vrf.skey", "node.cert"))
+                self.assertEqual(sorted(modes), ["kes.skey", "node.cert", "vrf.skey"])
+
+    def test_bls_key_inline(self):
+        bls = {"name": "bls.skey", "type": "BlsSigningKey_bls12-381-BLS-Signature-Minimal-Signature-Size", "description": "Leios BLS Vote Signing Key",
+               "cborHex": "5820" + "ab" * 32}
+        fixture = "blockproducer-inline-keys-values.yaml"
+        base_keys = yaml.safe_load((CHART / "ci" / fixture).read_text())["blockProducer"]["keys"]
+        objects, pod, init, env = self.bls_render({"blockProducer": {"enabled": True, "keys": base_keys + [bls]}})
+        self.assertEqual(env["DINGO_LEIOS_VOTE_SIGNING_KEY_FILE"], "/keys/bls.skey")
+        modes = self.run_init(init, ("kes.skey", "vrf.skey", "node.cert", "bls.skey"))
+        self.assertEqual(modes["bls.skey"], 0o600)
+        secret = next(o for o in objects if o["kind"] == "Secret")
+        self.assertIn("bls.skey", secret["data"])
+        sums = lambda o: one(o, "StatefulSet")["spec"]["template"]["metadata"]["annotations"]["checksum/keys"]
+        self.assertNotEqual(sums(objects), sums(render({"blockProducer": {"enabled": True, "keys": base_keys}})))
+
+    def test_bls_key_existing_secret(self):
+        fixture = "blockproducer-existing-secret-custom-keys-values.yaml"
+        _, pod, init, env = self.bls_render({"blockProducer": {"blsKey": "bls-skey"}}, fixture)
+        self.assertEqual(env["DINGO_LEIOS_VOTE_SIGNING_KEY_FILE"], "/keys/bls.skey")
+        volumes = {v["name"]: v for v in pod["volumes"]}
+        items = {i["path"]: i["key"] for i in volumes["block-producer-keys-source"]["secret"]["items"]}
+        self.assertEqual(items["bls.skey"], "bls-skey")
+        modes = self.run_init(init, ("kes.skey", "vrf.skey", "node.cert", "bls.skey"))
+        self.assertEqual(modes["bls.skey"], 0o600)
+
+    def test_bls_key_existing_secret_unset(self):
+        _, pod, init, env = self.bls_render(fixture="blockproducer-existing-secret-custom-keys-values.yaml")
+        self.assertNotIn("DINGO_LEIOS_VOTE_SIGNING_KEY_FILE", env)
+        volumes = {v["name"]: v for v in pod["volumes"]}
+        self.assertEqual([i["path"] for i in volumes["block-producer-keys-source"]["secret"]["items"]],
+                         ["kes.skey", "node.cert", "vrf.skey"])
+
+    def test_listener_ports_rendered_from_service_ports(self):
+        pod = one(render({"service": {"ports": {"relay": 3010, "private": 3011, "metrics": 12800}}}),
+                  "StatefulSet")["spec"]["template"]["spec"]
+        entries = pod["containers"][0]["env"]
+        for name, port in (("CARDANO_PORT", "3010"), ("CARDANO_PRIVATE_PORT", "3011"), ("CARDANO_METRICS_PORT", "12800")):
+            self.assertEqual([e["value"] for e in entries if e["name"] == name], [port])
+        ports = {p["name"]: p["containerPort"] for p in pod["containers"][0]["ports"]}
+        self.assertEqual((ports["relay"], ports["private"], ports["metrics"]), (3010, 3011, 12800))
+
+    def test_user_set_listener_ports_not_duplicated(self):
+        env = {"CARDANO_PORT": "4001", "CARDANO_PRIVATE_PORT": "4002", "CARDANO_METRICS_PORT": "14000"}
+        pod = one(render({"environment": env, "service": {"ports": {"relay": 3010}}}),
+                  "StatefulSet")["spec"]["template"]["spec"]
+        entries = pod["containers"][0]["env"]
+        for name, port in env.items():
+            self.assertEqual([e["value"] for e in entries if e["name"] == name], [port])
+
 
 if __name__ == "__main__":
     unittest.main()

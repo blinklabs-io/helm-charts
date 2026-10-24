@@ -114,3 +114,17 @@ Validate the block producer key source when block production is enabled.
 {{- $_ := required "blockProducer.keys must include vrf.skey" (get $keyNames "vrf.skey") -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Renders "true" when a Leios BLS vote signing key is configured, otherwise
+renders nothing so it can be used as a condition.
+*/}}
+{{- define "dingo.blockProducer.blsEnabled" -}}
+{{- if .Values.blockProducer.existingSecret -}}
+{{- .Values.blockProducer.blsKey | default "" -}}
+{{- else -}}
+{{- range .Values.blockProducer.keys -}}
+{{- if eq .name "bls.skey" -}}true{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

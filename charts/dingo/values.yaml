@@ -99,6 +99,12 @@ blockProducer:
   kesKey: kes.skey
   opCertKey: node.cert
   vrfKey: vrf.skey
+  # Optional data key in blockProducer.existingSecret that holds the Leios
+  # BLS12-381 vote signing key. Empty (default) disables Leios voting: the
+  # block producer still forges but does not vote on Leios endorser blocks.
+  # When set, the key is projected and staged as /keys/bls.skey with mode 0600
+  # and DINGO_LEIOS_VOTE_SIGNING_KEY_FILE is set to that path.
+  blsKey: ""
   # Extra annotations for the pod template. Keys are staged once per Pod;
   # a process or container restart does not reload an updated Secret. Replace
   # the Pod after rotation. With existingSecret, set an annotation that changes
@@ -121,6 +127,13 @@ blockProducer:
 #    - name: vrf.skey
 #      type: VrfSigningKey_PraosVRF
 #      description: VRF Signing Key
+#      cborHex: ""
+#    # Optional: Leios BLS vote signing key. Adding an entry named bls.skey
+#    # stages it as /keys/bls.skey (0600) and sets
+#    # DINGO_LEIOS_VOTE_SIGNING_KEY_FILE. Omit it to disable Leios voting.
+#    - name: bls.skey
+#      type: BlsSigningKey_bls12-381-BLS-Signature-Minimal-Signature-Size
+#      description: Leios BLS Vote Signing Key
 #      cborHex: ""
 
 # Custom P2P topology configuration
