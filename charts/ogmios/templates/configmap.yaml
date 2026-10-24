@@ -7,21 +7,23 @@ metadata:
   name: {{ include "ogmios.fullname" . }}-configmap
 data:
   initContainer-entrypoint: |
+    set -e
     rm -rf /config/lost+found
     __dir=/config/network/cardano-node
-    if [ ! -e ${__dir} ]
-    then
-      __url="https://raw.githubusercontent.com/blinklabs-io/docker-cardano-configs/c33a65799723ea96456a8bc696d8890d9ce894d7"
-      mkdir -p ${__dir}
-      case "${OGMIOS_NETWORK}" in
-        "mainnet"|"preview"|"preprod"|"sanchonet"|"dijkstra")
-          test -e ${__dir}/config.json || curl -sL ${__url}/config/${OGMIOS_NETWORK}/config.json > ${__dir}/config.json
-          for g in byron shelley alonzo conway; do
-            test -e ${__dir}/${g}-genesis.json || curl -sL ${__url}/config/${OGMIOS_NETWORK}/${g}-genesis.json > ${__dir}/${g}-genesis.json
-          done
-          if [ "${OGMIOS_NETWORK}" = "dijkstra" ]; then
-            test -e ${__dir}/dijkstra-genesis.json || curl --fail -sL ${__url}/config/dijkstra/dijkstra-genesis.json > ${__dir}/dijkstra-genesis.json
+    __url="https://raw.githubusercontent.com/blinklabs-io/docker-cardano-configs/c33a65799723ea96456a8bc696d8890d9ce894d7"
+    mkdir -p ${__dir}
+    case "${OGMIOS_NETWORK}" in
+      "mainnet"|"preview"|"preprod"|"sanchonet"|"dijkstra")
+        __files="config.json byron-genesis.json shelley-genesis.json alonzo-genesis.json conway-genesis.json"
+        if [ "${OGMIOS_NETWORK}" = "dijkstra" ]; then
+          __files="${__files} dijkstra-genesis.json"
+        fi
+        for f in ${__files}; do
+          if [ ! -s "${__dir}/${f}" ]; then
+            curl --fail -sL "${__url}/config/${OGMIOS_NETWORK}/${f}" > "${__dir}/${f}.tmp"
+            test -s "${__dir}/${f}.tmp"
+            mv "${__dir}/${f}.tmp" "${__dir}/${f}"
           fi
-        ;;
-      esac
-    fi
+        done
+      ;;
+    esac
