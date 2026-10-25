@@ -239,6 +239,11 @@ spec:
             mountPath: /tmp
           - name: ipc
             mountPath: /ipc
+{{- if .Values.apiTLS.existingSecret }}
+          - name: api-tls
+            mountPath: /tls
+            readOnly: true
+{{- end }}
 {{- if .Values.topology.enabled }}
           - name: topology
             mountPath: /config/topology.json
@@ -261,6 +266,17 @@ spec:
         emptyDir: {}
       - name: ipc
         emptyDir: {}
+{{- if .Values.apiTLS.existingSecret }}
+      - name: api-tls
+        secret:
+          secretName: {{ .Values.apiTLS.existingSecret | quote }}
+          defaultMode: 0440
+          items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+{{- end }}
 {{- if .Values.topology.enabled }}
       - name: topology
         configMap:
