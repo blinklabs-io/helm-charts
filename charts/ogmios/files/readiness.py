@@ -5,20 +5,39 @@ from datetime import datetime
 import math
 import re
 import sys
+import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 
 
-def fetch(url, timeout):
+def read_url(url, timeout):
+    if urlsplit(url).scheme not in ("http", "https"):
+        raise ValueError("health URLs must use HTTP or HTTPS")
     with urlopen(url, timeout=timeout) as response:
         body = response.read(MAX_RESPONSE_BYTES + 1)
     if len(body) > MAX_RESPONSE_BYTES:
         raise ValueError("health response exceeds size limit")
-    return body.decode("utf-8")
+    return body
+
+
+def fetch(url, timeout):
+    # A socket timeout resets as bytes arrive. A child deadline also bounds DNS,
+    # headers and slow bodies, and reaps the blocked reader before failover.
+    try:
+        result = subprocess.run(
+            [sys.executable, "-B", __file__, "--fetch", url, str(timeout)],
+            capture_output=True, timeout=timeout, check=True,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise TimeoutError("health request exceeded its total deadline") from error
+    except subprocess.CalledProcessError as error:
+        raise OSError("health request failed") from error
+    return result.stdout.decode("utf-8")
 
 
 def reference_slot(body):
@@ -141,4 +160,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 4 and sys.argv[1] == "--fetch":
+        try:
+            sys.stdout.buffer.write(read_url(sys.argv[2], float(sys.argv[3])))
+        except (OSError, ValueError):
+            sys.exit(1)
+    else:
+        main()

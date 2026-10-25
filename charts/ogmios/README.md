@@ -38,9 +38,9 @@ new Service selector is needed.
 | `availability.referenceTipURLs` | `[]` | At least one same-network relay metrics URL when enabled. |
 | `availability.maxSlotLag` | `60` | Maximum lag behind the newest reachable relay, inclusive; zero requires no lag. |
 | `availability.maxTipAgeSeconds` | `600` | Maximum age of the last tip update. |
-| `availability.requestTimeoutSeconds` | `2` | Timeout per health or reference request. |
+| `availability.requestTimeoutSeconds` | `2` | Total deadline per health or reference request, including headers and body. |
 | `availability.pollIntervalSeconds` | `5` | Pause between checks. |
-| `availability.maxCheckAgeSeconds` | `30` | Expiry of cached successful checks; must exceed the poll interval. |
+| `availability.maxCheckAgeSeconds` | `30` | Expiry of cached successful checks; must exceed `pollIntervalSeconds + requestTimeoutSeconds * (1 + number of referenceTipURLs)` to cover every sequential request. |
 | `availability.port` | `18081` | Sidecar probe listener; must differ from 1337. |
 | `availability.drainDelaySeconds` | `30` | Delay before terminating Ogmios and socat; zero disables it. Requires Kubernetes 1.30+. |
 | `availability.resources` | 10m CPU/32Mi requested, 64Mi memory limit | Sidecar resource budget. |

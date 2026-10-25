@@ -7,7 +7,7 @@ import tempfile
 import threading
 from urllib.request import urlopen
 from urllib.error import HTTPError
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import unittest
 from unittest.mock import patch
 
@@ -166,10 +166,96 @@ class HTTPTests(unittest.TestCase):
                     worker.join(5)
 
 
+class FetchDeadlineTests(unittest.TestCase):
+    def test_slow_headers_and_body_allow_reference_failover(self):
+        for slow_path in ("/slow-headers", "/slow-body"):
+            with self.subTest(path=slow_path):
+                stop = threading.Event()
+                started = threading.Event()
+                fallback = threading.Event()
+
+                class Handler(BaseHTTPRequestHandler):
+                    def do_GET(self):
+                        try:
+                            if self.path == "/metrics":
+                                fallback.set()
+                                self.send_response(200)
+                                self.end_headers()
+                                self.wfile.write(b"cardano_node_metrics_slotNum_int 1000\n")
+                            else:
+                                if self.path == "/slow-headers":
+                                    self.wfile.write(b"HTTP/1.1 200 OK\r\nX-Slow: ")
+                                else:
+                                    self.send_response(200)
+                                    self.end_headers()
+                                started.set()
+                                while not stop.is_set():
+                                    self.wfile.write(b"x")
+                                    self.wfile.flush()
+                                    stop.wait(0.02)
+                        except (BrokenPipeError, ConnectionResetError):
+                            pass
+
+                    def log_message(self, *_args):
+                        pass
+
+                server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                base = f"http://127.0.0.1:{server.server_port}"
+                config = dict(requestTimeoutSeconds=1, maxTipAgeSeconds=600,
+                              maxSlotLag=60, referenceTipURLs=[base + slow_path, base + "/metrics"])
+                errors = []
+                complete = threading.Event()
+
+                def fetch(url, timeout):
+                    if url.endswith("/health"):
+                        return json.dumps(dict(connectionStatus="connected", lastKnownTip={"slot": 1000},
+                                               lastTipUpdate="2026-10-25T19:00:00Z"))
+                    return readiness.fetch(url, timeout)
+
+                def check():
+                    try:
+                        readiness.check(config, fetch, lambda: 1792954860)
+                    except Exception as error:
+                        errors.append(error)
+                    finally:
+                        complete.set()
+
+                worker = threading.Thread(target=check, daemon=True)
+                worker.start()
+                try:
+                    self.assertTrue(started.wait(5), "slow response never started")
+                    self.assertTrue(complete.wait(5), "slow response prevented reference failover")
+                    self.assertFalse(errors, errors)
+                    self.assertTrue(fallback.is_set(), "healthy fallback was not queried")
+                finally:
+                    stop.set()
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(5)
+                    worker.join(5)
+
+    def test_fetch_restricts_schemes(self):
+        with self.assertRaises(OSError):
+            readiness.fetch("file:///etc/hosts", 2)
+
+
+class RolloutCommandTests(unittest.TestCase):
+    def test_external_command_timeout_is_reported(self):
+        spec = importlib.util.spec_from_file_location("rollout", ROOT / "scripts/test-ogmios-rollout.py")
+        rollout = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rollout)
+        with patch.object(rollout.subprocess, "run", side_effect=subprocess.TimeoutExpired("kubectl", 30)) as call:
+            with self.assertRaisesRegex(RuntimeError, "kubectl timed out after 30s"):
+                rollout.run(["kubectl", "get", "pods"])
+            self.assertEqual(call.call_args.kwargs["timeout"], 30)
+
+
 class ChartTests(unittest.TestCase):
     def render(self, *args, ok=True):
         result = subprocess.run(["helm", "template", "test", str(ROOT / "charts/ogmios"),
-                                 "--kube-version", "1.34.0", *args], text=True, capture_output=True)
+                                 "--kube-version", "1.34.0", *args], text=True, capture_output=True, timeout=30)
         self.assertEqual(result.returncode == 0, ok, result.stderr)
         return list(yaml.safe_load_all(result.stdout)) if ok else []
 
@@ -207,6 +293,18 @@ class ChartTests(unittest.TestCase):
         for value in ("availability.maxSlotLag=-1", "availability.port=1337",
                       "availability.maxCheckAgeSeconds=5", "availability.drainDelaySeconds=90"):
             self.enabled("--set", value, ok=False)
+
+    def test_cache_age_covers_every_sequential_request(self):
+        self.enabled("--set", "availability.maxCheckAgeSeconds=6", "--set", "availability.requestTimeoutSeconds=8", ok=False)
+        # One health request and two references each have an eight-second budget.
+        for age, ok in ((28, False), (29, False), (30, True)):
+            self.enabled("--set", "availability.requestTimeoutSeconds=8", "--set",
+                         "availability.referenceTipURLs[1]=http://relay-b/metrics", "--set",
+                         f"availability.maxCheckAgeSeconds={age}", ok=ok)
+        # Fractional timeouts must not be truncated by Helm's integer arithmetic.
+        for age, ok in ((6, False), (7, True)):
+            self.enabled("--set-json", "availability.requestTimeoutSeconds=0.75", "--set",
+                         f"availability.maxCheckAgeSeconds={age}", ok=ok)
 
     def test_recreate_and_zero_drain(self):
         dep = self.deployment(self.enabled("--set", "updateStrategy.type=Recreate",

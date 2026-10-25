@@ -22,8 +22,10 @@ availability:
   maxSlotLag: 60
   # Maximum age of the last Ogmios tip update; also checked against relay slot lag.
   maxTipAgeSeconds: 600
+  # Total per-request deadline, including name resolution, headers and body.
   requestTimeoutSeconds: 2
   pollIntervalSeconds: 5
+  # Must exceed pollIntervalSeconds + requestTimeoutSeconds * (1 + reference count).
   maxCheckAgeSeconds: 30
   port: 18081
   # Let EndpointSlice changes propagate and finite requests finish before SIGTERM.

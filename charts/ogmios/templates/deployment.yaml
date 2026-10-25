@@ -3,8 +3,9 @@
 {{- if empty .Values.availability.referenceTipURLs }}
 {{- fail "availability.referenceTipURLs requires at least one same-network reference relay metrics URL" }}
 {{- end }}
-{{- if le (int .Values.availability.maxCheckAgeSeconds) (int .Values.availability.pollIntervalSeconds) }}
-{{- fail "availability.maxCheckAgeSeconds must exceed pollIntervalSeconds" }}
+{{- $checkBudget := addf .Values.availability.pollIntervalSeconds (mulf .Values.availability.requestTimeoutSeconds (add 1 (len .Values.availability.referenceTipURLs))) }}
+{{- if le (float64 .Values.availability.maxCheckAgeSeconds) $checkBudget }}
+{{- fail "availability.maxCheckAgeSeconds must exceed pollIntervalSeconds + requestTimeoutSeconds * (1 + number of referenceTipURLs)" }}
 {{- end }}
 {{- if eq (int .Values.availability.port) 1337 }}
 {{- fail "availability.port must not conflict with the Ogmios listener" }}

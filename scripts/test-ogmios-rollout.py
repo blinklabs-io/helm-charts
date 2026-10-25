@@ -36,8 +36,11 @@ HTTPServer(("0.0.0.0", 1337), Handler).serve_forever()
 '''
 
 
-def run(command, **kwargs):
-    result = subprocess.run(command, text=True, capture_output=True, **kwargs)
+def run(command, *, timeout=30, **kwargs):
+    try:
+        result = subprocess.run(command, text=True, capture_output=True, timeout=timeout, **kwargs)
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(f"{command[0]} timed out after {timeout}s") from error
     if result.returncode:
         raise RuntimeError(f"{command[0]} failed: {result.stderr}\n{result.stdout}")
     return result.stdout
@@ -58,7 +61,7 @@ def main():
         config = Path(tmp) / "kubeconfig"
         env = dict(os.environ, KUBECONFIG=str(config))
         try:
-            run(["k3d", "cluster", "create", CLUSTER, "--image", "rancher/k3s:v1.31.5-k3s1", "--servers", "1", "--agents", "0", "--k3s-arg", "--disable=traefik@server:0", "--kubeconfig-update-default=false", "--wait"])
+            run(["k3d", "cluster", "create", CLUSTER, "--image", "rancher/k3s:v1.31.5-k3s1", "--servers", "1", "--agents", "0", "--k3s-arg", "--disable=traefik@server:0", "--kubeconfig-update-default=false", "--wait"], timeout=240)
             config.write_text(run(["k3d", "kubeconfig", "get", CLUSTER]))
             config.chmod(0o600)
 
@@ -85,7 +88,7 @@ def main():
                 kube("apply", "-f", "-", input=yaml.safe_dump_all(objects))
 
             apply(0)
-            kube("rollout", "status", "deployment/test-ogmios", "--timeout=180s")
+            kube("rollout", "status", "deployment/test-ogmios", "--timeout=180s", timeout=195)
             originals = wait(lambda: endpoints() if len(endpoints()) == 2 else None)
             target = originals[0]
             kube("exec", target, "-c", "ogmios", "--", "touch", "/tmp/stale")
@@ -115,10 +118,10 @@ def main():
             else:
                 raise TimeoutError("surge rollout did not complete")
             assert observed_warming, "no unready replacement observed"
-            kube("rollout", "status", "deployment/test-ogmios", "--timeout=60s")
+            kube("rollout", "status", "deployment/test-ogmios", "--timeout=60s", timeout=75)
             print("PASS: warming replacements withheld while ready replicas remained available", flush=True)
         finally:
-            run(["k3d", "cluster", "delete", CLUSTER])
+            run(["k3d", "cluster", "delete", CLUSTER], timeout=120)
 
 
 if __name__ == "__main__":
