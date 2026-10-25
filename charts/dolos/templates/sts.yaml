@@ -1,6 +1,11 @@
 {{- if .Values.availability.enabled }}
-{{- if le (int .Values.availability.maxCheckAgeSeconds) (int .Values.availability.pollIntervalSeconds) }}
-{{- fail "availability.maxCheckAgeSeconds must exceed pollIntervalSeconds" }}
+{{- $requestCount := add 2 (len .Values.availability.referenceTipURLs) }}
+{{- if and .Values.ports.minikupo .Values.service.ports.minikupo }}
+{{- $requestCount = add 1 $requestCount }}
+{{- end }}
+{{- $checkBudget := addf .Values.availability.pollIntervalSeconds (mulf .Values.availability.requestTimeoutSeconds $requestCount) }}
+{{- if le (float64 .Values.availability.maxCheckAgeSeconds) $checkBudget }}
+{{- fail "availability.maxCheckAgeSeconds must exceed pollIntervalSeconds plus requestTimeoutSeconds for every sequential API, reference relay and gRPC connection check" }}
 {{- end }}
 {{- $listenerPorts := list (int .Values.ports.grpc) (int .Values.ports.minibf) (int .Values.ports.minikupo) (int .Values.ports.ouroboros) }}
 {{- if has (int .Values.availability.port) $listenerPorts }}

@@ -58,3 +58,4 @@ jobs:
         run: |
           "${pythonLocation}/bin/python3" -m pip install -r scripts/requirements-dolos-tests.txt
           "${pythonLocation}/bin/python3" -B scripts/test-dolos-readiness.py
+          "${pythonLocation}/bin/python3" -B scripts/test-dolos-readiness-deadlines.py
