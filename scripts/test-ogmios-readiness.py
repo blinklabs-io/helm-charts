@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import pathlib
+import socket
 import subprocess
 import time
 import tempfile
@@ -145,7 +146,7 @@ class HTTPTests(unittest.TestCase):
             json.dump(config, source)
             source.flush()
             with patch.object(readiness.sys, "argv", ["readiness.py", source.name]), \
-                 patch.object(readiness, "ThreadingHTTPServer", side_effect=server_factory), \
+                 patch.object(readiness, "ProbeServer", side_effect=server_factory), \
                  patch.object(readiness, "check", side_effect=lambda config: original_check(config, self.fetch, lambda: self.now)):
                 worker = threading.Thread(target=readiness.main, daemon=True)
                 worker.start()
@@ -164,6 +165,51 @@ class HTTPTests(unittest.TestCase):
                     servers[0].shutdown()
                     servers[0].server_close()
                     worker.join(5)
+
+    def test_probe_connections_are_bounded_and_timed_out(self):
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+        class TestServer(readiness.ProbeServer):
+            max_connections = 2
+            request_timeout_seconds = 0.2
+
+        server = TestServer(("127.0.0.1", 0), Handler)
+        worker = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+        worker.start()
+        clients = []
+        try:
+            for _ in range(server.max_connections):
+                clients.append(socket.create_connection(server.server_address, timeout=1))
+            deadline = time.monotonic() + 1
+            while server._connection_slots.acquire(blocking=False):
+                server._connection_slots.release()
+                if time.monotonic() >= deadline:
+                    self.fail("probe connections did not reach the configured bound")
+                time.sleep(0.01)
+
+            rejected = socket.create_connection(server.server_address, timeout=1)
+            rejected.settimeout(1)
+            try:
+                self.assertEqual(rejected.recv(1), b"")
+            except ConnectionResetError:
+                pass
+            finally:
+                rejected.close()
+
+            for client in clients:
+                client.settimeout(1)
+                try:
+                    self.assertEqual(client.recv(1), b"")
+                except ConnectionResetError:
+                    pass
+        finally:
+            for client in clients:
+                client.close()
+            server.shutdown()
+            server.server_close()
+            worker.join(5)
 
 
 class FetchDeadlineTests(unittest.TestCase):

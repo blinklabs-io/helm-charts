@@ -15,6 +15,37 @@ from urllib.request import urlopen
 MAX_RESPONSE_BYTES = 1024 * 1024
 
 
+class ProbeServer(ThreadingHTTPServer):
+    daemon_threads = True
+    max_connections = 16
+    request_timeout_seconds = 2
+
+    def __init__(self, *args, **kwargs):
+        self._connection_slots = threading.BoundedSemaphore(self.max_connections)
+        super().__init__(*args, **kwargs)
+
+    def get_request(self):
+        request, address = super().get_request()
+        request.settimeout(self.request_timeout_seconds)
+        return request, address
+
+    def process_request(self, request, client_address):
+        if not self._connection_slots.acquire(blocking=False):
+            request.close()
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._connection_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._connection_slots.release()
+
+
 def read_url(url, timeout):
     if urlsplit(url).scheme not in ("http", "https"):
         raise ValueError("health URLs must use HTTP or HTTPS")
@@ -156,7 +187,7 @@ def main():
         def log_message(self, *_args):
             pass
 
-    ThreadingHTTPServer(("0.0.0.0", config["port"]), Handler).serve_forever()
+    ProbeServer(("0.0.0.0", config["port"]), Handler).serve_forever()
 
 
 if __name__ == "__main__":
