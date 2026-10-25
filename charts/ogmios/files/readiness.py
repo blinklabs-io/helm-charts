@@ -1,0 +1,144 @@
+"""Keep Ogmios out of Services until its node connection and chain tip are healthy."""
+
+import json
+from datetime import datetime
+import math
+import re
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.request import urlopen
+
+MAX_RESPONSE_BYTES = 1024 * 1024
+
+
+def fetch(url, timeout):
+    with urlopen(url, timeout=timeout) as response:
+        body = response.read(MAX_RESPONSE_BYTES + 1)
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise ValueError("health response exceeds size limit")
+    return body.decode("utf-8")
+
+
+def reference_slot(body):
+    slots = re.findall(
+        r"^cardano_node_metrics_slotNum_int(?:\{[^\n]*\})?\s+([0-9.eE+-]+)\s*$",
+        body,
+        re.MULTILINE,
+    )
+    if not slots:
+        raise ValueError("reference has no Cardano tip metric")
+    samples = [float(slot) for slot in slots]
+    if any(not math.isfinite(slot) or slot < 0 for slot in samples):
+        raise ValueError("reference has an invalid Cardano tip metric")
+    return int(max(samples))
+
+
+def check(config, fetcher=fetch, now=time.time):
+    timeout = config["requestTimeoutSeconds"]
+    health = json.loads(fetcher("http://127.0.0.1:1337/health", timeout))
+    if health.get("connectionStatus") != "connected":
+        raise ValueError("Ogmios is disconnected from its node")
+    tip = health.get("lastKnownTip")
+    slot = tip.get("slot") if isinstance(tip, dict) else None
+    if type(slot) is not int or slot < 0:
+        raise ValueError("Ogmios has no valid chain tip")
+    updated = health.get("lastTipUpdate")
+    if not isinstance(updated, str):
+        raise ValueError("Ogmios has no tip update timestamp")
+    timestamp = datetime.fromisoformat(updated.replace("Z", "+00:00"))
+    if timestamp.tzinfo is None:
+        raise ValueError("Ogmios tip update timestamp must include a timezone")
+    age = now() - timestamp.timestamp()
+    if age < -30 or age > config["maxTipAgeSeconds"]:
+        raise ValueError("Ogmios tip update is outside the freshness window")
+    references = []
+    for url in config["referenceTipURLs"]:
+        try:
+            references.append(reference_slot(fetcher(url, timeout)))
+        except (OSError, ValueError, OverflowError):
+            continue
+    if not references:
+        raise ValueError("no reference relay tip is available")
+    if max(references) - slot > config["maxSlotLag"]:
+        raise ValueError("Ogmios is behind the reference relay tip")
+
+
+class Monitor:
+    def __init__(self, config):
+        self.config = config
+        self.lock = threading.Lock()
+        self.ready = False
+        self.checked_at = None
+        self.started_at = time.monotonic()
+        self.worker = threading.Thread(target=self.poll, daemon=True)
+
+    def poll(self):
+        previous = None
+        while True:
+            reason = "ready"
+            try:
+                check(self.config)
+                ready = True
+            except Exception as error:
+                ready = False
+                reason = str(error) if isinstance(error, ValueError) else type(error).__name__
+            if (ready, reason) != previous:
+                print(json.dumps({"ready": ready, "reason": reason}), flush=True)
+                previous = (ready, reason)
+            with self.lock:
+                self.ready = ready
+                self.checked_at = time.monotonic()
+            time.sleep(self.config["pollIntervalSeconds"])
+
+    def is_ready(self):
+        with self.lock:
+            return (
+                self.ready
+                and self.checked_at is not None
+                and time.monotonic() - self.checked_at <= self.config["maxCheckAgeSeconds"]
+            )
+
+    def is_live(self):
+        with self.lock:
+            progress = self.checked_at if self.checked_at is not None else self.started_at
+            budget = 2 * max(
+                self.config["maxCheckAgeSeconds"],
+                self.config["pollIntervalSeconds"] + self.config["requestTimeoutSeconds"] * (len(self.config["referenceTipURLs"]) + 1),
+            )
+            return self.worker.is_alive() and time.monotonic() - progress <= budget
+
+
+def main():
+    with open(sys.argv[1], encoding="utf-8") as source:
+        config = json.load(source)
+    if not config["referenceTipURLs"]:
+        raise ValueError("at least one referenceTipURL is required")
+    monitor = Monitor(config)
+    monitor.worker.start()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/readyz":
+                healthy = monitor.is_ready()
+            elif self.path == "/healthz":
+                healthy = monitor.is_live()
+            else:
+                self.send_error(404)
+                return
+            body = b"ready\n" if healthy else b"unavailable\n"
+            self.send_response(200 if healthy else 503)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args):
+            pass
+
+    ThreadingHTTPServer(("0.0.0.0", config["port"]), Handler).serve_forever()
+
+
+if __name__ == "__main__":
+    main()
