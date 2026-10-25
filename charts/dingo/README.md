@@ -298,7 +298,9 @@ environment:
 ```
 
 The shared policy covers Blockfrost, Kupo, Mesh, and UTxORPC. Bark uses the
-legacy `TLS_CERT_FILE_PATH` and `TLS_KEY_FILE_PATH` environment settings.
+legacy `TLS_CERT_FILE_PATH` and `TLS_KEY_FILE_PATH` environment settings:
+Dingo passes those root paths to [Bark's server configuration](https://github.com/blinklabs-io/dingo/blob/799c9105733d7695f9bc277b193eb78d803cceec/node.go#L1521-L1526),
+and [Bark loads the keypair when TLS is enabled](https://github.com/blinklabs-io/dingo/blob/799c9105733d7695f9bc277b193eb78d803cceec/bark/bark.go#L605-L620).
 Certificate issuance and renewal belong to the Secret owner, such as
 cert-manager. Dingo loads certificates at startup: replace the pod after a
 renewal so the listeners present the renewed certificate. The mounted Secret
