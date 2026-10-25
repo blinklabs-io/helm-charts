@@ -278,3 +278,30 @@ externally exposed relay and compatibility Services exclude them.
 Enable `service.private.enabled` and configure `networkPolicy.privateIngressFrom`
 for authorized clients. Midnight indexing and serving require their separate
 Dingo enable flags; a Service port alone does not start a listener.
+
+### Native API TLS
+
+Set `apiTLS.existingSecret` to an existing TLS Secret in the release namespace.
+The chart projects only `tls.crt` and `tls.key` into the serving container at
+`/tls`, read-only with mode `0440`. The default pod fsGroup grants the non-root
+Dingo process access; the bootstrap container does not receive the Secret.
+
+Configure the native API TLS policy through environment values:
+
+```yaml
+apiTLS:
+  existingSecret: dingo-api-tls
+environment:
+  DINGO_API_TLS_MODE: server
+  DINGO_API_TLS_CERT_FILE_PATH: /tls/tls.crt
+  DINGO_API_TLS_KEY_FILE_PATH: /tls/tls.key
+```
+
+The shared policy covers Blockfrost, Kupo, Mesh, and UTxORPC. Bark uses the
+legacy `TLS_CERT_FILE_PATH` and `TLS_KEY_FILE_PATH` environment settings:
+Dingo passes those root paths to [Bark's server configuration](https://github.com/blinklabs-io/dingo/blob/799c9105733d7695f9bc277b193eb78d803cceec/node.go#L1521-L1526),
+and [Bark loads the keypair when TLS is enabled](https://github.com/blinklabs-io/dingo/blob/799c9105733d7695f9bc277b193eb78d803cceec/bark/bark.go#L605-L620).
+Certificate issuance and renewal belong to the Secret owner, such as
+cert-manager. Dingo loads certificates at startup: replace the pod after a
+renewal so the listeners present the renewed certificate. The mounted Secret
+uses directory projection rather than subPath so updates reach the filesystem.

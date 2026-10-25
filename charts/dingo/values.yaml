@@ -231,6 +231,12 @@ environment:
   # DINGO_BARK_SECURITY_WINDOW: "10000"
   # DINGO_BARK_PORT: "0"
 
+# Existing TLS Secret projected into the serving container at /tls. Configure
+# DINGO_API_TLS_MODE and certificate paths in environment for native API TLS.
+# Certificates are loaded at startup; restart the pod after Secret renewal.
+apiTLS:
+  existingSecret: ""
+
 resources: {}
   # limits:
   #   cpu: 2
