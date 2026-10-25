@@ -1,8 +1,8 @@
 apiVersion: v2
 name: dolos
 description: Dolos server
-version: 0.7.0
-appVersion: "1.6.1"
+version: 0.7.1
+appVersion: "1.6.2"
 
 sources:
   - https://github.com/txpipe/dolos
