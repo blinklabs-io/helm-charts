@@ -1,4 +1,22 @@
 ---
+{{- if .Values.availability.enabled }}
+{{- if empty .Values.availability.referenceTipURLs }}
+{{- fail "availability.referenceTipURLs requires at least one same-network reference relay metrics URL" }}
+{{- end }}
+{{- $checkBudget := addf .Values.availability.pollIntervalSeconds (mulf .Values.availability.requestTimeoutSeconds (add 1 (len .Values.availability.referenceTipURLs))) }}
+{{- if le (float64 .Values.availability.maxCheckAgeSeconds) $checkBudget }}
+{{- fail "availability.maxCheckAgeSeconds must exceed pollIntervalSeconds + requestTimeoutSeconds * (1 + number of referenceTipURLs)" }}
+{{- end }}
+{{- if eq (int .Values.availability.port) 1337 }}
+{{- fail "availability.port must not conflict with the Ogmios listener" }}
+{{- end }}
+{{- if ge (int .Values.availability.drainDelaySeconds) (int .Values.terminationGracePeriodSeconds) }}
+{{- fail "terminationGracePeriodSeconds must exceed availability.drainDelaySeconds" }}
+{{- end }}
+{{- if and (gt (int .Values.availability.drainDelaySeconds) 0) (not (semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version)) }}
+{{- fail "availability.drainDelaySeconds requires Kubernetes 1.30 or newer; set it to zero to omit native lifecycle sleep" }}
+{{- end }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,20 +24,35 @@ metadata:
   name: {{ include "ogmios.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.availability.enabled }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+  {{- end }}
   {{- if .Values.updateStrategy }}
   strategy:
     type: {{ .Values.updateStrategy.type }}
+    {{- if eq .Values.updateStrategy.type "RollingUpdate" }}
+    {{- with .Values.updateStrategy.rollingUpdate }}
+    rollingUpdate: {{ toYaml . | nindent 6 }}
+    {{- end }}
+    {{- end }}
   {{- end }}
   selector:
     matchLabels: {{ include "ogmios.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if .Values.availability.enabled }}
+      annotations:
+        checksum/availability: {{ include (print $.Template.BasePath "/readiness-configmap.yaml") . | sha256sum }}
+      {{- end }}
       labels:
 {{ include "ogmios.selectorLabels" . | indent 8 }}
 {{- with .Values.extraPodLabels }}
 {{ toYaml . | indent 8 }}
 {{- end }}
     spec:
+      {{- if .Values.availability.enabled }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- end }}
       containers:
       - command:
         - ogmios
@@ -52,6 +85,12 @@ spec:
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: ogmios
+        {{- if and .Values.availability.enabled (gt (int .Values.availability.drainDelaySeconds) 0) }}
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: {{ .Values.availability.drainDelaySeconds }}
+        {{- end }}
         ports:
         - name: http
           containerPort: 1337
@@ -81,10 +120,59 @@ spec:
         image: "{{ .Values.socat.image.repository }}@{{ .Values.socat.image.digest }}"
         imagePullPolicy: {{ .Values.socat.image.pullPolicy }}
         name: socat-socket-server
+        {{- if and .Values.availability.enabled (gt (int .Values.availability.drainDelaySeconds) 0) }}
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: {{ .Values.availability.drainDelaySeconds }}
+        {{- end }}
         resources: {{ .Values.socat.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /ipc
           name: node-ipc
+      {{- if .Values.availability.enabled }}
+      - name: availability
+        {{- if .Values.availability.image.digest }}
+        image: {{ printf "%s@%s" .Values.availability.image.repository .Values.availability.image.digest | quote }}
+        {{- else }}
+        image: {{ printf "%s:%s" .Values.availability.image.repository .Values.availability.image.tag | quote }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.availability.image.pullPolicy }}
+        command: ["python3", "-B", "/health/readiness.py", "/health/readiness.json"]
+        ports:
+          - name: availability
+            containerPort: {{ .Values.availability.port }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: availability
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 2
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: availability
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.availability.resources | nindent 10 }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+          - name: availability
+            mountPath: /health
+            readOnly: true
+      {{- end }}
       initContainers:
       - command:
         - sh
@@ -111,6 +199,11 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+      {{- if .Values.availability.enabled }}
+      - name: availability
+        configMap:
+          name: {{ include "ogmios.fullname" . | trunc 50 | trimSuffix "-" }}-availability
+      {{- end }}
       - emptyDir: {}
         name: node-ipc
       - emptyDir: {}

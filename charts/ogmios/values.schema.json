@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "minReadySeconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "availability": {
+      "type": "object",
+      "properties": {
+        "maxSlotLag": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxTipAgeSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pollIntervalSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxCheckAgeSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "drainDelaySeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "requestTimeoutSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "referenceTipURLs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https?://[^ ]+$"
+          }
+        }
+      }
+    },
+    "updateStrategy": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "RollingUpdate",
+            "Recreate"
+          ]
+        }
+      }
+    }
+  }
+}

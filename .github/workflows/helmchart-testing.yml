@@ -58,3 +58,9 @@ jobs:
         run: |
           "${pythonLocation}/bin/python3" -m pip install -r scripts/requirements-dolos-tests.txt
           "${pythonLocation}/bin/python3" -B scripts/test-dolos-readiness.py
+
+      - name: Test Ogmios readiness and rollout manifests
+        if: contains(steps.list-changed.outputs.changed_charts, 'charts/ogmios')
+        run: |
+          "${pythonLocation}/bin/python3" -m pip install -r scripts/requirements-dolos-tests.txt
+          "${pythonLocation}/bin/python3" -B scripts/test-ogmios-readiness.py
