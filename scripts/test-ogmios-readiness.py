@@ -286,6 +286,53 @@ class FetchDeadlineTests(unittest.TestCase):
         with self.assertRaises(OSError):
             readiness.fetch("file:///etc/hosts", 2)
 
+    def test_read_url_rejects_redirects(self):
+        reached = threading.Event()
+
+        class TargetHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                reached.set()
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        target = ThreadingHTTPServer(("127.0.0.1", 0), TargetHandler)
+
+        class RedirectHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header(
+                    "Location",
+                    f"http://127.0.0.1:{target.server_port}/internal",
+                )
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        redirect = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+        threads = [
+            threading.Thread(target=server.serve_forever, daemon=True)
+            for server in (target, redirect)
+        ]
+        for thread in threads:
+            thread.start()
+        try:
+            with self.assertRaises(HTTPError):
+                readiness.read_url(
+                    f"http://127.0.0.1:{redirect.server_port}/metrics",
+                    2,
+                )
+            self.assertFalse(reached.is_set())
+        finally:
+            for server in (redirect, target):
+                server.shutdown()
+                server.server_close()
+            for thread in threads:
+                thread.join(5)
+
 
 class RolloutCommandTests(unittest.TestCase):
     def test_external_command_timeout_is_reported(self):

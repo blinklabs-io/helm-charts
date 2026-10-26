@@ -10,9 +10,19 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
-from urllib.request import urlopen
+from urllib.request import HTTPRedirectHandler, build_opener
 
 MAX_RESPONSE_BYTES = 1024 * 1024
+
+
+class RejectRedirects(HTTPRedirectHandler):
+    def redirect_request(
+        self, _request, _file, _code, _message, _headers, _new_url
+    ):
+        return None
+
+
+HTTP_OPENER = build_opener(RejectRedirects)
 
 
 class ProbeServer(ThreadingHTTPServer):
@@ -49,7 +59,7 @@ class ProbeServer(ThreadingHTTPServer):
 def read_url(url, timeout):
     if urlsplit(url).scheme not in ("http", "https"):
         raise ValueError("health URLs must use HTTP or HTTPS")
-    with urlopen(url, timeout=timeout) as response:
+    with HTTP_OPENER.open(url, timeout=timeout) as response:
         body = response.read(MAX_RESPONSE_BYTES + 1)
     if len(body) > MAX_RESPONSE_BYTES:
         raise ValueError("health response exceeds size limit")
