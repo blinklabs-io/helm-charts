@@ -50,10 +50,26 @@ class ProbeServer(ThreadingHTTPServer):
             raise
 
     def process_request_thread(self, request, client_address):
+        # The socket timeout bounds each read, so a client trickling bytes
+        # could hold its slot indefinitely. Shut the socket down at a total
+        # deadline instead.
+        deadline = threading.Timer(
+            self.request_timeout_seconds, self.expire_request, (request,)
+        )
+        deadline.daemon = True
+        deadline.start()
         try:
             super().process_request_thread(request, client_address)
         finally:
+            deadline.cancel()
             self._connection_slots.release()
+
+    @staticmethod
+    def expire_request(request):
+        try:
+            request.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
 
 
 def read_url(url, timeout):
