@@ -1,0 +1,21 @@
+{{- if .Values.podMonitor.enabled }}
+{{- $metricsPortName := .Values.podMonitor.metricsPort }}
+{{- $metricsPort := required (printf "proxy.ports.%s is required when podMonitor is enabled" $metricsPortName) (get .Values.proxy.ports $metricsPortName) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    role: {{ .Values.proxy.role }}
+    app.kubernetes.io/component: metrics
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: {{ $metricsPort }}
+    protocol: TCP
+    targetPort: {{ $metricsPortName }}
+  selector:
+    role: {{ .Values.proxy.role }}
+{{- end }}
