@@ -109,9 +109,7 @@ proxyCertificate:
   issuerName: letsencrypt-dns01
 
 proxyService:
-  # The default LoadBalancer allocates a public endpoint when enabled.
-  # Existing releases that relied on the 0.0.8 default must set this to true before upgrading.
-  enabled: false
+  enabled: true
   name: demo-proxy
   labels: {}
   annotations: {}
