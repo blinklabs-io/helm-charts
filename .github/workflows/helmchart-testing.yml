@@ -17,7 +17,7 @@ jobs:
         with:
           version: v3.14.4
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           # Chart-testing doesn't support Python 3.14 due to breaking changes in ast module
           python-version: "3.13.x"
@@ -59,3 +59,9 @@ jobs:
           "${pythonLocation}/bin/python3" -m pip install -r scripts/requirements-dolos-tests.txt
           "${pythonLocation}/bin/python3" -B scripts/test-dolos-readiness.py
           "${pythonLocation}/bin/python3" -B scripts/test-dolos-readiness-deadlines.py
+
+      - name: Test Ogmios readiness and rollout manifests
+        if: contains(steps.list-changed.outputs.changed_charts, 'charts/ogmios')
+        run: |
+          "${pythonLocation}/bin/python3" -m pip install -r scripts/requirements-dolos-tests.txt
+          "${pythonLocation}/bin/python3" -B scripts/test-ogmios-readiness.py

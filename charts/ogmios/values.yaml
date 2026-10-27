@@ -1,6 +1,42 @@
 ---
 updateStrategy:
   type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# With availability enabled, a rollout retains ready replicas while a replacement catches up.
+minReadySeconds: 30
+terminationGracePeriodSeconds: 90
+
+# Opt-in because availability depends on reachable reference relay metrics.
+availability:
+  enabled: false
+  image:
+    repository: docker.io/library/python
+    tag: 3.13.16-alpine3.24
+    digest: sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+    pullPolicy: IfNotPresent
+  # At least one URL is required. Multiple relays allow reference failover.
+  referenceTipURLs: []
+  maxSlotLag: 60
+  # Maximum age of the last Ogmios tip update; also checked against relay slot lag.
+  maxTipAgeSeconds: 600
+  # Total per-request deadline, including name resolution, headers and body.
+  requestTimeoutSeconds: 2
+  pollIntervalSeconds: 5
+  # Must exceed pollIntervalSeconds + requestTimeoutSeconds * (1 + reference count).
+  maxCheckAgeSeconds: 30
+  port: 18081
+  # Let EndpointSlice changes propagate and finite requests finish before SIGTERM.
+  # Uses native lifecycle sleep (Kubernetes 1.30+); zero omits the hook.
+  drainDelaySeconds: 30
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
 
 cardano_network: preview
 cardano_node:
