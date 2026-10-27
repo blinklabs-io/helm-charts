@@ -166,18 +166,32 @@ class HTTPTests(unittest.TestCase):
                     servers[0].server_close()
                     worker.join(5)
 
-    def test_probe_connections_are_bounded_and_timed_out(self):
+    def start_probe_server(self, max_connections, request_timeout_seconds):
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_args):
                 pass
 
         class TestServer(readiness.ProbeServer):
-            max_connections = 2
-            request_timeout_seconds = 0.2
+            pass
 
+        TestServer.max_connections = max_connections
+        TestServer.request_timeout_seconds = request_timeout_seconds
         server = TestServer(("127.0.0.1", 0), Handler)
         worker = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         worker.start()
+
+        def stop():
+            server.shutdown()
+            server.server_close()
+            worker.join(5)
+
+        self.addCleanup(stop)
+        return server
+
+    def test_probe_connections_are_bounded(self):
+        # The server deadline outlasts the rejection wait, so an accepted idle
+        # connection cannot satisfy the assertion by timing out.
+        server = self.start_probe_server(2, 2)
         clients = []
         try:
             for _ in range(server.max_connections):
@@ -190,26 +204,51 @@ class HTTPTests(unittest.TestCase):
                 time.sleep(0.01)
 
             rejected = socket.create_connection(server.server_address, timeout=1)
-            rejected.settimeout(1)
+            rejected.settimeout(0.3)
             try:
                 self.assertEqual(rejected.recv(1), b"")
             except ConnectionResetError:
                 pass
+            except socket.timeout:
+                self.fail("over-limit probe connection was accepted")
             finally:
                 rejected.close()
-
-            for client in clients:
-                client.settimeout(1)
-                try:
-                    self.assertEqual(client.recv(1), b"")
-                except ConnectionResetError:
-                    pass
         finally:
             for client in clients:
                 client.close()
-            server.shutdown()
-            server.server_close()
-            worker.join(5)
+
+    def test_probe_connection_has_total_deadline(self):
+        server = self.start_probe_server(2, 0.5)
+        client = socket.create_connection(server.server_address, timeout=3)
+        stop = threading.Event()
+
+        # Each byte arrives well inside the per-read timeout.
+        def trickle():
+            try:
+                client.sendall(b"GET /readyz HTTP/1.1\r\nX-Slow: ")
+                while not stop.wait(0.1):
+                    client.sendall(b"x")
+            except OSError:
+                pass
+
+        sender = threading.Thread(target=trickle, daemon=True)
+        started = time.monotonic()
+        sender.start()
+        try:
+            try:
+                closed = client.recv(1) == b""
+            except ConnectionResetError:
+                closed = True
+            except socket.timeout:
+                closed = False
+            self.assertTrue(
+                closed and time.monotonic() - started < 2,
+                "trickling probe client held its connection past the total deadline",
+            )
+        finally:
+            stop.set()
+            sender.join(5)
+            client.close()
 
 
 class FetchDeadlineTests(unittest.TestCase):

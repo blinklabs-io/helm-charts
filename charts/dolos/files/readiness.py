@@ -5,20 +5,96 @@ import math
 import re
 import socket
 import sys
+import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.request import urlopen
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, build_opener
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 
 
-def fetch(url, timeout):
-    with urlopen(url, timeout=timeout) as response:
+class RejectRedirects(HTTPRedirectHandler):
+    def redirect_request(
+        self, _request, _file, _code, _message, _headers, _new_url
+    ):
+        return None
+
+
+HTTP_OPENER = build_opener(RejectRedirects)
+
+
+class ProbeServer(ThreadingHTTPServer):
+    daemon_threads = True
+    max_connections = 16
+    request_timeout_seconds = 2
+
+    def __init__(self, *args, **kwargs):
+        self._connection_slots = threading.BoundedSemaphore(self.max_connections)
+        super().__init__(*args, **kwargs)
+
+    def get_request(self):
+        request, address = super().get_request()
+        request.settimeout(self.request_timeout_seconds)
+        return request, address
+
+    def process_request(self, request, client_address):
+        if not self._connection_slots.acquire(blocking=False):
+            request.close()
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._connection_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        # The socket timeout bounds each read, so a client trickling bytes
+        # could hold its slot indefinitely. Shut the socket down at a total
+        # deadline instead.
+        deadline = threading.Timer(
+            self.request_timeout_seconds, self.expire_request, (request,)
+        )
+        deadline.daemon = True
+        deadline.start()
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            deadline.cancel()
+            self._connection_slots.release()
+
+    @staticmethod
+    def expire_request(request):
+        try:
+            request.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+
+
+def read_url(url, timeout):
+    if urlsplit(url).scheme not in ("http", "https"):
+        raise ValueError("health URLs must use HTTP or HTTPS")
+    with HTTP_OPENER.open(url, timeout=timeout) as response:
         body = response.read(MAX_RESPONSE_BYTES + 1)
     if len(body) > MAX_RESPONSE_BYTES:
         raise ValueError("health response exceeds size limit")
-    return body.decode("utf-8")
+    return body
+
+
+def fetch(url, timeout):
+    # A socket timeout resets as bytes arrive. A child deadline also bounds DNS,
+    # headers and slow bodies, and reaps the blocked reader before failover.
+    try:
+        result = subprocess.run(
+            [sys.executable, "-B", __file__, "--fetch", url, str(timeout)],
+            capture_output=True, timeout=timeout, check=True,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise TimeoutError("health request exceeded its total deadline") from error
+    except subprocess.CalledProcessError as error:
+        raise OSError("health request failed") from error
+    return result.stdout.decode("utf-8")
 
 
 def connect(port, timeout):
@@ -145,8 +221,14 @@ def main():
         def log_message(self, *_args):
             pass
 
-    ThreadingHTTPServer(("0.0.0.0", config["port"]), Handler).serve_forever()
+    ProbeServer(("0.0.0.0", config["port"]), Handler).serve_forever()
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 4 and sys.argv[1] == "--fetch":
+        try:
+            sys.stdout.buffer.write(read_url(sys.argv[2], float(sys.argv[3])))
+        except (OSError, ValueError):
+            sys.exit(1)
+    else:
+        main()

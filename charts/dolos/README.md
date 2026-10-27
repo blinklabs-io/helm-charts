@@ -89,9 +89,9 @@ rollback.
 | `availability.referenceTipURLs` | `[]` | Required reference relay metrics URLs when enabled. |
 | `availability.maxSlotLag` | `60` | Largest allowed slot gap to the reference or between API checkpoints. |
 | `availability.maxTipAgeSeconds` | `600` | Largest allowed latest-block age. |
-| `availability.requestTimeoutSeconds` | `2` | Timeout per upstream check. |
+| `availability.requestTimeoutSeconds` | `2` | Total deadline per HTTP request or TCP connection. |
 | `availability.pollIntervalSeconds` | `5` | Delay between check rounds. |
-| `availability.maxCheckAgeSeconds` | `30` | Maximum age of cached readiness. |
+| `availability.maxCheckAgeSeconds` | `30` | Must exceed the poll interval plus the timeout for every sequential check: reference relays, MiniBlockfrost, the gRPC connection, and MiniKupo when enabled. |
 | `availability.port` | `18081` | Pod-local readiness HTTP port; not exposed by the chart's Service. |
 | `availability.drainDelaySeconds` | `30` | Delay before Dolos receives SIGTERM. |
 | `minReadySeconds` | `0` | Continuous readiness required before the next ordinal update. |
@@ -110,3 +110,5 @@ to run an isolated rolling-upgrade simulation. It uses an API fixture rather tha
 bootstrapping Cardano: the replacement listens before it catches up, a request
 overlaps termination, client queries continue through a ClusterIP Service, and
 the test verifies endpoint exclusion, eviction refusal, and retained PVC IDs.
+
+HTTP request deadlines include name resolution, headers and body reads. Slow responses cannot prevent reference relay failover.
