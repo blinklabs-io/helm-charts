@@ -200,7 +200,7 @@ resolves to the exact image content.
 Resolve the digest for a given tag:
 
 ```console
-docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.88.1 \
+docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.89.0 \
   --format '{{.Manifest.Digest}}'
 ```
 
@@ -209,7 +209,7 @@ docker buildx imagetools inspect ghcr.io/blinklabs-io/dingo:0.88.1 \
 The [image release workflow](https://github.com/blinklabs-io/dingo/blob/main/.github/workflows/publish.yml)
 creates GitHub build provenance attestations for architecture-specific images.
 Resolve the digest for the architecture you will run (for example, the
-`0.88.1-amd64` or `0.88.1-arm64` tag) and verify it before pinning:
+`0.89.0-amd64` or `0.89.0-arm64` tag) and verify it before pinning:
 
 ```console
 gh attestation verify oci://ghcr.io/blinklabs-io/dingo@sha256:<digest> \
@@ -249,7 +249,7 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | Key                             | Description                                               | Default                        |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------ |
 | `image.repository`              | Image name                                                | `ghcr.io/blinklabs-io/dingo`   |
-| `image.tag`                     | Image tag (used when `image.digest` is empty)             | `0.88.1`                       |
+| `image.tag`                     | Image tag (used when `image.digest` is empty)             | `0.89.0`                       |
 | `image.digest`                  | Immutable image digest (`sha256:...`); overrides tag      | `""`                           |
 | `automountServiceAccountToken`  | Mount the SA token into the pod                           | `false`                        |
 | `podSecurityContext`            | Pod-level security context                                | non-root, seccomp RuntimeDefault |
