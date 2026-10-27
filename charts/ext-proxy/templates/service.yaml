@@ -10,5 +10,9 @@ metadata:
   {{- with .Values.proxyService.annotations }}
   annotations: {{ toYaml . | nindent 4 }}
   {{- end }}
-spec: {{ toYaml .Values.proxyService.spec | nindent 2 }}
+{{- $spec := deepCopy .Values.proxyService.spec }}
+{{- $selector := default (dict) (get $spec "selector") }}
+{{- $_ := set $selector "role" .Values.proxy.role }}
+{{- $_ := set $spec "selector" $selector }}
+spec: {{ toYaml $spec | nindent 2 }}
 {{- end }}
