@@ -982,6 +982,193 @@ spec:
                         x-kubernetes-list-type: atomic
                     type: object
                 type: object
+              apis:
+                description: APIs enables optional API listeners. Zero ports remain
+                  disabled.
+                properties:
+                  bark:
+                    description: Bark is the listener port; zero disables it.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  blockfrost:
+                    description: Blockfrost is the listener port; zero disables it.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  ingressFrom:
+                    description: |-
+                      IngressFrom grants access to enabled API ports using standard NetworkPolicy
+                      peers. When empty, only clients labelled dingo.blinklabs.io/api=allowed
+                      are admitted; cross-namespace clients must label their namespace too.
+                      This does not grant node-to-client, metrics, or relay access.
+                    items:
+                      description: |-
+                        NetworkPolicyPeer describes a peer to allow traffic to/from. Only certain combinations of
+                        fields are allowed
+                      properties:
+                        ipBlock:
+                          description: |-
+                            ipBlock defines policy on a particular IPBlock. If this field is set then
+                            neither of the other fields can be.
+                          properties:
+                            cidr:
+                              description: |-
+                                cidr is a string representing the IPBlock
+                                Valid examples are "192.168.1.0/24" or "2001:db8::/64"
+                              type: string
+                            except:
+                              description: |-
+                                except is a slice of CIDRs that should not be included within an IPBlock
+                                Valid examples are "192.168.1.0/24" or "2001:db8::/64"
+                                Except values will be rejected if they are outside the cidr range
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - cidr
+                          type: object
+                        namespaceSelector:
+                          description: |-
+                            namespaceSelector selects namespaces using cluster-scoped labels. This field follows
+                            standard label selector semantics; if present but empty, it selects all namespaces.
+
+                            If podSelector is also set, then the NetworkPolicyPeer as a whole selects
+                            the pods matching podSelector in the namespaces selected by namespaceSelector.
+                            Otherwise it selects all pods in the namespaces selected by namespaceSelector.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        podSelector:
+                          description: |-
+                            podSelector is a label selector which selects pods. This field follows standard label
+                            selector semantics; if present but empty, it selects all pods.
+
+                            If namespaceSelector is also set, then the NetworkPolicyPeer as a whole selects
+                            the pods matching podSelector in the Namespaces selected by NamespaceSelector.
+                            Otherwise it selects the pods matching podSelector in the policy's own namespace.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                    type: array
+                  kupo:
+                    description: Kupo is the listener port; zero disables it.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  mesh:
+                    description: Mesh is the listener port; zero disables it.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  midnight:
+                    description: Midnight is the listener port; zero disables it.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  utxorpc:
+                    description: UTxORPC is the listener port; zero disables it.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  utxorpcTLSSecretRef:
+                    description: |-
+                      UTxORPCTLSSecretRef mounts tls.crt and tls.key from a TLS Secret for UTxORPC.
+                      The Secret is mounted read-only and its contents never enter environment variables.
+                    maxLength: 253
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                type: object
               blockProducer:
                 description: BlockProducer is required when role is blockProducer.
                 properties:
@@ -1519,6 +1706,49 @@ spec:
                           PodSecurityContext, the value specified in SecurityContext takes precedence.
                         type: string
                     type: object
+                type: object
+              relayService:
+                description: RelayService publishes only P2P on the <name>-relay Service.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  externalTrafficPolicy:
+                    description: |-
+                      ServiceExternalTrafficPolicy describes how nodes distribute service traffic they
+                      receive on one of the Service's "externally-facing" addresses (NodePorts, ExternalIPs,
+                      and LoadBalancer IPs.
+                    enum:
+                    - Cluster
+                    - Local
+                    type: string
+                  hostPort:
+                    description: HostPort preserves peer source addresses when supported
+                      by the CNI. Zero disables it.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  loadBalancerSourceRanges:
+                    items:
+                      type: string
+                    type: array
+                  nodePort:
+                    description: NodePort is used only for NodePort or LoadBalancer
+                      Services; zero is allocated by Kubernetes.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  type:
+                    description: Service Type string describes ingress methods for
+                      a service
+                    enum:
+                    - ClusterIP
+                    - NodePort
+                    - LoadBalancer
+                    type: string
                 type: object
               replicas:
                 default: 1
