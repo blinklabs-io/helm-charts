@@ -51,6 +51,10 @@ rbac:
   # Empty grants access only in the release namespace. Set every namespace that
   # holds block-producer DingoNodes to grant access there via namespaced Roles.
   keySecretsNamespaces: []
+  # Also grant update on those Secrets. Required for rotation.mode Auto, where
+  # the operator writes the new kes.skey and opcert into the keys Secret.
+  # Leave false for MonitorOnly and Assisted, which only read it.
+  keySecretsUpdate: false
 
 serviceAccount:
   # Set create to false to use an existing ServiceAccount named by name.

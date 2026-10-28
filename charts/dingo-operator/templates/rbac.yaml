@@ -60,8 +60,9 @@ subjects:
     name: {{ $sa }}
     namespace: {{ .Release.Namespace }}
 ---
-# Block-producer key Secrets are read get-only through the uncached API reader;
-# the operator deliberately leaves this grant to the deployment.
+# Block-producer key Secrets are read through the uncached API reader, and
+# written only by Auto rotation; the operator deliberately leaves this grant to
+# the deployment.
 {{- range $keySecretsNamespaces }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -72,7 +73,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["get"]
+    verbs: {{ if $.Values.rbac.keySecretsUpdate }}["get", "update"]{{ else }}["get"]{{ end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
