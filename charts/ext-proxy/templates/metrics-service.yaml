@@ -18,4 +18,5 @@ spec:
     targetPort: {{ $metricsPortName }}
   selector:
     role: {{ .Values.proxy.role }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
