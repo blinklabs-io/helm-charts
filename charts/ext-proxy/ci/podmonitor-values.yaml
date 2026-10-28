@@ -1,0 +1,6 @@
+proxy:
+  ports:
+    metrics: 9187
+
+podMonitor:
+  enabled: true

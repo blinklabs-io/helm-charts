@@ -1,6 +1,6 @@
 # Proxy Configuration
 proxy:
-  role: &proxy_role demo-proxy
+  role: demo-proxy
   replicas: 1
   updateStrategy:
     type: RollingUpdate
@@ -54,7 +54,8 @@ init:
 podMonitor:
   enabled: false
   labels: {}
-  # Must match the key name used in proxy.ports for the metrics endpoint.
+  # Enabling the PodMonitor also creates a release-scoped ClusterIP Service
+  # for internal metrics access. This must match a key in proxy.ports.
   metricsPort: metrics
 
 # Extra config files to include in the ConfigMap alongside tiers.toml
@@ -119,8 +120,8 @@ proxyService:
       - name: proxy
         port: 443
         targetPort: 8080
-    selector:
-      role: *proxy_role
+    # The role selector is derived from proxy.role by the template.
+    selector: {}
 
 # Rely on external DNS to create the DNS records
 dnsEndpoint:

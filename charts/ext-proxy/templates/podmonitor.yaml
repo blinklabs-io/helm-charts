@@ -12,6 +12,7 @@ spec:
   selector:
     matchLabels:
       role: {{ .Values.proxy.role }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   podMetricsEndpoints:
   - port: {{ .Values.podMonitor.metricsPort }}
     path: /metrics
