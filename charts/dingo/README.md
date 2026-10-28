@@ -63,6 +63,10 @@ The chart passes `service.ports.relay`, `service.ports.private` and
 `CARDANO_METRICS_PORT`, so the listener matches the Service and `containerPort`.
 A value set under `environment` takes precedence and is not duplicated.
 
+`environment.DINGO_API_BIND_ADDR` defaults to `0.0.0.0` so ClusterIP Services
+can reach enabled API container ports (Blockfrost, Mesh, UTxO RPC) inside the
+pod; older Dingo versions that do not read `DINGO_API_BIND_ADDR` ignore it.
+
 ### Service exposure
 
 Service exposure is split into tiers so public relay traffic is separated from

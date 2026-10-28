@@ -268,6 +268,13 @@ class DingoChartTests(unittest.TestCase):
         for name, port in env.items():
             self.assertEqual([e["value"] for e in entries if e["name"] == name], [port])
 
+    def test_api_bind_addr_defaults_and_override(self):
+        default_entries = one(render(), "StatefulSet")["spec"]["template"]["spec"]["containers"][0]["env"]
+        self.assertEqual([e["value"] for e in default_entries if e["name"] == "DINGO_API_BIND_ADDR"], ["0.0.0.0"])
+        override_entries = one(render({"environment": {"DINGO_API_BIND_ADDR": "127.0.0.1"}}),
+                               "StatefulSet")["spec"]["template"]["spec"]["containers"][0]["env"]
+        self.assertEqual([e["value"] for e in override_entries if e["name"] == "DINGO_API_BIND_ADDR"], ["127.0.0.1"])
+
 
 if __name__ == "__main__":
     unittest.main()

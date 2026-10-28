@@ -168,6 +168,10 @@ environment:
   CARDANO_DATABASE_PATH: "/data"
   # Core node settings
   # CARDANO_BIND_ADDR: "0.0.0.0"
+  # Bind API listeners (Blockfrost, Mesh, UTxO RPC) on all pod interfaces so
+  # ClusterIP Services can reach the container ports. Set unconditionally;
+  # older Dingo versions without DINGO_API_BIND_ADDR ignore it.
+  DINGO_API_BIND_ADDR: "0.0.0.0"
   # CARDANO_CONFIG: ""
   # CARDANO_SOCKET_PATH: "dingo.socket"
   # CARDANO_PORT: "3001"
