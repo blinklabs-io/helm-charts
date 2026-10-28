@@ -1,0 +1,12 @@
+{{- if .Values.availability.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dingo.fullname" . }}-readiness
+  labels:
+    {{- include "dingo.labels" . | nindent 4 }}
+data:
+  readiness.sh: |
+{{ .Files.Get "files/readiness.sh" | indent 4 }}
+{{- end }}

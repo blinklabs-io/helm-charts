@@ -7,6 +7,9 @@ metadata:
     {{- include "dingo.labels" . | nindent 4 }}
 spec:
   clusterIP: None
+  {{- if .Values.availability.enabled }}
+  publishNotReadyAddresses: true
+  {{- end }}
   type: ClusterIP
   ports:
     - name: relay

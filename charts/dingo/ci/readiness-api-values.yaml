@@ -1,0 +1,16 @@
+availability:
+  enabled: true
+  drainDelaySeconds: 0
+minReadySeconds: 30
+environment:
+  DINGO_STORAGE_MODE: api
+  DINGO_API_TLS_MODE: server
+  DINGO_API_TLS_CERT_FILE_PATH: /tls/tls.crt
+  DINGO_API_TLS_KEY_FILE_PATH: /tls/tls.key
+  DINGO_BLOCKFROST_PORT: "3000"
+  DINGO_UTXORPC_PORT: "9090"
+apiTLS:
+  existingSecret: dingo-api-tls
+service:
+  private:
+    enabled: true

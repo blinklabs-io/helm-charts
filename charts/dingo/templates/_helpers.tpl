@@ -128,3 +128,62 @@ renders nothing so it can be used as a condition.
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "dingo.availabilityConfig" -}}
+{{- $healthPort := .Values.availability.healthPort -}}
+{{- if hasKey .Values.environment "DINGO_HEALTH_PORT" -}}
+{{- $healthPort = index .Values.environment "DINGO_HEALTH_PORT" -}}
+{{- end -}}
+{{- $lag := .Values.availability.maxSlotLag -}}
+{{- if hasKey .Values.environment "DINGO_HEALTH_READY_GAP_SLOTS" -}}
+{{- $lag = index .Values.environment "DINGO_HEALTH_READY_GAP_SLOTS" -}}
+{{- end -}}
+{{- if or (not (regexMatch "^[0-9]+$" (toString $healthPort))) (lt (int $healthPort) 1) (gt (int $healthPort) 65535) -}}
+{{- fail "availability requires a nonzero health port; check DINGO_HEALTH_PORT" -}}
+{{- end -}}
+{{- if or (not (regexMatch "^[0-9]+$" (toString $lag))) (lt (int $lag) 1) -}}
+{{- fail "availability requires a positive maxSlotLag; check DINGO_HEALTH_READY_GAP_SLOTS" -}}
+{{- end -}}
+{{- if le (int .Values.availability.terminationGracePeriodSeconds) (int .Values.availability.drainDelaySeconds) -}}
+{{- fail "availability.terminationGracePeriodSeconds must exceed drainDelaySeconds" -}}
+{{- end -}}
+{{- if and (gt (int .Values.availability.drainDelaySeconds) 0) (not (semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version)) -}}
+{{- fail "availability.drainDelaySeconds requires Kubernetes 1.30 or newer; set it to zero to omit native lifecycle sleep" -}}
+{{- end -}}
+{{- $ports := list -}}
+{{- $reserved := list -}}
+{{- range $name, $env := dict "relay" "CARDANO_PORT" "private" "CARDANO_PRIVATE_PORT" "metrics" "CARDANO_METRICS_PORT" -}}
+{{- $port := default (index $.Values.service.ports $name) (index $.Values.environment $env) -}}
+{{- if or (not (regexMatch "^[0-9]+$" (toString $port))) (gt (int $port) 65535) -}}
+{{- fail (printf "availability requires a valid %s listener port" $name) -}}
+{{- end -}}
+{{- $reserved = append $reserved (int $port) -}}
+{{- if and (gt (int $port) 0) (or (eq $name "relay") (and (eq $name "private") $.Values.service.private.enabled)) -}}
+{{- $ports = append $ports (int $port) -}}
+{{- end -}}
+{{- end -}}
+{{- $blockfrostPort := 0 -}}
+{{- if eq (lower (toString (get .Values.environment "DINGO_STORAGE_MODE"))) "api" -}}
+{{- $listeners := dict "utxorpc" "DINGO_UTXORPC_PORT" "blockfrost" "DINGO_BLOCKFROST_PORT" "mesh" "DINGO_MESH_PORT" "kupo" "DINGO_PLUGINS_API_KUPO_CONFIG_PORT" "bark" "DINGO_BARK_PORT" "midnight" "DINGO_MIDNIGHT_PORT" -}}
+{{- range $name, $env := $listeners -}}
+{{- $port := default "0" (default (index $.Values.service.ports $name) (index $.Values.environment $env)) -}}
+{{- if or (not (regexMatch "^[0-9]+$" (toString $port))) (gt (int $port) 65535) -}}
+{{- fail (printf "availability requires a valid %s listener port" $name) -}}
+{{- end -}}
+{{- if gt (int $port) 0 -}}
+{{- $ports = append $ports (int $port) -}}
+{{- if eq $name "blockfrost" -}}{{- $blockfrostPort = int $port -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $scheme := .Values.availability.blockfrostScheme -}}
+{{- if eq $scheme "auto" -}}
+{{- $scheme = ternary "https" "http" (eq (get .Values.environment "DINGO_API_TLS_MODE") "server") -}}
+{{- end -}}
+{{- $ports = uniq $ports -}}
+{{- if has (int $healthPort) (concat $reserved $ports) -}}
+{{- fail "availability healthPort must not conflict with a node, metrics or API listener" -}}
+{{- end -}}
+{{- $budget := add 2 (mul (int .Values.availability.requestTimeoutSeconds) (add 1 (len $ports) (ternary 1 0 (gt $blockfrostPort 0)))) -}}
+{{- dict "healthPort" (int $healthPort) "maxSlotLag" (int $lag) "listenerPorts" $ports "blockfrostPort" $blockfrostPort "blockfrostScheme" $scheme "timeoutSeconds" $budget | toJson -}}
+{{- end -}}
