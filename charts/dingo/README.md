@@ -92,7 +92,7 @@ Midnight is checked only when
 minReadySeconds: 30
 availability:
   enabled: true
-  maxSlotLag: 300
+  maxSlotLag: 1000
 ```
 
 This requires a Dingo image with native `/readyz`, GNU `wget`, `bash` and
@@ -105,7 +105,10 @@ using those addresses directly must check readiness themselves.
 
 `DINGO_HEALTH_PORT` and `DINGO_HEALTH_READY_GAP_SLOTS` in `environment` override
 `availability.healthPort` and `availability.maxSlotLag`. A zero health port or
-slot tolerance is rejected when availability is enabled. API port overrides
+slot tolerance is rejected when availability is enabled. The gap is measured
+against wall-clock slots, and the default preserves Dingo's native 1,000-slot
+staleness tolerance so quiet networks do not cause unnecessary evictions.
+API port overrides
 follow the same environment precedence as the Services; string `"0"` disables
 a listener check. Auto selects HTTPS when `DINGO_API_TLS_MODE` is `server`
 and HTTP otherwise.

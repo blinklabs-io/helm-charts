@@ -6,7 +6,8 @@ minReadySeconds: 0
 availability:
   enabled: false
   healthPort: 12799
-  maxSlotLag: 300
+  # Wall-clock slots; preserve the native readiness/forging staleness bound.
+  maxSlotLag: 1000
   requestTimeoutSeconds: 2
   periodSeconds: 30
   failureThreshold: 2
