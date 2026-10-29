@@ -60,9 +60,14 @@ subjects:
     name: {{ $sa }}
     namespace: {{ .Release.Namespace }}
 ---
+{{- if .Values.rbac.keySecretsUpdate }}
+{{- if not .Values.rbac.keySecretNames }}
+{{- fail "rbac.keySecretsUpdate requires rbac.keySecretNames: an update rule without resourceNames would cover every Secret in the namespace" }}
+{{- end }}
+{{- end }}
 # Block-producer key Secrets are read through the uncached API reader, and
 # written only by Auto rotation; the operator deliberately leaves this grant to
-# the deployment.
+# the deployment. Update is limited to rbac.keySecretNames by resourceNames.
 {{- range $keySecretsNamespaces }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -73,7 +78,13 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: {{ if $.Values.rbac.keySecretsUpdate }}["get", "update"]{{ else }}["get"]{{ end }}
+    verbs: ["get"]
+{{- if $.Values.rbac.keySecretsUpdate }}
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: {{ $.Values.rbac.keySecretNames | toJson }}
+    verbs: ["update"]
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
