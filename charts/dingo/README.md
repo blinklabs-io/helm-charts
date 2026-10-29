@@ -63,6 +63,19 @@ The chart passes `service.ports.relay`, `service.ports.private` and
 `CARDANO_METRICS_PORT`, so the listener matches the Service and `containerPort`.
 A value set under `environment` takes precedence and is not duplicated.
 
+`environment.CARDANO_BIND_ADDR` defaults to `0.0.0.0`. Dingo uses this shared
+address for the relay and public API listeners (Blockfrost, Mesh, UTxO RPC).
+An explicit override is passed through; setting it to `127.0.0.1` also prevents
+Services from reaching the relay. Dingo does not support `DINGO_API_BIND_ADDR`.
+
+Non-zero API ports exposed by this chart (under `environment` or
+`service.ports`) require
+`service.private.enabled: true`; otherwise rendering fails. The private opt-in
+always renders a NetworkPolicy, including when `networkPolicy.enabled` is false.
+Configure `networkPolicy.privateIngressFrom` for authorized clients and use a CNI
+that enforces NetworkPolicy. Empty private peers deny API ingress, including
+traffic through the compatibility Service or directly to the Pod IP.
+
 ### Service exposure
 
 Service exposure is split into tiers so public relay traffic is separated from
@@ -270,10 +283,10 @@ Kupo, Bark, and Midnight ports default to zero. Set `service.ports.kupo`,
 `service.ports.bark`, and `service.ports.midnight` alongside the corresponding
 Dingo listener configuration. Non-zero `DINGO_PLUGINS_API_KUPO_CONFIG_PORT`,
 `DINGO_BARK_PORT`, and `DINGO_MIDNIGHT_PORT` environment values override those
-ports. Both private and ClusterIP compatibility Services require
-`service.private.enabled` before exposing these endpoints. The private Service
-and its NetworkPolicy include these endpoints;
-externally exposed relay and compatibility Services exclude them.
+ports. Configuring any of these ports requires `service.private.enabled`;
+rendering fails without this access gate. The private Service and its
+NetworkPolicy include these endpoints; externally exposed relay and
+compatibility Services exclude them.
 
 Enable `service.private.enabled` and configure `networkPolicy.privateIngressFrom`
 for authorized clients. Midnight indexing and serving require their separate

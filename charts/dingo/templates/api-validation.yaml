@@ -1,0 +1,10 @@
+{{- if not (kindIs "invalid" .Values.environment.DINGO_API_BIND_ADDR) }}
+{{- fail "DINGO_API_BIND_ADDR is unsupported by Dingo; use environment.CARDANO_BIND_ADDR (shared by the relay and public APIs)" }}
+{{- end }}
+{{- $apiPorts := dict "utxorpc" "DINGO_UTXORPC_PORT" "blockfrost" "DINGO_BLOCKFROST_PORT" "mesh" "DINGO_MESH_PORT" "kupo" "DINGO_PLUGINS_API_KUPO_CONFIG_PORT" "bark" "DINGO_BARK_PORT" "midnight" "DINGO_MIDNIGHT_PORT" }}
+{{- range $name, $env := $apiPorts }}
+{{- $port := int (default "0" (default (index $.Values.service.ports $name) (index $.Values.environment $env))) }}
+{{- if and (gt $port 0) (not $.Values.service.private.enabled) }}
+{{- fail (printf "API port %s requires service.private.enabled=true and its NetworkPolicy; configure networkPolicy.privateIngressFrom for authorized clients" $name) }}
+{{- end }}
+{{- end }}

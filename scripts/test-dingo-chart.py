@@ -112,7 +112,8 @@ class DingoChartTests(unittest.TestCase):
     def test_legacy_external_service_is_relay_only(self):
         for service_type in ("LoadBalancer", "NodePort"):
             with self.subTest(service_type=service_type):
-                objects = render({"service": {"type": service_type, "annotations": {"legacy": "kept"}},
+                objects = render({"service": {"type": service_type, "annotations": {"legacy": "kept"},
+                                              "private": {"enabled": True}},
                                   "environment": {"DINGO_UTXORPC_PORT": "9090"}})
                 compat = next(o for o in objects if o["kind"] == "Service" and o["metadata"]["name"] == "review-dingo")
                 self.assertEqual(compat["spec"]["type"], service_type)
@@ -121,7 +122,8 @@ class DingoChartTests(unittest.TestCase):
                                  "external compatibility Service must not publish private endpoints")
 
     def test_internal_compatibility_keeps_ports(self):
-        objects = render({"environment": {"DINGO_UTXORPC_PORT": "9090"}})
+        objects = render({"environment": {"DINGO_UTXORPC_PORT": "9090"},
+                          "service": {"private": {"enabled": True}}})
         compat = next(o for o in objects if o["kind"] == "Service" and o["metadata"]["name"] == "review-dingo")
         self.assertEqual([p["name"] for p in compat["spec"]["ports"]], ["relay", "private", "metrics", "utxorpc"])
 
@@ -177,6 +179,7 @@ class DingoChartTests(unittest.TestCase):
         objects = render({"environment": {"CARDANO_PORT": "4001", "CARDANO_PRIVATE_PORT": "4002",
                                           "CARDANO_METRICS_PORT": "14000", "DINGO_UTXORPC_PORT": "9090",
                                           "DINGO_BLOCKFROST_PORT": "3000", "DINGO_MESH_PORT": "8080"},
+                          "service": {"private": {"enabled": True}},
                           "networkPolicy": {"enabled": True, "relayIngressFrom": peers,
                                             "privateIngressFrom": peers, "metricsIngressFrom": peers}})
         rules = one(objects, "NetworkPolicy")["spec"]["ingress"]
@@ -267,6 +270,13 @@ class DingoChartTests(unittest.TestCase):
         entries = pod["containers"][0]["env"]
         for name, port in env.items():
             self.assertEqual([e["value"] for e in entries if e["name"] == name], [port])
+
+    def test_api_bind_addr_defaults_and_override(self):
+        default_entries = one(render(), "StatefulSet")["spec"]["template"]["spec"]["containers"][0]["env"]
+        self.assertEqual([e["value"] for e in default_entries if e["name"] == "CARDANO_BIND_ADDR"], ["0.0.0.0"])
+        override_entries = one(render({"environment": {"CARDANO_BIND_ADDR": "127.0.0.1"}}),
+                               "StatefulSet")["spec"]["template"]["spec"]["containers"][0]["env"]
+        self.assertEqual([e["value"] for e in override_entries if e["name"] == "CARDANO_BIND_ADDR"], ["127.0.0.1"])
 
 
 if __name__ == "__main__":
