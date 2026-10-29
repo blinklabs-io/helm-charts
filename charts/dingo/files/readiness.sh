@@ -19,5 +19,5 @@ if [ "$blockfrost_port" -gt 0 ]; then
   # The loopback connection uses the pod's certificate, whose SAN is its public hostname.
   timeout "$request_timeout" wget --no-proxy --quiet --tries=1 --timeout="$request_timeout" --no-check-certificate \
     --output-document=/dev/null \
-    "$blockfrost_scheme://127.0.0.1:$blockfrost_port/blocks/latest"
+    "$blockfrost_scheme://127.0.0.1:$blockfrost_port/api/v0/blocks/latest"
 fi

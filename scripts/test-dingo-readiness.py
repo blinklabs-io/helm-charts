@@ -39,7 +39,7 @@ def command(objects):
 
 @contextmanager
 def endpoint(tls=False):
-    state = {"/readyz": 200, "/blocks/latest": 200, "delay": 0}
+    state = {"/readyz": 200, "/api/v0/blocks/latest": 200, "delay": 0}
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -126,6 +126,17 @@ class RenderTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in env if x["name"] == "DINGO_HEALTH_READY_GAP_SLOTS"], ["60"])
         self.assertEqual(pod_spec(objects)["containers"][0]["readinessProbe"]["timeoutSeconds"], 14)
 
+    def test_midnight_server_switch_controls_listener_check(self):
+        values = {"availability": {"enabled": True}, "environment": {"DINGO_STORAGE_MODE": "api", "DINGO_MIDNIGHT_PORT": "50051", "DINGO_MIDNIGHT_ENABLED": "false"}}
+        for setting in (None, "false", False, "0", "f", "FALSE"):
+            with self.subTest(setting=setting):
+                if setting is not None:
+                    values["environment"]["DINGO_MIDNIGHT_SERVER_ENABLED"] = setting
+                self.assertNotIn("50051", command(render(values))[6:])
+        for setting in ("true", True, "1", "t", "TRUE"):
+            values["environment"]["DINGO_MIDNIGHT_SERVER_ENABLED"] = setting
+            self.assertIn("50051", command(render(values))[6:])
+
     def test_explicit_tls_policy_and_scheme_override(self):
         base = {"availability": {"enabled": True}, "environment": {"DINGO_STORAGE_MODE": "api", "DINGO_API_TLS_MODE": "server", "DINGO_BLOCKFROST_PORT": "3000"}}
         self.assertEqual(command(render(base))[5], "https")
@@ -186,9 +197,9 @@ class RuntimeTests(unittest.TestCase):
     def test_open_api_with_failed_query_is_not_ready(self):
         with endpoint() as (health, _), endpoint() as (relay, _), endpoint() as (api, state):
             objects = render(self.values(health, relay, api))
-            state["/blocks/latest"] = 503
+            state["/api/v0/blocks/latest"] = 503
             self.assertNotEqual(execute(objects), 0)
-            state["/blocks/latest"] = 200
+            state["/api/v0/blocks/latest"] = 200
             self.assertEqual(execute(objects), 0)
 
     def test_https_query_with_public_hostname_certificate(self):

@@ -170,7 +170,8 @@ renders nothing so it can be used as a condition.
 {{- if or (not (regexMatch "^[0-9]+$" (toString $port))) (gt (int $port) 65535) -}}
 {{- fail (printf "availability requires a valid %s listener port" $name) -}}
 {{- end -}}
-{{- if gt (int $port) 0 -}}
+{{- $enabled := or (ne $name "midnight") (has (lower (toString (get $.Values.environment "DINGO_MIDNIGHT_SERVER_ENABLED"))) (list "true" "t" "1")) -}}
+{{- if and $enabled (gt (int $port) 0) -}}
 {{- $ports = append $ports (int $port) -}}
 {{- if eq $name "blockfrost" -}}{{- $blockfrostPort = int $port -}}{{- end -}}
 {{- end -}}

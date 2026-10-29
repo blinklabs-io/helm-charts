@@ -9,6 +9,8 @@ environment:
   DINGO_API_TLS_KEY_FILE_PATH: /tls/tls.key
   DINGO_BLOCKFROST_PORT: "3000"
   DINGO_UTXORPC_PORT: "9090"
+  DINGO_MIDNIGHT_SERVER_ENABLED: "false"
+  DINGO_MIDNIGHT_PORT: "50051"
 apiTLS:
   existingSecret: dingo-api-tls
 service:

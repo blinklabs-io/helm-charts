@@ -71,7 +71,8 @@ which checks the wall-clock slot gap, database availability, snapshot restore
 and producer readiness. It also connects to the relay listener and, when the
 private Service is enabled, the node-to-client TCP listener. In API storage
 mode it checks all configured API TCP listeners and requires a successful
-Blockfrost `/blocks/latest` query when Blockfrost is enabled.
+Blockfrost `/api/v0/blocks/latest` query when Blockfrost is enabled. Midnight is checked only when
+`DINGO_MIDNIGHT_SERVER_ENABLED` is true, matching its separate server switch.
 
 ```yaml
 minReadySeconds: 30
@@ -94,8 +95,8 @@ slot tolerance is rejected when availability is enabled. API port overrides
 follow the same environment precedence as the Services; string `"0"` disables
 a listener check. Auto selects HTTPS when `DINGO_API_TLS_MODE` is `server` and HTTP otherwise.
 Set `availability.blockfrostScheme` to `http` or `https` when YAML or a provider
-override configures Blockfrost TLS independently. The loopback HTTPS query skips hostname
-verification because the certificate identifies the public API hostname.
+override configures Blockfrost TLS independently. The loopback HTTPS query skips certificate
+validation because the certificate identifies the public API hostname.
 
 The probe has a total deadline for each query and connection. By default it
 runs every 30 seconds, requires two successes to become Ready, and two failures
