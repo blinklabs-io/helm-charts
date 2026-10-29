@@ -182,7 +182,9 @@ environment:
   CARDANO_NETWORK: "preview"
   CARDANO_DATABASE_PATH: "/data"
   # Core node settings
-  # CARDANO_BIND_ADDR: "0.0.0.0"
+  # Shared by the relay and public APIs (Blockfrost, Mesh, UTxO RPC).
+  # A loopback override also makes the relay unreachable through Services.
+  CARDANO_BIND_ADDR: "0.0.0.0"
   # CARDANO_CONFIG: ""
   # CARDANO_SOCKET_PATH: "dingo.socket"
   # CARDANO_PORT: "3001"
@@ -286,7 +288,8 @@ service:
     metrics: 12798
     # API ports - rendered when the matching DINGO_*_PORT environment variable
     # (or the fallback port below) is non-zero. These are private, served by the
-    # private Service, never by the public relay Service.
+    # private Service, never by the public relay Service. Non-zero ports require
+    # service.private.enabled, which always renders the ingress policy.
     utxorpc: 0
     blockfrost: 0
     mesh: 0

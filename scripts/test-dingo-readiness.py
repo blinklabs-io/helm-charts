@@ -127,7 +127,7 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(pod_spec(objects)["containers"][0]["readinessProbe"]["timeoutSeconds"], 14)
 
     def test_midnight_server_switch_controls_listener_check(self):
-        values = {"availability": {"enabled": True}, "environment": {"DINGO_STORAGE_MODE": "api", "DINGO_MIDNIGHT_PORT": "50051", "DINGO_MIDNIGHT_ENABLED": "false"}}
+        values = {"availability": {"enabled": True}, "service": {"private": {"enabled": True}}, "environment": {"DINGO_STORAGE_MODE": "api", "DINGO_MIDNIGHT_PORT": "50051", "DINGO_MIDNIGHT_ENABLED": "false"}}
         for setting in (None, "false", False, "0", "f", "FALSE"):
             with self.subTest(setting=setting):
                 if setting is not None:
@@ -138,7 +138,7 @@ class RenderTests(unittest.TestCase):
             self.assertIn("50051", command(render(values))[6:])
 
     def test_explicit_tls_policy_and_scheme_override(self):
-        base = {"availability": {"enabled": True}, "environment": {"DINGO_STORAGE_MODE": "api", "DINGO_API_TLS_MODE": "server", "DINGO_BLOCKFROST_PORT": "3000"}}
+        base = {"availability": {"enabled": True}, "service": {"private": {"enabled": True}}, "environment": {"DINGO_STORAGE_MODE": "api", "DINGO_API_TLS_MODE": "server", "DINGO_BLOCKFROST_PORT": "3000"}}
         self.assertEqual(command(render(base))[5], "https")
         base["environment"]["DINGO_API_TLS_MODE"] = "disabled"
         base["apiTLS"] = {"existingSecret": "unused-cert"}
@@ -161,6 +161,7 @@ class RenderTests(unittest.TestCase):
         for values in cases:
             with self.subTest(values=values):
                 values.setdefault("availability", {})["enabled"] = True
+                values.setdefault("service", {})["private"] = {"enabled": True}
                 with self.assertRaises(subprocess.CalledProcessError):
                     render(values)
         with self.assertRaises(subprocess.CalledProcessError):
@@ -170,9 +171,11 @@ class RenderTests(unittest.TestCase):
 
 
 class RuntimeTests(unittest.TestCase):
-    def values(self, health, relay, api=None, tls=False):
+    def values(self, health, relay, api=None, tls=False, private=None):
         result = {"availability": {"enabled": True, "healthPort": health, "requestTimeoutSeconds": 1}, "service": {"ports": {"relay": relay}}}
         if api:
+            result["service"]["private"] = {"enabled": True}
+            result["service"]["ports"]["private"] = private
             result["environment"] = {"DINGO_STORAGE_MODE": "api", "DINGO_BLOCKFROST_PORT": str(api)}
         if tls:
             result["apiTLS"] = {"existingSecret": "api-cert"}
@@ -195,16 +198,16 @@ class RuntimeTests(unittest.TestCase):
                 self.assertNotEqual(execute(objects), 0)
 
     def test_open_api_with_failed_query_is_not_ready(self):
-        with endpoint() as (health, _), endpoint() as (relay, _), endpoint() as (api, state):
-            objects = render(self.values(health, relay, api))
+        with endpoint() as (health, _), endpoint() as (relay, _), endpoint() as (api, state), endpoint() as (private, _):
+            objects = render(self.values(health, relay, api, private=private))
             state["/api/v0/blocks/latest"] = 503
             self.assertNotEqual(execute(objects), 0)
             state["/api/v0/blocks/latest"] = 200
             self.assertEqual(execute(objects), 0)
 
     def test_https_query_with_public_hostname_certificate(self):
-        with endpoint() as (health, _), endpoint() as (relay, _), endpoint(tls=True) as (api, _):
-            self.assertEqual(execute(render(self.values(health, relay, api, tls=True))), 0)
+        with endpoint() as (health, _), endpoint() as (relay, _), endpoint(tls=True) as (api, _), endpoint() as (private, _):
+            self.assertEqual(execute(render(self.values(health, relay, api, tls=True, private=private))), 0)
 
     def test_hung_health_request_has_a_total_deadline(self):
         with endpoint() as (health, state), endpoint() as (relay, _):

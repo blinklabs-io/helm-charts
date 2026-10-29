@@ -63,6 +63,19 @@ The chart passes `service.ports.relay`, `service.ports.private` and
 `CARDANO_METRICS_PORT`, so the listener matches the Service and `containerPort`.
 A value set under `environment` takes precedence and is not duplicated.
 
+`environment.CARDANO_BIND_ADDR` defaults to `0.0.0.0`. Dingo uses this shared
+address for the relay and public API listeners (Blockfrost, Mesh, UTxO RPC).
+An explicit override is passed through; setting it to `127.0.0.1` also prevents
+Services from reaching the relay. Dingo does not support `DINGO_API_BIND_ADDR`.
+
+Non-zero API ports exposed by this chart (under `environment` or
+`service.ports`) require
+`service.private.enabled: true`; otherwise rendering fails. The private opt-in
+always renders a NetworkPolicy, including when `networkPolicy.enabled` is false.
+Configure `networkPolicy.privateIngressFrom` for authorized clients and use a CNI
+that enforces NetworkPolicy. Empty private peers deny API ingress, including
+traffic through the compatibility Service or directly to the Pod IP.
+
 ### Readiness and draining
 
 Set `availability.enabled: true` to keep a starting, backfilling or lagging node
@@ -71,7 +84,8 @@ which checks the wall-clock slot gap, database availability, snapshot restore
 and producer readiness. It also connects to the relay listener and, when the
 private Service is enabled, the node-to-client TCP listener. In API storage
 mode it checks all configured API TCP listeners and requires a successful
-Blockfrost `/api/v0/blocks/latest` query when Blockfrost is enabled. Midnight is checked only when
+Blockfrost `/api/v0/blocks/latest` query when Blockfrost is enabled.
+Midnight is checked only when
 `DINGO_MIDNIGHT_SERVER_ENABLED` is true, matching its separate server switch.
 
 ```yaml
@@ -93,9 +107,11 @@ using those addresses directly must check readiness themselves.
 `availability.healthPort` and `availability.maxSlotLag`. A zero health port or
 slot tolerance is rejected when availability is enabled. API port overrides
 follow the same environment precedence as the Services; string `"0"` disables
-a listener check. Auto selects HTTPS when `DINGO_API_TLS_MODE` is `server` and HTTP otherwise.
+a listener check. Auto selects HTTPS when `DINGO_API_TLS_MODE` is `server`
+and HTTP otherwise.
 Set `availability.blockfrostScheme` to `http` or `https` when YAML or a provider
-override configures Blockfrost TLS independently. The loopback HTTPS query skips certificate
+override configures Blockfrost TLS independently. The loopback HTTPS query
+skips certificate
 validation because the certificate identifies the public API hostname.
 
 The probe has a total deadline for each query and connection. By default it
@@ -319,10 +335,10 @@ Kupo, Bark, and Midnight ports default to zero. Set `service.ports.kupo`,
 `service.ports.bark`, and `service.ports.midnight` alongside the corresponding
 Dingo listener configuration. Non-zero `DINGO_PLUGINS_API_KUPO_CONFIG_PORT`,
 `DINGO_BARK_PORT`, and `DINGO_MIDNIGHT_PORT` environment values override those
-ports. Both private and ClusterIP compatibility Services require
-`service.private.enabled` before exposing these endpoints. The private Service
-and its NetworkPolicy include these endpoints;
-externally exposed relay and compatibility Services exclude them.
+ports. Configuring any of these ports requires `service.private.enabled`;
+rendering fails without this access gate. The private Service and its
+NetworkPolicy include these endpoints; externally exposed relay and
+compatibility Services exclude them.
 
 Enable `service.private.enabled` and configure `networkPolicy.privateIngressFrom`
 for authorized clients. Midnight indexing and serving require their separate

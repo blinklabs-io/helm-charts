@@ -8,8 +8,8 @@ import unittest
 import yaml
 
 CHART = Path(os.environ.get('DINGO_TEST_CHART', Path(__file__).resolve().parents[1] / 'charts/dingo'))
-PORTS = {'kupo': 1442, 'bark': 50052, 'midnight': 50051}
-ENVS = {'kupo': 'DINGO_PLUGINS_API_KUPO_CONFIG_PORT', 'bark': 'DINGO_BARK_PORT', 'midnight': 'DINGO_MIDNIGHT_PORT'}
+PORTS = {'utxorpc': 9090, 'blockfrost': 3000, 'mesh': 8080, 'kupo': 1442, 'bark': 50052, 'midnight': 50051}
+ENVS = {'utxorpc': 'DINGO_UTXORPC_PORT', 'blockfrost': 'DINGO_BLOCKFROST_PORT', 'mesh': 'DINGO_MESH_PORT', 'kupo': 'DINGO_PLUGINS_API_KUPO_CONFIG_PORT', 'bark': 'DINGO_BARK_PORT', 'midnight': 'DINGO_MIDNIGHT_PORT'}
 
 def render(values):
     with tempfile.TemporaryDirectory() as directory:
@@ -25,40 +25,46 @@ class PrivateAPIs(unittest.TestCase):
                 self.assertFalse(set(PORTS) & {p['name'] for p in d['spec']['ports']})
 
     def test_configured_apis_require_private_opt_in(self):
-        for use_env in [False, True]:
-            with self.subTest(use_env=use_env):
-                values = {'service': {'ports': PORTS}}
-                if use_env:
-                    values['environment'] = {ENVS[k]: str(v) for k, v in PORTS.items()}
-                docs = render(values)
-                for d in docs:
-                    if d['kind'] == 'Service':
-                        self.assertFalse(
-                            set(PORTS) & {p['name'] for p in d['spec']['ports']},
-                            'configured private APIs exposed without private-Service opt-in',
-                        )
+        for api, port in PORTS.items():
+            for use_env in [False, True]:
+                with self.subTest(api=api, use_env=use_env):
+                    values = {'environment': {ENVS[api]: str(port)}} if use_env else {'service': {'ports': {api: port}}}
+                    with self.assertRaises(subprocess.CalledProcessError) as error:
+                        render(values)
+                    self.assertIn(f'API port {api} requires service.private.enabled=true', error.exception.stderr)
+
+    def test_unsupported_bind_setting_rejected(self):
+        with self.assertRaises(subprocess.CalledProcessError) as error:
+            render({'environment': {'DINGO_API_BIND_ADDR': '127.0.0.1'}})
+        self.assertIn('use environment.CARDANO_BIND_ADDR', error.exception.stderr)
+        render({'environment': {'DINGO_API_BIND_ADDR': None}})
 
     def test_private_ports_and_policy(self):
         for use_env in [False, True]:
-            with self.subTest(use_env=use_env):
-                values = {'service': {'private': {'enabled': True}, 'ports': PORTS}, 'networkPolicy': {'privateIngressFrom': [{'podSelector': {}}]}}
-                expected = dict(PORTS)
-                if use_env:
-                    expected = {k: v + 1 for k, v in PORTS.items()}
-                    values['environment'] = {ENVS[k]: str(v) for k, v in expected.items()}
-                docs = render(values)
-                sts = next(d for d in docs if d['kind'] == 'StatefulSet')
-                pod_ports = {p['name']: p['containerPort'] for p in sts['spec']['template']['spec']['containers'][0]['ports']}
-                for k, v in expected.items():
-                    self.assertEqual(pod_ports.get(k), v, f'{k} container port is missing or incorrect')
-                for tier in ['private', 'compatibility']:
-                    svc = next(d for d in docs if d['kind'] == 'Service' and d['metadata']['name'] == ('api-dingo-private' if tier == 'private' else 'api-dingo'))
-                    ports = {p['name']: p['targetPort'] for p in svc['spec']['ports']}
+            for peers in [[], [{'podSelector': {}}]]:
+                with self.subTest(use_env=use_env, peers=peers):
+                    values = {'service': {'private': {'enabled': True}, 'ports': PORTS},
+                              'networkPolicy': {'enabled': False, 'privateIngressFrom': peers}}
+                    expected = dict(PORTS)
+                    if use_env:
+                        expected = {k: v + 1 for k, v in PORTS.items()}
+                        values['environment'] = {ENVS[k]: str(v) for k, v in expected.items()}
+                    docs = render(values)
+                    sts = next(d for d in docs if d['kind'] == 'StatefulSet')
+                    pod_ports = {p['name']: p['containerPort'] for p in sts['spec']['template']['spec']['containers'][0]['ports']}
                     for k, v in expected.items():
-                        self.assertEqual(ports.get(k), v, f'{k} missing from {tier} Service')
-                policy = next(d for d in docs if d['kind'] == 'NetworkPolicy')
-                private = next(r for r in policy['spec']['ingress'] if r.get('from') == [{'podSelector': {}}])
-                self.assertTrue(set(expected.values()) <= {p['port'] for p in private['ports']})
+                        self.assertEqual(pod_ports.get(k), v, f'{k} container port is missing or incorrect')
+                    for tier in ['private', 'compatibility']:
+                        svc = next(d for d in docs if d['kind'] == 'Service' and d['metadata']['name'] == ('api-dingo-private' if tier == 'private' else 'api-dingo'))
+                        ports = {p['name']: p['targetPort'] for p in svc['spec']['ports']}
+                        for k, v in expected.items():
+                            self.assertEqual(ports.get(k), v, f'{k} missing from {tier} Service')
+                    policy = next(d for d in docs if d['kind'] == 'NetworkPolicy')
+                    if peers:
+                        private = next(r for r in policy['spec']['ingress'] if r.get('from') == peers)
+                        self.assertTrue(set(expected.values()) <= {p['port'] for p in private['ports']})
+                    else:
+                        self.assertEqual(policy['spec']['ingress'], [{'ports': [{'protocol': 'TCP', 'port': 3001}]}])
 
     def test_public_services_exclude_apis(self):
         for kind in ['LoadBalancer', 'NodePort']:
