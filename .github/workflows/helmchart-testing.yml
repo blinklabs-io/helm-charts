@@ -45,6 +45,7 @@ jobs:
         run: |
           python3 scripts/test-dingo-chart.py
           python3 scripts/test-dingo-private-apis.py
+          python3 -B scripts/test-dingo-readiness.py
 
       - name: Test Cardano mesh and readiness
         if: contains(steps.list-changed.outputs.changed_charts, 'charts/cardano-node')

@@ -76,6 +76,61 @@ Configure `networkPolicy.privateIngressFrom` for authorized clients and use a CN
 that enforces NetworkPolicy. Empty private peers deny API ingress, including
 traffic through the compatibility Service or directly to the Pod IP.
 
+### Readiness and draining
+
+Set `availability.enabled: true` to keep a starting, backfilling or lagging node
+out of Service endpoints. The probe calls Dingo's native `/readyz` endpoint,
+which checks the wall-clock slot gap, database availability, snapshot restore
+and producer readiness. It also connects to the relay listener and, when the
+private Service is enabled, the node-to-client TCP listener. In API storage
+mode it checks all configured API TCP listeners and requires a successful
+Blockfrost `/api/v0/blocks/latest` query when Blockfrost is enabled.
+Midnight is checked only when
+`DINGO_MIDNIGHT_SERVER_ENABLED` is true, matching its separate server switch.
+
+```yaml
+minReadySeconds: 30
+availability:
+  enabled: true
+  maxSlotLag: 1000
+```
+
+This requires a Dingo image with native `/readyz`, GNU `wget`, `bash` and
+`timeout`. Probes run inside the container against `127.0.0.1`; listeners must
+accept loopback connections. The health port is not added to any Service or
+NetworkPolicy rule. Readiness failure removes Service endpoints without
+restarting Dingo, so a multi-hour bootstrap or index rebuild can finish.
+Headless DNS can still publish unready addresses for peer discovery; clients
+using those addresses directly must check readiness themselves.
+
+`DINGO_HEALTH_PORT` and `DINGO_HEALTH_READY_GAP_SLOTS` in `environment` override
+`availability.healthPort` and `availability.maxSlotLag`. A zero health port or
+slot tolerance is rejected when availability is enabled. The gap is measured
+against wall-clock slots, and the default preserves Dingo's native 1,000-slot
+staleness tolerance so quiet networks do not cause unnecessary evictions.
+API port overrides
+follow the same environment precedence as the Services; string `"0"` disables
+a listener check. Auto selects HTTPS when `DINGO_API_TLS_MODE` is `server`
+and HTTP otherwise.
+Set `availability.blockfrostScheme` to `http` or `https` when YAML or a provider
+override configures Blockfrost TLS independently. The loopback HTTPS query
+skips certificate
+validation because the certificate identifies the public API hostname.
+
+The probe has a total deadline for each query and connection. By default it
+runs every 30 seconds, requires two successes to become Ready, and two failures
+to become unready. `minReadySeconds` controls the StatefulSet's stabilization
+window before rolling its next replica; it defaults to zero.
+
+On termination, the pod first leaves Service endpoints, then the native
+pre-stop sleep gives proxies `availability.drainDelaySeconds` (default 30)
+to stop selecting it. The remaining termination grace lets Dingo shut down.
+The grace period must exceed the drain delay. Native sleep requires Kubernetes
+1.30 or newer; set the delay to zero on older clusters. Existing streaming
+connections can still close and must reconnect. Readiness cannot preserve
+availability when a single serving replica is replaced; retain a ready peer
+before upgrading another replica or AZ.
+
 ### Service exposure
 
 Service exposure is split into tiers so public relay traffic is separated from

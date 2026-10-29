@@ -1,5 +1,21 @@
 ---
 replicaCount: 1
+minReadySeconds: 0
+
+# Requires the native /readyz endpoint, wget, bash and timeout in the Dingo image.
+availability:
+  enabled: false
+  healthPort: 12799
+  # Wall-clock slots; preserve the native readiness/forging staleness bound.
+  maxSlotLag: 1000
+  requestTimeoutSeconds: 2
+  periodSeconds: 30
+  failureThreshold: 2
+  successThreshold: 2
+  drainDelaySeconds: 30
+  terminationGracePeriodSeconds: 180
+  # Auto follows DINGO_API_TLS_MODE; override for TLS configured through YAML.
+  blockfrostScheme: auto
 
 updateStrategy:
   type: RollingUpdate
