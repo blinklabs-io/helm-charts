@@ -1,0 +1,15 @@
+# Generated automatically by org-governance-bot. Do not edit manually.
+name: "Publish Helm Charts"
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  orchestrate:
+    uses: blinklabs-io/actions/.github/workflows/reuseable-helm-publish.yml@359f0eee78d7b431bf5577aea9107e9c56ab0736
