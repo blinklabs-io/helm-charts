@@ -1211,8 +1211,13 @@ spec:
                     properties:
                       secretRef:
                         description: |-
-                          SecretRef names a Secret holding vrf.skey, kes.skey and opcert.cert in
-                          cardano-cli text-envelope JSON form.
+                          SecretRef names a Secret holding vrf.skey, kes.skey and the operational
+                          certificate in cardano-cli text-envelope JSON form. The certificate is
+                          opcert.cert or node.cert (the name the dingo Helm chart uses); a Secret
+                          may hold both only if they are identical. An optional vote.skey (or the
+                          chart's bls.skey) holds the Leios BLS12-381 vote signing key (text
+                          envelope or raw hex scalar); when present it is staged with the other keys and wired to
+                          DINGO_LEIOS_VOTE_SIGNING_KEY_FILE.
                         minLength: 1
                         type: string
                       sourceType:
@@ -1254,6 +1259,20 @@ spec:
                           counter (status.opcert.onDiskCounter).
                         type: boolean
                     type: object
+                  podDisruptionBudget:
+                    description: |-
+                      PodDisruptionBudgetSpec controls the block producer's PodDisruptionBudget.
+
+                      The budget keeps one pod available. A block producer runs one replica, so
+                      while it exists no voluntary eviction succeeds and `kubectl drain` of the
+                      pod's node does not complete. That is the point: a drain must not stop the
+                      only forger unnoticed. Disabling it lets a drain evict the pod; the operator
+                      then deletes the budget it created.
+                    properties:
+                      enabled:
+                        default: true
+                        type: boolean
+                    type: object
                   poolId:
                     description: PoolID (bech32 or hex) is optional and cross-checked
                       against the keys.
@@ -1268,19 +1287,23 @@ spec:
                           coldKeyHash:
                             description: |-
                               ColdKeyHash is the blake2b224 hash of the cold verification key; the
-                              signer selects the matching key.
+                              signer selects the matching key. With Mode=Auto it must equal the pool
+                              ID.
                             type: string
                           endpoint:
                             description: Endpoint is the Bursa signer URL (required
                               when Type=bursa).
                             type: string
                           mtlsSecretRef:
-                            description: MTLSSecretRef names a Secret with client
-                              cert/key/ca for the signer.
+                            description: |-
+                              MTLSSecretRef names a Secret with the signer client certificate and key
+                              (tls.crt, tls.key) and optionally the signer CA (ca.crt). Required when
+                              Type=bursa and Mode=Auto.
                             type: string
                           secretRef:
-                            description: SecretRef names a Secret holding the cold
-                              key (only when Type=secret).
+                            description: |-
+                              SecretRef names a Secret holding the cold key as a cardano-cli text
+                              envelope in cold.skey (only when Type=secret). DEV/TESTNET ONLY.
                             type: string
                           type:
                             default: bursa
@@ -1334,8 +1357,15 @@ spec:
               environment:
                 additionalProperties:
                   type: string
-                description: Environment passes extra CARDANO_*/DINGO_* variables
-                  to the container.
+                description: |-
+                  Environment passes extra CARDANO_*/DINGO_* variables to the container.
+                  The operator owns the relay (relayService.port, default 3001),
+                  node-to-client (3002), metrics (12798) and health (12799) listener ports:
+                  CARDANO_PORT, CARDANO_PRIVATE_PORT, CARDANO_METRICS_PORT and
+                  DINGO_HEALTH_PORT are rejected unless they equal those values. Change the
+                  relay port with relayService.port; publish it elsewhere with
+                  relayService.hostPort (the container's host port) or relayService.nodePort
+                  on a NodePort or LoadBalancer Service.
                 type: object
               image:
                 description: ImageSpec configures the Dingo container image.
@@ -1477,6 +1507,17 @@ spec:
                   storageClass:
                     description: StorageClass uses the cluster default when nil.
                     type: string
+                type: object
+              podLabels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  PodLabels are extra labels for the pod template only; they are not added
+                  to selectors, Services or other objects. Use them to carry labels that
+                  PodMonitors or other tooling read from the pod (for example the alias,
+                  azs and group labels of a node moved from the dingo Helm chart). Keys in
+                  the operator's own namespaces (app.kubernetes.io/*, dingo.blinklabs.io/*)
+                  and cardano_network and cardano_service are rejected.
                 type: object
               podSecurityContext:
                 description: PodSecurityContext overrides the operator's secure defaults.
@@ -1740,6 +1781,20 @@ spec:
                     format: int32
                     maximum: 65535
                     minimum: 0
+                    type: integer
+                  port:
+                    default: 3001
+                    description: |-
+                      Port is the node-to-node (relay) listener port. It is the container
+                      port, the port of every Service that publishes P2P, the NetworkPolicy
+                      port and CARDANO_PORT, and the port in-cluster peers dial when they list
+                      this node in topology.relayRefs. Images without the health listener are
+                      probed for readiness on it; others use the health port. It exists so a
+                      node deployed with the dingo Helm chart on a non-default port keeps that
+                      port after moving to a DingoNode. Defaults to 3001.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
                     type: integer
                   type:
                     description: Service Type string describes ingress methods for
