@@ -22,7 +22,7 @@ updateStrategy:
 
 image:
   repository: ghcr.io/blinklabs-io/dingo
-  tag: "0.90.2"
+  tag: "0.90.3"
   # Optional immutable image digest. When set, the container is referenced by
   # digest (repository@sha256:...) instead of the mutable tag, so a deployment
   # pins the exact image content regardless of tag changes. When empty, the
