@@ -73,6 +73,12 @@ spec:
           mountPath: /output
 {{- if .Values.cardanoConfigs.migrate }}
       - name: migrate-cardano-config
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          seccompProfile:
+            type: RuntimeDefault
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command: ["/bin/sh", "-ec"]

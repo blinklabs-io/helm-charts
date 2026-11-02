@@ -17,7 +17,9 @@ are retained; this does not migrate or reset them.
 Set `cardanoConfigs.migrate: true` to run the node image's official
 `cardano-node config migrate` command on the copied config before startup.
 This requires node 11.2 or newer and changes the configuration envelope without
-editing the canonical source or genesis files. When readiness is enabled,
+editing the canonical source or genesis files. It migrates only
+`<network>/config.json`; YAML configs and alternate `cardano_config` paths are
+not migrated, and a missing `config.json` fails startup. When readiness is enabled,
 set `availability.shelleyGenesisPath` explicitly because the migrated envelope
 moves the genesis reference.
 
