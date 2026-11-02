@@ -12,4 +12,4 @@ permissions:
 
 jobs:
   orchestrate:
-    uses: blinklabs-io/actions/.github/workflows/reuseable-helm-publish.yml@359f0eee78d7b431bf5577aea9107e9c56ab0736
+    uses: blinklabs-io/actions/.github/workflows/reuseable-helm-publish.yml@898e48132410b8cfa78ec4852e1877ab43ba587e
