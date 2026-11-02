@@ -1,5 +1,38 @@
 # cardano-node
 
+## Separate network configuration
+
+Enable `cardanoConfigs.enabled` when the node image does not bundle the target
+network. Pin `cardanoConfigs.image.repository` and `cardanoConfigs.image.tag`
+to a compatible canonical configuration image. Its entrypoint must accept an
+output directory and network name and write `<output>/<network>/*`.
+
+The init container copies the selected network to an emptyDir before startup.
+The node and optional Mithril init container mount that network read-only at
+`/opt/cardano/config/<network>`. Generated or mounted topology still takes
+precedence, and producer key mounts remain separate. Changing the configuration
+image rolls pods according to the configured update strategy. Database PVCs
+are retained; this does not migrate or reset them.
+
+Set `cardanoConfigs.migrate: true` to run the node image's official
+`cardano-node config migrate` command on the copied config before startup.
+This requires node 11.2 or newer and changes the configuration envelope without
+editing the canonical source or genesis files. When readiness is enabled,
+set `availability.shelleyGenesisPath` explicitly because the migrated envelope
+moves the genesis reference.
+
+```yaml
+cardano_network: dijkstra
+image:
+  repository: ghcr.io/intersectmbo/cardano-node
+  tag: "11.2.0"
+cardanoConfigs:
+  enabled: true
+  migrate: true
+  image:
+    tag: "20261027-1"
+```
+
 ## Internal peer mesh
 
 `topology.mesh.enabled` generates a topology for each pod before the node starts.
