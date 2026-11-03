@@ -1,5 +1,10 @@
-{{- if and .Values.cardanoConfigs.enabled .Values.cardanoConfigs.migrate .Values.availability.enabled (not .Values.availability.shelleyGenesisPath) }}
-{{- fail "cardanoConfigs.migrate with availability requires availability.shelleyGenesisPath" }}
+{{- if .Values.cardanoConfigs.enabled }}
+{{- if eq .Values.cardano_network "devnet" }}
+{{- fail "cardanoConfigs.enabled does not support cardano_network devnet, whose entrypoint rewrites its network files" }}
+{{- end }}
+{{- if and .Values.cardanoConfigs.migrate .Values.cardano_config (ne .Values.cardano_config (printf "/opt/cardano/config/%s/config.json" .Values.cardano_network)) }}
+{{- fail "cardanoConfigs.migrate only migrates <network>/config.json; unset cardano_config or disable migrate" }}
+{{- end }}
 {{- end }}
 ---
 apiVersion: apps/v1

@@ -12,16 +12,21 @@ The node and optional Mithril init container mount that network read-only at
 `/opt/cardano/config/<network>`. Generated or mounted topology still takes
 precedence, and producer key mounts remain separate. Changing the configuration
 image rolls pods according to the configured update strategy. Database PVCs
-are retained; this does not migrate or reset them.
+are retained; this does not migrate or reset them. `cardano_network: devnet` is
+rejected because its entrypoint rewrites the network files it starts from.
+
+The chart passes `blockProducer.startAsNonProducing` to the node image as
+`START_AS_NON_PRODUCING`. The `ghcr.io/intersectmbo/cardano-node` 11.2.0
+entrypoint ignores that variable, so a standby producer using it starts
+forging. Do not use that image where `startAsNonProducing` must hold.
 
 Set `cardanoConfigs.migrate: true` to run the node image's official
 `cardano-node config migrate` command on the copied config before startup.
 This requires node 11.2 or newer and changes the configuration envelope without
 editing the canonical source or genesis files. It migrates only
-`<network>/config.json`; YAML configs and alternate `cardano_config` paths are
-not migrated, and a missing `config.json` fails startup. When readiness is enabled,
-set `availability.shelleyGenesisPath` explicitly because the migrated envelope
-moves the genesis reference.
+`<network>/config.json`, and a missing `config.json` fails startup. Rendering
+fails when `cardano_config` selects any other file. Readiness reads
+`ShelleyGenesisFile` from either the flat or the versioned configuration format.
 
 ```yaml
 cardano_network: dijkstra

@@ -27,8 +27,8 @@ image:
 # Supply canonical network files when they are not bundled in the node image.
 cardanoConfigs:
   enabled: false
-  # Migrates only <network>/config.json; requires node 11.2+ and, when
-  # availability.enabled is true, an explicit availability.shelleyGenesisPath.
+  # Migrates only <network>/config.json and requires node 11.2+. Rendering
+  # fails when cardano_config selects another file.
   migrate: false
   image:
     repository: ghcr.io/blinklabs-io/cardano-configs
