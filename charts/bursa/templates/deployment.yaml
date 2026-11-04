@@ -43,6 +43,9 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers: {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: bursa
         {{- if eq .Values.mode "signer" }}

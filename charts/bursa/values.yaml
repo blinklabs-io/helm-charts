@@ -66,6 +66,26 @@ podDisruptionBudget:
   enabled: false
   maxUnavailable: 1
 
+# Init containers, passed through. The signer refuses a secret key file with
+# group or other access, and a Secret volume under the signer's fsGroup is
+# group-readable, so a key the signer reads with that check (such as an
+# armory host_key_file) can be copied to an emptyDir with mode 0400 first.
+initContainers: []
+# Example, with signer.extraVolumes holding the Secret and an emptyDir:
+# initContainers:
+#   - name: host-key
+#     image: busybox:1.36
+#     command: ["sh", "-c", "install -m 0400 /secret/host.skey /keys/host.skey"]
+#     securityContext:
+#       runAsUser: 65532
+#       allowPrivilegeEscalation: false
+#       readOnlyRootFilesystem: true
+#       capabilities:
+#         drop: ["ALL"]
+#     volumeMounts:
+#       - {name: host-key-secret, mountPath: /secret, readOnly: true}
+#       - {name: host-key, mountPath: /keys}
+
 # mode selects the bursa daemon: "api" (wallet API) or "signer" (remote
 # signer, `bursa signer`). The environment, serviceAccount and resources
 # values apply to both; the api-only ports and podMonitor do not apply to
