@@ -68,6 +68,9 @@ subjects:
 # Block-producer key Secrets are read through the uncached API reader, and
 # written only by Auto rotation; the operator deliberately leaves this grant to
 # the deployment. Update is limited to rbac.keySecretNames by resourceNames.
+# With rbac.readSecretNames set, get is limited the same way to those names and
+# rbac.keySecretNames; unset, get covers every Secret in the namespace.
+{{- $readSecretNames := concat .Values.rbac.readSecretNames .Values.rbac.keySecretNames | uniq }}
 {{- range $keySecretsNamespaces }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -78,6 +81,9 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
+{{- if $.Values.rbac.readSecretNames }}
+    resourceNames: {{ $readSecretNames | toJson }}
+{{- end }}
     verbs: ["get"]
 {{- if $.Values.rbac.keySecretsUpdate }}
   - apiGroups: [""]
