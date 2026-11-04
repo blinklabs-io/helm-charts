@@ -37,3 +37,13 @@ signer:
           matchLabels:
             kubernetes.io/metadata.name: dingo-operator
 replicaCount: 2
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: bursa
+            app.kubernetes.io/instance: bursa-signer
+        topologyKey: kubernetes.io/hostname
+podDisruptionBudget:
+  enabled: true

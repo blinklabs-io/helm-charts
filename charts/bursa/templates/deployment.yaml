@@ -31,6 +31,9 @@ spec:
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
       {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
       {{- if eq .Values.mode "signer" }}
       securityContext:
         runAsNonRoot: true

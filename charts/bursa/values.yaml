@@ -51,6 +51,21 @@ resources: {}
 
 tolerations: []
 
+affinity: {}
+# Example: spread replicas across nodes
+# affinity:
+#   podAntiAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#       - labelSelector:
+#           matchLabels:
+#             app.kubernetes.io/name: bursa
+#             app.kubernetes.io/instance: <release>
+#         topologyKey: kubernetes.io/hostname
+
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 1
+
 # mode selects the bursa daemon: "api" (wallet API) or "signer" (remote
 # signer, `bursa signer`). The environment, serviceAccount and resources
 # values apply to both; the api-only ports and podMonitor do not apply to
