@@ -49,10 +49,11 @@ replicaCount: 2
 affinity:
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
+      # chart-testing generates release names, so select on the chart name;
+      # a real release also matches app.kubernetes.io/instance: <release>
       - labelSelector:
           matchLabels:
             app.kubernetes.io/name: bursa
-            app.kubernetes.io/instance: bursa-signer
         topologyKey: kubernetes.io/hostname
 podDisruptionBudget:
   enabled: true
