@@ -28,6 +28,9 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- if eq .Values.mode "signer" }}
+      automountServiceAccountToken: false
+      {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
       {{- end }}
