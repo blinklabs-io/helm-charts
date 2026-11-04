@@ -70,7 +70,7 @@ subjects:
 # the deployment. Update is limited to rbac.keySecretNames by resourceNames.
 # With rbac.readSecretNames set, get is limited the same way to those names and
 # rbac.keySecretNames; unset, get covers every Secret in the namespace.
-{{- $readSecretNames := concat .Values.rbac.readSecretNames .Values.rbac.keySecretNames | uniq }}
+{{- $readSecretNames := concat (.Values.rbac.readSecretNames | default (list)) (.Values.rbac.keySecretNames | default (list)) | uniq }}
 {{- range $keySecretsNamespaces }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
