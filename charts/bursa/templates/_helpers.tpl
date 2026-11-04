@@ -26,8 +26,33 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 {{- $s := (default dict .Values.signer.config).signer | default dict -}}
 {{- $wm := $s.watermark | default dict -}}
-{{- if and (gt (int .Values.replicaCount) 1) (ne (toString $wm.type) "postgres") -}}
-{{- fail "replicaCount > 1 in signer mode requires signer.config.signer.watermark.type: postgres, a watermark shared by every replica" -}}
+{{- /* Bursa applies environment variables after the config file, and
+     signer.extraEnv follows environment in the pod, so later entries win. */ -}}
+{{- $wmType := toString ($wm.type | default "") -}}
+{{- $wmMode := toString ($wm.mode | default "") -}}
+{{- $wmUnknown := false -}}
+{{- range $k, $v := .Values.environment -}}
+{{- if and (eq $k "BURSA_SIGNER_WATERMARK_TYPE") $v -}}{{- $wmType = toString $v -}}{{- end -}}
+{{- if and (eq $k "BURSA_SIGNER_WATERMARK_MODE") $v -}}{{- $wmMode = toString $v -}}{{- end -}}
+{{- end -}}
+{{- range .Values.signer.extraEnv -}}
+{{- if has (toString .name) (list "BURSA_SIGNER_WATERMARK_TYPE" "BURSA_SIGNER_WATERMARK_MODE") -}}
+{{- if .valueFrom -}}{{- $wmUnknown = true -}}
+{{- else if eq (toString .name) "BURSA_SIGNER_WATERMARK_TYPE" -}}{{- $wmType = toString .value -}}
+{{- else -}}{{- $wmMode = toString .value -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if gt (int .Values.replicaCount) 1 -}}
+{{- if $wmUnknown -}}
+{{- fail "replicaCount > 1 in signer mode cannot take BURSA_SIGNER_WATERMARK_TYPE or BURSA_SIGNER_WATERMARK_MODE from valueFrom: the chart must see that every replica shares a postgres watermark" -}}
+{{- end -}}
+{{- if ne $wmType "postgres" -}}
+{{- fail (printf "replicaCount > 1 in signer mode requires a postgres watermark shared by every replica, got type %q after environment overrides" $wmType) -}}
+{{- end -}}
+{{- if eq (lower $wmMode) "off" -}}
+{{- fail "replicaCount > 1 in signer mode requires the watermark enabled, got mode \"off\" after environment overrides" -}}
+{{- end -}}
 {{- end -}}
 {{- $envRequire := false -}}
 {{- range $k, $v := .Values.environment -}}
