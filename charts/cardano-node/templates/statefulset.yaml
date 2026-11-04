@@ -1,3 +1,11 @@
+{{- if .Values.cardanoConfigs.enabled }}
+{{- if eq .Values.cardano_network "devnet" }}
+{{- fail "cardanoConfigs.enabled does not support cardano_network devnet, whose entrypoint rewrites its network files" }}
+{{- end }}
+{{- if and .Values.cardanoConfigs.migrate .Values.cardano_config (ne .Values.cardano_config (printf "/opt/cardano/config/%s/config.json" .Values.cardano_network)) }}
+{{- fail "cardanoConfigs.migrate only migrates <network>/config.json; unset cardano_config or disable migrate" }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -16,6 +24,9 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         kubectl.kubernetes.io/default-container: cardano-node
+{{- if .Values.cardanoConfigs.enabled }}
+        checksum/cardano-configs-image: {{ .Values.cardanoConfigs | toJson | sha256sum }}
+{{- end }}
 {{- if .Values.availability.enabled }}
         checksum/readiness: {{ include (print $.Template.BasePath "/readiness-configmap.yaml") . | sha256sum }}
 {{- end }}
@@ -41,8 +52,60 @@ spec:
 {{- if .Values.affinity }}
       affinity: {{ .Values.affinity | toYaml | nindent 8 }}
 {{- end }}
-{{- if or .Values.mithril.enabled .Values.topology.mesh.enabled }}
+{{- if or .Values.cardanoConfigs.enabled .Values.mithril.enabled .Values.topology.mesh.enabled }}
       initContainers:
+{{- if .Values.cardanoConfigs.enabled }}
+      - name: cardano-configs
+        image: "{{ required "cardanoConfigs.image.repository is required" .Values.cardanoConfigs.image.repository }}:{{ required "cardanoConfigs.image.tag is required" .Values.cardanoConfigs.image.tag }}"
+        imagePullPolicy: {{ .Values.cardanoConfigs.image.pullPolicy }}
+        args:
+        - /output
+        - {{ .Values.cardano_network | quote }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
+        volumeMounts:
+        - name: network-config
+          mountPath: /output
+{{- if .Values.cardanoConfigs.migrate }}
+      - name: migrate-cardano-config
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          seccompProfile:
+            type: RuntimeDefault
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/bin/sh", "-ec"]
+        args:
+        - |
+          config="/output/$CARDANO_NETWORK/config.json"
+          cardano-node config migrate "$config" > "$config.migrated"
+          mv "$config.migrated" "$config"
+        env:
+        - name: CARDANO_NETWORK
+          value: {{ .Values.cardano_network | quote }}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 256Mi
+        volumeMounts:
+        - name: network-config
+          mountPath: /output
+{{- end }}
+{{- end }}
 {{- if .Values.topology.mesh.enabled }}
       - name: generate-topology
         image: {{ .Values.topology.mesh.image | quote }}
@@ -229,6 +292,12 @@ spec:
         volumeMounts:
           - name: node-db
             mountPath: /data
+{{- if .Values.cardanoConfigs.enabled }}
+          - name: network-config
+            mountPath: /opt/cardano/config/{{ .Values.cardano_network }}
+            subPath: {{ .Values.cardano_network }}
+            readOnly: true
+{{- end }}
         {{- if .Values.mithril.resources }}
         resources: {{- toYaml .Values.mithril.resources | nindent 12 }}
         {{- end }}
@@ -315,6 +384,12 @@ spec:
           name: readiness
           readOnly: true
 {{- end }}
+{{- if .Values.cardanoConfigs.enabled }}
+        - name: network-config
+          mountPath: /opt/cardano/config/{{ .Values.cardano_network }}
+          subPath: {{ .Values.cardano_network }}
+          readOnly: true
+{{- end }}
         - mountPath: /data
           name: node-db
         - mountPath: /ipc
@@ -369,6 +444,10 @@ spec:
       tolerations: {{ .Values.tolerations | toYaml | nindent 8 }}
 {{- end }}
       volumes:
+{{- if .Values.cardanoConfigs.enabled }}
+      - name: network-config
+        emptyDir: {}
+{{- end }}
 {{- if .Values.availability.enabled }}
       - name: readiness
         configMap:

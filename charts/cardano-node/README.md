@@ -1,5 +1,45 @@
 # cardano-node
 
+## Separate network configuration
+
+Enable `cardanoConfigs.enabled` when the node image does not bundle the target
+network. Pin `cardanoConfigs.image.repository` and `cardanoConfigs.image.tag`
+to a compatible canonical configuration image. Its entrypoint must accept an
+output directory and network name and write `<output>/<network>/*`.
+
+The init container copies the selected network to an emptyDir before startup.
+The node and optional Mithril init container mount that network read-only at
+`/opt/cardano/config/<network>`. Generated or mounted topology still takes
+precedence, and producer key mounts remain separate. Changing the configuration
+image rolls pods according to the configured update strategy. Database PVCs
+are retained; this does not migrate or reset them. `cardano_network: devnet` is
+rejected because its entrypoint rewrites the network files it starts from.
+
+The chart passes `blockProducer.startAsNonProducing` to the node image as
+`START_AS_NON_PRODUCING`. The `ghcr.io/intersectmbo/cardano-node` 11.2.0
+entrypoint ignores that variable, so a standby producer using it starts
+forging. Do not use that image where `startAsNonProducing` must hold.
+
+Set `cardanoConfigs.migrate: true` to run the node image's official
+`cardano-node config migrate` command on the copied config before startup.
+This requires node 11.2 or newer and changes the configuration envelope without
+editing the canonical source or genesis files. It migrates only
+`<network>/config.json`, and a missing `config.json` fails startup. Rendering
+fails when `cardano_config` selects any other file. Readiness reads
+`ShelleyGenesisFile` from either the flat or the versioned configuration format.
+
+```yaml
+cardano_network: dijkstra
+image:
+  repository: ghcr.io/intersectmbo/cardano-node
+  tag: "11.2.0"
+cardanoConfigs:
+  enabled: true
+  migrate: true
+  image:
+    tag: "20261027-1"
+```
+
 ## Internal peer mesh
 
 `topology.mesh.enabled` generates a topology for each pod before the node starts.

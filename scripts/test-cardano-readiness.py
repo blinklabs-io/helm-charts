@@ -114,6 +114,10 @@ else:
         self.env.pop("READINESS_SHELLEY_GENESIS_PATH")
         self.probe(False)
 
+    def test_versioned_config_envelope_genesis(self):
+        self.config.write_text(json.dumps({"Version": 1, "Configuration": {"Protocol": {"ShelleyGenesisFile": self.genesis.name}}}))
+        self.assertEqual(self.probe()[0][3:5], ["--testnet-magic", "42"])
+
     def test_new_network_cutoff_clamps_to_genesis(self):
         genesis = json.loads(self.genesis.read_text())
         genesis["systemStart"] = datetime.datetime.fromtimestamp(time.time() - 10, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -188,6 +192,17 @@ class ChartTests(unittest.TestCase):
                 self.assertEqual(env["READINESS_SHELLEY_GENESIS_PATH"], "/custom/genesis.json")
                 self.assertEqual(env["CARDANO_CONFIG"], "/custom/configuration.yaml")
                 self.assertEqual(env["CARDANO_NETWORK"], network)
+
+    def test_separate_network_config_image(self):
+        configs = {"enabled": True, "migrate": True}
+        pod = self.sts(self.render({"cardano_network": "preview", "availability": {"enabled": True}, "cardanoConfigs": configs}))["spec"]["template"]["spec"]
+        self.assertEqual([c["name"] for c in pod["initContainers"]][:2], ["cardano-configs", "migrate-cardano-config"])
+        mount = next(m for m in pod["containers"][0]["volumeMounts"] if m["name"] == "network-config")
+        self.assertEqual((mount["mountPath"], mount["subPath"], mount["readOnly"]), ("/opt/cardano/config/preview", "preview", True))
+        self.render({"cardano_network": "preview", "cardano_config": "/opt/cardano/config/preview/config.json", "cardanoConfigs": configs})
+        self.render({"cardano_network": "preview", "cardano_config": "/opt/cardano/config/preview/configuration.yaml", "cardanoConfigs": configs}, valid=False)
+        self.render({"cardano_network": "preview", "cardano_config": "/custom/configuration.yaml", "cardanoConfigs": {"enabled": True}})
+        self.render({"cardano_network": "devnet", "cardanoConfigs": {"enabled": True}}, valid=False)
 
     def test_legacy_and_full_update_strategy(self):
         for strategy in ["OnDelete", {"type": "RollingUpdate", "rollingUpdate": {"partition": 1}}, None, ""]:

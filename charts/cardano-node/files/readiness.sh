@@ -4,7 +4,8 @@ set -eu
 config=${CARDANO_CONFIG:?CARDANO_CONFIG is required}
 genesis=${READINESS_SHELLEY_GENESIS_PATH:-}
 if [ -z "$genesis" ]; then
-    genesis=$(jq -er '.ShelleyGenesisFile | select(type == "string" and length > 0)' "$config")
+    # Node 11.2+ configs nest protocol settings under a versioned envelope.
+    genesis=$(jq -er '(.ShelleyGenesisFile // .Configuration.Protocol.ShelleyGenesisFile) | select(type == "string" and length > 0)' "$config")
 fi
 case "$genesis" in
     /*) ;;
