@@ -54,13 +54,19 @@ rbac:
   # Also grant update on the Secrets named in keySecretNames, in every
   # namespace above. Required for rotation.mode Auto, where the operator writes
   # the new kes.skey and opcert into the keys Secret. Leave false for
-  # MonitorOnly and Assisted, which only read it. Read access (get) still
-  # covers every Secret in those namespaces.
+  # MonitorOnly and Assisted, which only read it. Read access (get) covers
+  # every Secret in those namespaces unless readSecretNames is set.
   keySecretsUpdate: false
   # Names of the block-producer key Secrets the operator may update. Required
   # (rendering fails if empty) when keySecretsUpdate is true, because an update
   # rule without resourceNames would apply to every Secret in the namespace.
   keySecretNames: []
+  # Limit read access (get) to these Secret names plus keySecretNames, in every
+  # namespace above, instead of every Secret there. List each Secret the
+  # operator reads: every block producer's keys.secretRef and, with rotation
+  # coldSigner type bursa, its mtlsSecretRef (type secret: its secretRef).
+  # A Secret missing here is refused at its first read.
+  readSecretNames: []
 
 serviceAccount:
   # Set create to false to use an existing ServiceAccount named by name.
