@@ -50,8 +50,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if ne $wmType "postgres" -}}
 {{- fail (printf "replicaCount > 1 in signer mode requires a postgres watermark shared by every replica, got type %q after environment overrides" $wmType) -}}
 {{- end -}}
-{{- if eq (lower $wmMode) "off" -}}
-{{- fail "replicaCount > 1 in signer mode requires the watermark enabled, got mode \"off\" after environment overrides" -}}
+{{- if not (has (lower $wmMode) (list "" "enforce")) -}}
+{{- fail (printf "replicaCount > 1 in signer mode requires watermark mode enforce, got %q after environment overrides" $wmMode) -}}
 {{- end -}}
 {{- end -}}
 {{- $envRequire := false -}}
