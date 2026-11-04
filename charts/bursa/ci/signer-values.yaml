@@ -1,0 +1,39 @@
+mode: signer
+signer:
+  config:
+    signer:
+      require_client_cert: false
+      watermark:
+        type: postgres
+        dsn_env: SIGNER_WATERMARK_DSN
+      backends:
+        - name: cold
+          type: sops
+          path: /etc/bursa/signer/sops-keys
+      callers:
+        - subject: dingo-operator
+          keys: ["00000000000000000000000000000000000000000000000000000000"]
+      keys:
+        - hash: "00000000000000000000000000000000000000000000000000000000"
+          backend: cold
+          allowed_requests: ["opcert"]
+  tls:
+    secretName: bursa-signer-tls
+    clientCASecretName: bursa-signer-client-ca
+  sopsKeys:
+    secretName: bursa-signer-cold-keys
+  ageKey:
+    secretName: bursa-signer-age
+  extraEnv:
+    - name: SIGNER_WATERMARK_DSN
+      valueFrom:
+        secretKeyRef:
+          name: bursa-signer-watermark
+          key: dsn
+  networkPolicy:
+    enabled: true
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: dingo-operator
+replicaCount: 2

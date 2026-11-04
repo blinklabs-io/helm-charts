@@ -34,6 +34,7 @@ service:
   ports:
     api: 8080
     metrics: 8081
+    signer: 8090
 
 serviceAccount:
   name: kms-sa
@@ -49,3 +50,63 @@ resources: {}
   #   memory: 128Mi
 
 tolerations: []
+
+# mode selects the bursa daemon: "api" (wallet API) or "signer" (remote
+# signer, `bursa signer`). The environment, serviceAccount and resources
+# values apply to both; the api-only ports and podMonitor do not apply to
+# the signer.
+mode: api
+
+signer:
+  # Port of the signer HTTPS API, which also serves /healthz and /readyz.
+  port: 8090
+  # Contents of the signer config file. The chart sets signer.listen_address,
+  # signer.listen_port and the TLS file paths; everything else is passed
+  # through. Key backends and the per-key policy are configured here. A sops
+  # backend reading the keys Secret below uses
+  # `path: /etc/bursa/signer/sops-keys`. The signer serves metrics on
+  # loopback only, so podMonitor cannot be used in signer mode.
+  config: {}
+    # signer:
+    #   client_ca_cert is set by the chart when tls.clientCASecretName is set.
+    #   require_client_cert: false   # true breaks the kubelet HTTPS probes
+    #   watermark:   # a file watermark needs a persistent extraVolume
+    #     type: postgres
+    #     dsn_env: SIGNER_WATERMARK_DSN
+    #   backends:
+    #     - name: cold
+    #       type: sops
+    #       path: /etc/bursa/signer/sops-keys
+    #   callers:   # subject = client cert URI SAN, else DNS SAN, else CN
+    #     - subject: dingo-operator
+    #       keys: ["<cold key hash>"]
+    #   keys:
+    #     - hash: "<cold key hash>"
+    #       backend: cold
+    #       allowed_requests: ["opcert"]
+  tls:
+    # kubernetes.io/tls Secret with the server certificate (tls.crt, tls.key).
+    # Required: the signer refuses a plaintext non-loopback listener.
+    secretName: ""
+    # Secret holding the CA (ca.crt) that verifies client certificates.
+    # Setting it enables mTLS client authentication.
+    clientCASecretName: ""
+  sopsKeys:
+    # Secret of SOPS-encrypted *.json key files, mounted read-only at
+    # /etc/bursa/signer/sops-keys. Each key must be a file name the signer
+    # serves: *.json, not starting with a dot.
+    secretName: ""
+  ageKey:
+    # Secret holding an age identity for SOPS decryption, exposed to the
+    # signer through SOPS_AGE_KEY_FILE.
+    secretName: ""
+    key: keys.txt
+  # Extra environment, e.g. SIGNER_WATERMARK_DSN from a secretKeyRef.
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+  networkPolicy:
+    # Admit ingress to the signer port only from these peers
+    # (NetworkPolicyPeer list).
+    enabled: false
+    from: []
