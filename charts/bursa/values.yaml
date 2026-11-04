@@ -95,6 +95,10 @@ mode: api
 signer:
   # Port of the signer HTTPS API, which also serves /healthz and /readyz.
   port: 8090
+  # /readyz writes the counter watermark, so a postgres watermark in another
+  # zone needs more than the kubelet's 1s default.
+  probes:
+    timeoutSeconds: 5
   # Contents of the signer config file. The chart sets signer.listen_address,
   # signer.listen_port and the TLS file paths; everything else is passed
   # through. Key backends and the per-key policy are configured here. A sops

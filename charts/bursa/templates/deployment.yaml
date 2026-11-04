@@ -93,12 +93,14 @@ spec:
             port: signer
             scheme: HTTPS
           periodSeconds: 10
+          timeoutSeconds: {{ .Values.signer.probes.timeoutSeconds }}
         livenessProbe:
           httpGet:
             path: /healthz
             port: signer
             scheme: HTTPS
           periodSeconds: 20
+          timeoutSeconds: {{ .Values.signer.probes.timeoutSeconds }}
           failureThreshold: 3
         volumeMounts:
           - name: signer-config
