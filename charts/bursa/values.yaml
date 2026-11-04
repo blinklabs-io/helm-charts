@@ -2,6 +2,12 @@ replicaCount: 1
 
 updateStrategy:
   type: RollingUpdate
+  # Optional maxSurge and maxUnavailable for RollingUpdate. With required
+  # pod anti-affinity and one node per replica, maxSurge 0 and
+  # maxUnavailable 1 let the rollout proceed without a spare node.
+  # rollingUpdate:
+  #   maxSurge: 0
+  #   maxUnavailable: 1
 
 image:
   repository: ghcr.io/blinklabs-io/bursa
