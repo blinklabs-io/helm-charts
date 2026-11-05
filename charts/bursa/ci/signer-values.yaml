@@ -45,6 +45,15 @@ signer:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: dingo-operator
+    egress:
+      enabled: true
+      to:
+        - to:
+            - ipBlock:
+                cidr: 192.0.2.10/32
+          ports:
+            - port: 18480
+              protocol: TCP
 replicaCount: 2
 affinity:
   podAntiAffinity:

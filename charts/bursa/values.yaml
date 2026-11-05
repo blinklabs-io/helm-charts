@@ -155,3 +155,24 @@ signer:
     # (NetworkPolicyPeer list).
     enabled: false
     from: []
+    egress:
+      # Also restrict egress (requires networkPolicy.enabled). The signer
+      # reaches only its watermark database, custody backends and DNS.
+      enabled: false
+      # Allow DNS to kube-dns in kube-system.
+      dns: true
+      # NetworkPolicyEgressRule list, e.g.
+      # - to:
+      #     - namespaceSelector:
+      #         matchLabels:
+      #           kubernetes.io/metadata.name: postgres
+      #       podSelector:
+      #         matchLabels:
+      #           cnpg.io/cluster: pg
+      #   ports:
+      #     - {port: 5432, protocol: TCP}
+      # - to:
+      #     - ipBlock: {cidr: 100.64.0.10/32}
+      #   ports:
+      #     - {port: 18480, protocol: TCP}
+      to: []
