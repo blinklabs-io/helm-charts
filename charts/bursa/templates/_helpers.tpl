@@ -54,12 +54,21 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- fail (printf "replicaCount > 1 in signer mode requires watermark mode enforce, got %q after environment overrides" $wmMode) -}}
 {{- end -}}
 {{- end -}}
+{{- /* Bursa reads require_client_cert from either variable and parses it
+     with strconv.ParseBool, so 1 and t are true too. */ -}}
+{{- $ccNames := list "SIGNER_REQUIRE_CLIENT_CERT" "BURSA_SIGNER_SIGNER_REQUIRE_CLIENT_CERT" -}}
+{{- $ccTrue := list "1" "t" "true" -}}
 {{- $envRequire := false -}}
 {{- range $k, $v := .Values.environment -}}
-{{- if and (eq $k "SIGNER_REQUIRE_CLIENT_CERT") (eq (lower (toString $v)) "true") -}}{{- $envRequire = true -}}{{- end -}}
+{{- if and (has $k $ccNames) (has (lower (toString $v)) $ccTrue) -}}{{- $envRequire = true -}}{{- end -}}
 {{- end -}}
 {{- range .Values.signer.extraEnv -}}
-{{- if and (eq (toString .name) "SIGNER_REQUIRE_CLIENT_CERT") (eq (lower (toString .value)) "true") -}}{{- $envRequire = true -}}{{- end -}}
+{{- if has (toString .name) $ccNames -}}
+{{- if .valueFrom -}}
+{{- fail (printf "%s cannot come from valueFrom in this chart: the chart must see that require_client_cert stays false" .name) -}}
+{{- end -}}
+{{- if has (lower (toString .value)) $ccTrue -}}{{- $envRequire = true -}}{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- if or (eq (toString $s.require_client_cert) "true") $envRequire -}}
 {{- fail "require_client_cert must be false in this chart: the kubelet HTTPS probes present no client certificate; requests to the signer API without one still get 401" -}}
