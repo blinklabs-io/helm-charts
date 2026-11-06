@@ -1,0 +1,54 @@
+{{- if and (eq .Values.mode "signer") (not .Values.signer.networkPolicy.enabled) (.Values.signer.networkPolicy.egress | default dict).enabled }}
+{{- fail "signer.networkPolicy.egress.enabled requires signer.networkPolicy.enabled" }}
+{{- end }}
+{{- if and (eq .Values.mode "signer") .Values.signer.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "bursa.fullname" . }}-signer
+  labels:
+    {{- include "bursa.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "bursa.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- $egress := .Values.signer.networkPolicy.egress | default dict }}
+  policyTypes:
+    - Ingress
+    {{- if $egress.enabled }}
+    - Egress
+    {{- end }}
+  ingress:
+    - ports:
+        - port: signer
+          protocol: TCP
+      {{- with .Values.signer.networkPolicy.from }}
+      from:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if $egress.enabled }}
+  {{- if not (or $egress.dns $egress.to) }}
+  {{- fail "signer.networkPolicy.egress.enabled with neither dns nor to denies all egress, including the watermark database" }}
+  {{- end }}
+  egress:
+    {{- if $egress.dns }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- end }}
+    {{- with $egress.to }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,13 @@
+{{- include "bursa.validate" . }}
+{{- if eq .Values.mode "signer" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bursa.fullname" . }}-signer
+  labels:
+    {{- include "bursa.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- include "bursa.signerConfig" . | nindent 4 }}
+{{- end }}

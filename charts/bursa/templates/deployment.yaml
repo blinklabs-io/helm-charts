@@ -9,6 +9,9 @@ spec:
   {{- if .Values.updateStrategy }}
   strategy:
     type: {{ .Values.updateStrategy.type }}
+    {{- if and (eq .Values.updateStrategy.type "RollingUpdate") .Values.updateStrategy.rollingUpdate }}
+    rollingUpdate: {{- toYaml .Values.updateStrategy.rollingUpdate | nindent 6 }}
+    {{- end }}
   {{- end }}
   selector:
     matchLabels:
@@ -22,14 +25,40 @@ spec:
         {{- end }}
         app.kubernetes.io/name: {{ include "bursa.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if eq .Values.mode "signer" }}
+      annotations:
+        checksum/signer-config: {{ include "bursa.signerConfig" . | sha256sum }}
+      {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- if eq .Values.mode "signer" }}
+      automountServiceAccountToken: false
+      {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
       {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
+      {{- if eq .Values.mode "signer" }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers: {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: bursa
+        {{- if eq .Values.mode "signer" }}
+        command: ["bursa", "signer", "--config", "/etc/bursa/signer/config.yaml"]
+        {{- else }}
         command: ["bursa", "api"]
+        {{- end }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         env:
@@ -39,11 +68,113 @@ spec:
             value: "{{ $value }}"
           {{- end }}
           {{- end }}
+          {{- if eq .Values.mode "signer" }}
+          {{- if .Values.signer.ageKey.secretName }}
+          - name: SOPS_AGE_KEY_FILE
+            value: /etc/bursa/signer/age/{{ .Values.signer.ageKey.key }}
+          {{- end }}
+          {{- with .Values.signer.extraEnv }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- end }}
         ports:
+          {{- if eq .Values.mode "signer" }}
+          - name: signer
+            containerPort: {{ .Values.signer.port }}
+          {{- else }}
           - name: api
             containerPort: 8080
           - name: metrics
             containerPort: 8081
+          {{- end }}
+        {{- if eq .Values.mode "signer" }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: signer
+            scheme: HTTPS
+          periodSeconds: 10
+          timeoutSeconds: {{ .Values.signer.probes.timeoutSeconds }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: signer
+            scheme: HTTPS
+          periodSeconds: 20
+          timeoutSeconds: {{ .Values.signer.probes.timeoutSeconds }}
+          failureThreshold: 3
+        volumeMounts:
+          - name: signer-config
+            mountPath: /etc/bursa/signer/config.yaml
+            subPath: config.yaml
+            readOnly: true
+          - name: signer-tls
+            mountPath: /etc/bursa/signer/tls
+            readOnly: true
+          {{- if .Values.signer.tls.clientCASecretName }}
+          - name: signer-client-ca
+            mountPath: /etc/bursa/signer/client-ca
+            readOnly: true
+          {{- end }}
+          {{- if .Values.signer.sopsKeys.secretName }}
+          - name: signer-sops-keys
+            mountPath: /etc/bursa/signer/sops-keys
+            readOnly: true
+          {{- end }}
+          {{- if .Values.signer.ageKey.secretName }}
+          - name: signer-age
+            mountPath: /etc/bursa/signer/age
+            readOnly: true
+          {{- end }}
+          - name: tmp
+            mountPath: /tmp
+          {{- with .Values.signer.extraVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- end }}
         {{- if .Values.resources }}
         resources: {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
+      {{- if eq .Values.mode "signer" }}
+      volumes:
+        - name: signer-config
+          configMap:
+            name: {{ include "bursa.fullname" . }}-signer
+        - name: signer-tls
+          secret:
+            secretName: {{ .Values.signer.tls.secretName }}
+            defaultMode: 0440
+        {{- if .Values.signer.tls.clientCASecretName }}
+        - name: signer-client-ca
+          secret:
+            secretName: {{ .Values.signer.tls.clientCASecretName }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
+        {{- if .Values.signer.sopsKeys.secretName }}
+        - name: signer-sops-keys
+          secret:
+            secretName: {{ .Values.signer.sopsKeys.secretName }}
+            defaultMode: 0440
+        {{- end }}
+        {{- if .Values.signer.ageKey.secretName }}
+        - name: signer-age
+          secret:
+            secretName: {{ .Values.signer.ageKey.secretName }}
+            defaultMode: 0440
+            items:
+              - key: {{ .Values.signer.ageKey.key }}
+                path: {{ .Values.signer.ageKey.key }}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.signer.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
