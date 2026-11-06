@@ -24,7 +24,27 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if .Values.podMonitor.enabled -}}
 {{- fail "podMonitor.enabled is not supported in signer mode: the signer serves metrics on loopback only" -}}
 {{- end -}}
-{{- $s := (default dict .Values.signer.config).signer | default dict -}}
+{{- $cfg := default dict .Values.signer.config -}}
+{{- /* The config file is a ConfigMap, so credentials must reach Bursa through
+     the environment instead: signer.extraEnv with valueFrom. */ -}}
+{{- $secretFields := list
+      (list "mnemonic" (list "mnemonic") "set MNEMONIC in signer.extraEnv with valueFrom")
+      (list "api.jwt_secret" (list "api" "jwt_secret") "set API_JWT_SECRET in signer.extraEnv with valueFrom")
+      (list "storage.dsn" (list "storage" "dsn") "set STORAGE_DSN in signer.extraEnv with valueFrom")
+      (list "signer.jwt_secret" (list "signer" "jwt_secret") "set SIGNER_JWT_SECRET in signer.extraEnv with valueFrom")
+      (list "signer.watermark.dsn" (list "signer" "watermark" "dsn") "set signer.watermark.dsn_env and that variable in signer.extraEnv with valueFrom") -}}
+{{- range $secretFields -}}
+{{- $path := index . 1 -}}
+{{- $v := "" -}}
+{{- if eq (len $path) 1 -}}{{- $v = dig (index $path 0) "" $cfg -}}
+{{- else if eq (len $path) 2 -}}{{- $v = dig (index $path 0) (index $path 1) "" $cfg -}}
+{{- else -}}{{- $v = dig (index $path 0) (index $path 1) (index $path 2) "" $cfg -}}
+{{- end -}}
+{{- if $v -}}
+{{- fail (printf "signer.config.%s must not be set: the signer config is a ConfigMap; %s" (index . 0) (index . 2)) -}}
+{{- end -}}
+{{- end -}}
+{{- $s := $cfg.signer | default dict -}}
 {{- $wm := $s.watermark | default dict -}}
 {{- /* Bursa applies environment variables after the config file, and
      signer.extraEnv follows environment in the pod, so later entries win. */ -}}

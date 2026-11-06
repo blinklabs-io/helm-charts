@@ -60,6 +60,29 @@ class BursaSignerGuardTests(unittest.TestCase):
     def test_require_client_cert_in_config(self):
         self.assertFails({"signer": {"config": {"signer": {"require_client_cert": True}}}}, "require_client_cert must be false")
 
+    def test_secret_config_fields_rejected(self):
+        cases = {
+            "mnemonic": ({"mnemonic": "abandon"}, "MNEMONIC"),
+            "api.jwt_secret": ({"api": {"jwt_secret": "s"}}, "API_JWT_SECRET"),
+            "storage.dsn": ({"storage": {"dsn": "postgres://u:p@db/bursa"}}, "STORAGE_DSN"),
+            "signer.jwt_secret": ({"signer": {"jwt_secret": "s"}}, "SIGNER_JWT_SECRET"),
+            "signer.watermark.dsn": ({"signer": {"watermark": {"dsn": "postgres://u:p@db/wm"}}}, "dsn_env"),
+        }
+        for field, (config, hint) in cases.items():
+            with self.subTest(field=field):
+                result = render({"signer": {"config": config}})
+                self.assertNotEqual(result.returncode, 0, "render succeeded")
+                self.assertIn(f"signer.config.{field} must not be set", result.stderr)
+                self.assertIn(hint, result.stderr)
+
+    def test_secret_config_fields_empty_render(self):
+        self.assertRenders({"signer": {"config": {
+            "mnemonic": "",
+            "api": {"jwt_secret": ""},
+            "storage": {"dsn": ""},
+            "signer": {"jwt_secret": "", "watermark": {"dsn": ""}},
+        }}})
+
     def test_watermark_type_from_value_from(self):
         entry = {"name": "BURSA_SIGNER_WATERMARK_TYPE", "valueFrom": {"configMapKeyRef": {"name": "signer", "key": "type"}}}
         self.assertFails(extra_env(entry), "cannot take BURSA_SIGNER_WATERMARK_TYPE")
