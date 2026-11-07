@@ -17,12 +17,12 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if not (has .Values.mode (list "api" "signer")) -}}
 {{- fail (printf "mode must be \"api\" or \"signer\", got %q" (toString .Values.mode)) -}}
 {{- end -}}
+{{- if .Values.podMonitor.enabled -}}
+{{- fail "podMonitor.enabled is not supported: Bursa serves metrics on loopback only and refuses a non-loopback METRICS_LISTEN_ADDRESS" -}}
+{{- end -}}
 {{- if eq .Values.mode "signer" -}}
 {{- if not .Values.signer.tls.secretName -}}
 {{- fail "signer.tls.secretName is required in signer mode: the signer refuses a plaintext non-loopback listener" -}}
-{{- end -}}
-{{- if .Values.podMonitor.enabled -}}
-{{- fail "podMonitor.enabled is not supported in signer mode: the signer serves metrics on loopback only" -}}
 {{- end -}}
 {{- $cfg := default dict .Values.signer.config -}}
 {{- /* The config file is a ConfigMap, so credentials must reach Bursa through

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assert the Bursa chart's signer-mode render guards."""
+"""Assert the Bursa chart's render guards."""
 
 import os
 from pathlib import Path
@@ -14,11 +14,11 @@ CHART = Path(os.environ.get("BURSA_CHART_DIR", Path(__file__).resolve().parents[
 FIXTURE = "signer-values.yaml"
 
 
-def render(values=None):
+def render(values=None, fixture=FIXTURE):
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "values.yaml"
         path.write_text(yaml.safe_dump(values or {}))
-        command = ["helm", "template", "review", str(CHART), "-f", str(CHART / "ci" / FIXTURE), "-f", str(path)]
+        command = ["helm", "template", "review", str(CHART), "-f", str(CHART / "ci" / fixture), "-f", str(path)]
         return subprocess.run(command, text=True, capture_output=True)
 
 
@@ -32,8 +32,8 @@ class BursaSignerGuardTests(unittest.TestCase):
         result = render(values)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def assertFails(self, values, message):
-        result = render(values)
+    def assertFails(self, values, message, fixture=FIXTURE):
+        result = render(values, fixture)
         self.assertNotEqual(result.returncode, 0, "render succeeded")
         self.assertIn(message, result.stderr)
 
@@ -86,6 +86,11 @@ class BursaSignerGuardTests(unittest.TestCase):
     def test_watermark_type_from_value_from(self):
         entry = {"name": "BURSA_SIGNER_WATERMARK_TYPE", "valueFrom": {"configMapKeyRef": {"name": "signer", "key": "type"}}}
         self.assertFails(extra_env(entry), "cannot take BURSA_SIGNER_WATERMARK_TYPE")
+
+    def test_pod_monitor_rejected(self):
+        for fixture in ("api-values.yaml", "signer-values.yaml"):
+            with self.subTest(fixture=fixture):
+                self.assertFails({"podMonitor": {"enabled": True}}, "podMonitor.enabled is not supported", fixture)
 
 
 if __name__ == "__main__":

@@ -23,11 +23,15 @@ environment:
   # GCP_KMS_RESOURCE_ID: ""
   # GCP_SECRET_PREFIX: ""
   # LOGGING_LEVEL: "info"
-  # METRICS_LISTEN_ADDRESS: ""
+  # Metrics bind to loopback only; Bursa refuses a non-loopback or empty
+  # METRICS_LISTEN_ADDRESS.
+  # METRICS_LISTEN_ADDRESS: "127.0.0.1"
   # METRICS_LISTEN_PORT: 8081
 
 extraPodLabels: {}
 
+# Must stay disabled: Bursa serves metrics on loopback only, so a pod scrape
+# cannot reach them and the chart refuses to render with enabled: true.
 podMonitor:
   enabled: false
   extraLabels: {}
