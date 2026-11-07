@@ -23,7 +23,7 @@ environment:
   # GCP_KMS_RESOURCE_ID: ""
   # GCP_SECRET_PREFIX: ""
   # LOGGING_LEVEL: "info"
-  # Metrics bind to loopback only; Bursa refuses a non-loopback or empty
+  # Metrics bind to loopback only; Bursa refuses a non-loopback
   # METRICS_LISTEN_ADDRESS.
   # METRICS_LISTEN_ADDRESS: "127.0.0.1"
   # METRICS_LISTEN_PORT: 8081
