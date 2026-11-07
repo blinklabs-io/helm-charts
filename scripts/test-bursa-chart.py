@@ -83,6 +83,56 @@ class BursaSignerGuardTests(unittest.TestCase):
             "signer": {"jwt_secret": "", "watermark": {"dsn": ""}},
         }}})
 
+    def test_url_userinfo_in_config_rejected(self):
+        url = "https://user:s3cr3tpw@hooks.example.com/authorize"
+        backends = lambda field: {"signer": {"backends": [{"name": "cold", "type": "confidential-space", field: url}]}}
+        cases = {
+            "signer.policy_hook_url": ({"signer": {"policy_hook_url": url}}, "SIGNER_POLICY_HOOK_URL"),
+            "signer.jwks_url": ({"signer": {"jwks_url": url}}, "SIGNER_JWKS_URL"),
+            "api.jwks_url": ({"api": {"jwks_url": url}}, "API_JWKS_URL"),
+            "signer.backends[0].jwks_url": (backends("jwks_url"), "no environment override"),
+            "signer.backends[0].address": (backends("address"), "no environment override"),
+        }
+        for field, (config, hint) in cases.items():
+            with self.subTest(field=field):
+                result = render({"signer": {"config": config}})
+                self.assertNotEqual(result.returncode, 0, "render succeeded")
+                self.assertIn(f"signer.config.{field} must not carry URL userinfo", result.stderr)
+                self.assertIn(hint, result.stderr)
+                self.assertNotIn("s3cr3tpw", result.stderr)
+
+    def test_url_userinfo_username_only_rejected(self):
+        config = {"signer": {"policy_hook_url": "https://token@hooks.example.com/authorize"}}
+        self.assertFails({"signer": {"config": config}}, "must not carry URL userinfo")
+
+    def test_url_userinfo_in_env_value_rejected(self):
+        url = "https://user:pass@keys.example.com/jwks"
+        for name in (
+            "SIGNER_POLICY_HOOK_URL", "BURSA_SIGNER_SIGNER_POLICY_HOOK_URL",
+            "SIGNER_JWKS_URL", "BURSA_SIGNER_SIGNER_JWKS_URL",
+            "API_JWKS_URL", "BURSA_API_JWKS_URL",
+        ):
+            with self.subTest(name=name, source="extraEnv"):
+                self.assertFails(extra_env({"name": name, "value": url}), f"{name} must not carry URL userinfo")
+            with self.subTest(name=name, source="environment"):
+                self.assertFails({"environment": {name: url}}, f"{name} must not carry URL userinfo")
+        with self.subTest(fixture="api-values.yaml"):
+            self.assertFails({"environment": {"API_JWKS_URL": url}}, "API_JWKS_URL must not carry URL userinfo", "api-values.yaml")
+
+    def test_urls_without_userinfo_render(self):
+        url = "https://keys.example.com/jwks"
+        self.assertRenders({"signer": {"config": {
+            "api": {"jwks_url": url},
+            "signer": {
+                "policy_hook_url": url,
+                "jwks_url": url,
+                "backends": [{"name": "cold", "type": "confidential-space", "address": url, "jwks_url": url}],
+            },
+        }}})
+        self.assertRenders({"environment": {"SIGNER_JWKS_URL": url}})
+        ref = {"secretKeyRef": {"name": "bursa-signer-hook", "key": "url"}}
+        self.assertRenders(extra_env({"name": "SIGNER_POLICY_HOOK_URL", "valueFrom": ref}))
+
     def test_watermark_type_from_value_from(self):
         entry = {"name": "BURSA_SIGNER_WATERMARK_TYPE", "valueFrom": {"configMapKeyRef": {"name": "signer", "key": "type"}}}
         self.assertFails(extra_env(entry), "cannot take BURSA_SIGNER_WATERMARK_TYPE")

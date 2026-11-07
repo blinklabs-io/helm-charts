@@ -13,12 +13,26 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
+{{- /* Environment names whose URL Bursa fetches with a Go HTTP client:
+     the envconfig name and its BURSA_-prefixed form. */ -}}
+{{- define "bursa.urlEnvNames" -}}
+SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA_SIGNER_SIGNER_JWKS_URL API_JWKS_URL BURSA_API_JWKS_URL
+{{- end }}
+
 {{- define "bursa.validate" -}}
 {{- if not (has .Values.mode (list "api" "signer")) -}}
 {{- fail (printf "mode must be \"api\" or \"signer\", got %q" (toString .Values.mode)) -}}
 {{- end -}}
 {{- if .Values.podMonitor.enabled -}}
 {{- fail "podMonitor.enabled is not supported: Bursa serves metrics on loopback only and refuses a non-loopback METRICS_LISTEN_ADDRESS" -}}
+{{- end -}}
+{{- range $k, $v := .Values.environment -}}
+{{- if and (has $k (include "bursa.urlEnvNames" "" | splitList " ")) $v -}}
+{{- if (urlParse (toString $v)).userinfo -}}
+{{- $hint := ternary "; set it in signer.extraEnv with valueFrom" "" (eq $.Values.mode "signer") -}}
+{{- fail (printf "%s must not carry URL userinfo as a literal environment value: the Deployment is readable%s" $k $hint) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- if eq .Values.mode "signer" -}}
 {{- if not .Values.signer.tls.secretName -}}
@@ -42,6 +56,33 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 {{- if $v -}}
 {{- fail (printf "signer.config.%s must not be set: the signer config is a ConfigMap; %s" (index . 0) (index . 2)) -}}
+{{- end -}}
+{{- end -}}
+{{- /* Go HTTP clients send URL userinfo as Basic authentication, so a URL
+     carrying it is a credential too. */ -}}
+{{- $urlFields := list
+      (list "signer.policy_hook_url" (dig "signer" "policy_hook_url" "" $cfg) "set SIGNER_POLICY_HOOK_URL in signer.extraEnv with valueFrom")
+      (list "signer.jwks_url" (dig "signer" "jwks_url" "" $cfg) "set SIGNER_JWKS_URL in signer.extraEnv with valueFrom")
+      (list "api.jwks_url" (dig "api" "jwks_url" "" $cfg) "set API_JWKS_URL in signer.extraEnv with valueFrom") -}}
+{{- range $i, $b := (dig "signer" "backends" list $cfg) -}}
+{{- $b = $b | default dict -}}
+{{- range $f := list "address" "jwks_url" -}}
+{{- $urlFields = append $urlFields (list (printf "signer.backends[%d].%s" $i $f) (get $b $f) "Bursa reads no environment override for it") -}}
+{{- end -}}
+{{- end -}}
+{{- range $urlFields -}}
+{{- $v := toString (index . 1) -}}
+{{- if $v -}}
+{{- if (urlParse $v).userinfo -}}
+{{- fail (printf "signer.config.%s must not carry URL userinfo: Go HTTP clients send it as Basic authentication and the signer config is a ConfigMap; %s" (index . 0) (index . 2)) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.signer.extraEnv -}}
+{{- if and (has (toString .name) (include "bursa.urlEnvNames" "" | splitList " ")) .value -}}
+{{- if (urlParse (toString .value)).userinfo -}}
+{{- fail (printf "%s must not carry URL userinfo as a literal signer.extraEnv value: the Deployment is readable; set it with valueFrom" .name) -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- $s := $cfg.signer | default dict -}}

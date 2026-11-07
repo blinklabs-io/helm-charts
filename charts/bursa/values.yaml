@@ -114,7 +114,13 @@ signer:
   # through, except credentials: rendering fails if mnemonic, api.jwt_secret,
   # storage.dsn, signer.jwt_secret or signer.watermark.dsn is set, because
   # the file is a ConfigMap. Supply those through extraEnv with valueFrom
-  # (watermark: dsn_env). Key backends and the per-key policy are configured here. A sops
+  # (watermark: dsn_env). URL userinfo is Basic authentication to Bursa's HTTP
+  # clients, so rendering also fails if signer.policy_hook_url,
+  # signer.jwks_url, api.jwks_url or a backend's address or jwks_url carries
+  # it, or if SIGNER_POLICY_HOOK_URL, SIGNER_JWKS_URL, API_JWKS_URL or their
+  # BURSA_SIGNER_SIGNER_ / BURSA_API_ prefixed names carry it as a literal
+  # value. Supply the first three through extraEnv with valueFrom; backend
+  # URLs have no environment override. Key backends and the per-key policy are configured here. A sops
   # backend reading the keys Secret below uses
   # `path: /etc/bursa/signer/sops-keys`. The signer serves metrics on
   # loopback only, so podMonitor cannot be used in signer mode.
