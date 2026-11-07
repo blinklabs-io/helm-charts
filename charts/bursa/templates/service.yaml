@@ -9,12 +9,18 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
+    {{- if eq .Values.mode "signer" }}
+    - name: signer
+      port: {{ .Values.service.ports.signer }}
+      targetPort: signer
+    {{- else }}
     - name: api
       port: {{ .Values.service.ports.api }}
       targetPort: 8080
     - name: metrics
       port: {{ .Values.service.ports.metrics }}
       targetPort: 8081
+    {{- end }}
   selector:
     app.kubernetes.io/name: {{ include "bursa.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
