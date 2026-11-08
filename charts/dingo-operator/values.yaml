@@ -11,9 +11,9 @@ image:
   repository: ghcr.io/blinklabs-io/dingo-operator
   tag: main
   # Immutable digest (sha256:...); overrides the tag in the image reference.
-  # The main tag moves, so the default pins the build of dingo-operator 10a4ee5
+  # The main tag moves, so the default pins the build of dingo-operator 045644d
   # that the bundled CRD was generated from.
-  digest: "sha256:2629460bc9002d09f71b1ed761e69f358c537c1597470f28d08b17bc4b32c0c8"
+  digest: "sha256:b83d0fa1b8129cdc3dd09b2a7e79498fb7913b806dc22947e369087d00cecd40"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
