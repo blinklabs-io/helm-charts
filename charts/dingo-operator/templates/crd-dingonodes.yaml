@@ -1274,8 +1274,11 @@ spec:
                         type: boolean
                     type: object
                   poolId:
-                    description: PoolID (bech32 or hex) is optional and cross-checked
-                      against the keys.
+                    description: |-
+                      PoolID (bech32 or hex) must be set for a block producer; without it the
+                      controller marks the node Degraded and does not reconcile it. It is
+                      cross-checked against the keys and selects the pool for the on-chain
+                      opcert counter lookup.
                     type: string
                   rotation:
                     description: RotationSpec configures KES/OpCert rotation behaviour.
@@ -1299,6 +1302,14 @@ spec:
                               MTLSSecretRef names a Secret with the signer client certificate and key
                               (tls.crt, tls.key) and optionally the signer CA (ca.crt). Required when
                               Type=bursa and Mode=Auto.
+                            type: string
+                          profile:
+                            description: |-
+                              Profile is the Bursa signer profile (backend profile name, for example
+                              otg@preview) that holds the cold key. Required when the signer holds the
+                              same cold key in several profiles; only for Type=bursa.
+                            maxLength: 32
+                            pattern: ^[A-Za-z0-9@._-]+$
                             type: string
                           secretRef:
                             description: |-
