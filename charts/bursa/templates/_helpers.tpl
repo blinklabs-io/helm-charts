@@ -164,7 +164,7 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- $tag := toString .Values.image.tag -}}
 {{- if regexMatch "^v?[0-9]+\\.[0-9]+\\.[0-9]+$" $tag -}}
 {{- if semverCompare "<0.23.0-0" $tag -}}
-{{- fail (printf "mode kes-agent needs a bursa image newer than 0.22.0 (shared store, profiles and listener transport options); image.tag is %q" $tag) -}}
+{{- fail (printf "mode kes-agent needs bursa 0.23.0 or newer (shared store, profiles and listener transport options); image.tag is %q" $tag) -}}
 {{- end -}}
 {{- end -}}
 {{- if not (int .Values.kesAgent.metricsPort) -}}

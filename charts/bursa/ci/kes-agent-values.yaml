@@ -1,7 +1,4 @@
 mode: kes-agent
-# kes-agent mode needs a bursa image newer than 0.22.0.
-image:
-  tag: main
 replicaCount: 2
 kesAgent:
   config:
