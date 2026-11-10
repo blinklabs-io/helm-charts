@@ -45,6 +45,7 @@ service:
     api: 8080
     metrics: 8081
     signer: 8090
+    kesAgent: 9443
 
 serviceAccount:
   name: kms-sa
@@ -96,10 +97,11 @@ initContainers: []
 #       - {name: host-key-secret, mountPath: /secret, readOnly: true}
 #       - {name: host-key, mountPath: /keys}
 
-# mode selects the bursa daemon: "api" (wallet API) or "signer" (remote
-# signer, `bursa signer`). The environment, serviceAccount and resources
-# values apply to both; the api-only ports and podMonitor do not apply to
-# the signer.
+# mode selects the bursa daemon: "api" (wallet API), "signer" (remote
+# signer, `bursa signer`) or "kes-agent" (KES agent in sign mode,
+# `bursa kes-agent`). The environment, serviceAccount and resources values
+# apply to every mode; the api-only ports and podMonitor do not apply to the
+# signer or the KES agent.
 mode: api
 
 signer:
@@ -189,3 +191,64 @@ signer:
       #   ports:
       #     - {port: 18480, protocol: TCP}
       to: []
+
+kesAgent:
+  # Port of the remote sign listener (bursa-attested-kes/1) that Dingo
+  # producers connect to. The Service exposes it as service.ports.kesAgent.
+  port: 9443
+  # Loopback metrics listener, which also serves /healthz and /readyz. The
+  # readiness probe runs `bursa kes-agent ready`, which queries it, so it
+  # cannot be 0.
+  metricsPort: 8082
+  probes:
+    # The agent answers /readyz within 3s and the ready command waits 5s.
+    timeoutSeconds: 6
+  # Contents of the kes-agent config file. The chart sets kes_agent.mode
+  # (sign), the socket paths, attested_listen_address, the TLS file paths,
+  # store.age_identity_file (from ageIdentity below) and the metrics
+  # listener; everything else is passed through. Only sign mode is supported:
+  # serve-key pushes the key over a Unix socket, which cannot reach a
+  # producer in another pod. The control socket stays inside the pod.
+  #
+  # The guard must survive a restart, or the agent could sign a second
+  # header for a slot it already signed, so the chart requires the shared
+  # PostgreSQL store (store.type postgres) and refuses guard_file. The DSN is
+  # read only from the variable store.dsn_env names: set that variable in
+  # extraEnv with valueFrom.
+  config: {}
+    # kes_agent:
+    #   attestation_provider: none
+    #   store:
+    #     type: postgres
+    #     dsn_env: KESAGENT_PG_DSN
+    #     age_recipients: ["age1..."]   # every replica's identity
+    #   profiles:
+    #     - name: preview-pool
+    #       cold_vkey_hex: "<cold verification key, hex>"
+    #       system_start: "2022-10-25T00:00:00Z"
+    #       slots_per_kes_period: 129600
+  # The agent reads its TLS key and age identity as secret key files: it
+  # refuses a symlink, which is how a Secret volume presents each key, and
+  # any group or other access, which a Secret volume under the pod's fsGroup
+  # grants. An init container running copyImage therefore copies them, with
+  # the certificate so the pair stays matched, to a memory emptyDir with mode
+  # 0400. The copies and the config checksum do not follow a Secret update:
+  # restart the Deployment after rotating the TLS or age Secret.
+  copyImage: busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+  tls:
+    # kubernetes.io/tls Secret with the listener certificate (tls.crt,
+    # tls.key). Without it, set kes_agent.attested_plaintext: true in config
+    # and provide transport security elsewhere.
+    secretName: ""
+    # Secret holding the CA (ca.crt) that issues producer client
+    # certificates. Setting it makes the listener require one.
+    clientCASecretName: ""
+  ageIdentity:
+    # Secret holding this release's age identity, which unseals the shared
+    # KES key (store.age_recipients must list its recipient).
+    secretName: ""
+    key: identity.txt
+  # Extra environment, e.g. the store DSN from a secretKeyRef.
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
