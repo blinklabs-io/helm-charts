@@ -49,6 +49,9 @@ spec:
             - --metrics-secure={{ .Values.metrics.secure }}
             - --health-probe-bind-address=:{{ .Values.healthProbe.port }}
             - --leader-elect={{ .Values.leaderElection.enabled }}
+            {{- if .Values.rbac.watchKeySecrets }}
+            - --key-namespaces={{ .Values.rbac.keySecretsNamespaces | default (list .Release.Namespace) | join "," }}
+            {{- end }}
             {{- range .Values.extraArgs }}
             - {{ . | quote }}
             {{- end }}
