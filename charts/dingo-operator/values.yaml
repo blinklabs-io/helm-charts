@@ -67,6 +67,15 @@ rbac:
   # coldSigner type bursa, its mtlsSecretRef (type secret: its secretRef).
   # A Secret missing here is refused at its first read.
   readSecretNames: []
+  # Watch Secret metadata in every namespace above, so a delivered key bundle
+  # is applied at once instead of on the operator's periodic reconcile (up to
+  # two minutes later). Adds list and watch on Secrets to the keys Role and
+  # passes --key-namespaces to the operator. Only metadata is cached, but RBAC
+  # cannot limit list to metadata or to named Secrets, so this grants read
+  # access to every Secret in those namespaces. Cannot be combined with
+  # readSecretNames. Requires an operator image that has --key-namespaces;
+  # older images exit on the unknown flag.
+  watchKeySecrets: false
 
 serviceAccount:
   # Set create to false to use an existing ServiceAccount named by name.

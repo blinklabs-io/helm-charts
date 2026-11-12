@@ -63,6 +63,9 @@ subjects:
     name: {{ $sa }}
     namespace: {{ .Release.Namespace }}
 ---
+{{- if and .Values.rbac.watchKeySecrets .Values.rbac.readSecretNames }}
+{{- fail "rbac.watchKeySecrets cannot be combined with rbac.readSecretNames: list and watch cannot be limited to named Secrets" }}
+{{- end }}
 {{- if .Values.rbac.keySecretsUpdate }}
 {{- if not .Values.rbac.keySecretNames }}
 {{- fail "rbac.keySecretsUpdate requires rbac.keySecretNames: an update rule without resourceNames would cover every Secret in the namespace" }}
@@ -73,6 +76,8 @@ subjects:
 # the deployment. Update is limited to rbac.keySecretNames by resourceNames.
 # With rbac.readSecretNames set, get is limited the same way to those names and
 # rbac.keySecretNames; unset, get covers every Secret in the namespace.
+# rbac.watchKeySecrets adds list and watch, for the operator's metadata-only
+# watch of key Secrets in these namespaces.
 {{- $readSecretNames := concat (.Values.rbac.readSecretNames | default (list)) (.Values.rbac.keySecretNames | default (list)) | uniq }}
 {{- range $keySecretsNamespaces }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -88,6 +93,11 @@ rules:
     resourceNames: {{ $readSecretNames | toJson }}
 {{- end }}
     verbs: ["get"]
+{{- if $.Values.rbac.watchKeySecrets }}
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["list", "watch"]
+{{- end }}
 {{- if $.Values.rbac.keySecretsUpdate }}
   - apiGroups: [""]
     resources: ["secrets"]
