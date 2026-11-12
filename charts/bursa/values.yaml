@@ -11,7 +11,7 @@ updateStrategy:
 
 image:
   repository: ghcr.io/blinklabs-io/bursa
-  tag: "0.23.0"
+  tag: "0.24.0"
   pullPolicy: IfNotPresent
 
 environment:
@@ -215,6 +215,10 @@ kesAgent:
   # PostgreSQL store (store.type postgres) and refuses guard_file. The DSN is
   # read only from the variable store.dsn_env names: set that variable in
   # extraEnv with valueFrom.
+  #
+  # One release can serve several pools: list a profile per pool. From bursa
+  # 0.24.0, each remote session selects one profile when it is admitted and
+  # signs only for that profile.
   config: {}
     # kes_agent:
     #   attestation_provider: none
