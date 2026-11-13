@@ -1185,8 +1185,9 @@ spec:
                     properties:
                       failover:
                         default: Automatic
-                        description: FailoverMode controls whether standby promotion
-                          is automatic or manual.
+                        description: |-
+                          Failover selects standby promotion behavior. It has no effect while
+                          ActiveStandby is unsupported.
                         enum:
                         - Automatic
                         - Manual
@@ -1339,6 +1340,24 @@ spec:
                         - Assisted
                         - MonitorOnly
                         type: string
+                      reloadInPlace:
+                        description: |-
+                          ReloadInPlace loads a new KES key and opcert into the running node
+                          instead of rolling the pod, when only those two files change. The
+                          operator validates the keys Secret as for a roll, then approves its KES
+                          key and opcert; a container beside Dingo stages the approved files into
+                          the node's key directory, and Dingo reloads them on its credential file
+                          watch. The rotation completes when Dingo reports the new opcert counter;
+                          otherwise the pod is rolled as without this setting. A change to the VRF
+                          key, the vote key, any other Secret entry or the pool always rolls the
+                          pod, as does an opcert that reuses the counter the node reports loaded,
+                          or one approved before the node has reported it, or one that replaces an
+                          unconfirmed approval without a higher counter, or one without a counter
+                          above the one the pod started with (status.opcert.rolledCounter, also
+                          recorded on the pod template). Needs a Dingo version
+                          that reloads its credential files in place; an older one is rolled after
+                          the confirmation timeout. Enabling or disabling it rolls the pod once.
+                        type: boolean
                       renewBeforePeriods:
                         default: 8
                         description: RenewBeforePeriods triggers rotation when remaining
@@ -1346,6 +1365,48 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
+                    type: object
+                  signingAgent:
+                    description: |-
+                      SigningAgent signs through a remote Bursa KES agent instead of keys held
+                      by the node. Today that covers block headers (KES signatures): the keys
+                      Secret then needs only vrf.skey and the opcert, kes.skey is neither
+                      required nor staged, and Dingo checks the opcert against the agent when
+                      it connects. Leios vote signing can move to the agent later, once Dingo
+                      and Bursa support it; until then an optional vote key stays in the keys
+                      Secret. Not compatible with rotation.mode Auto, which generates the KES
+                      key in the operator. Requires a Dingo image that reads the remote agent
+                      settings; older canonical image tags are refused.
+                    properties:
+                      address:
+                        description: Address is the host:port of the agent's remote
+                          sign listener.
+                        minLength: 1
+                        type: string
+                      clientCertSecretRef:
+                        description: |-
+                          ClientCertSecretRef names a Secret in the DingoNode's namespace holding
+                          tls.crt and tls.key, the node's TLS client certificate and key for the
+                          agent. Both files are mounted read-only into the node. Requires TLS.
+                          Dingo reads them at startup, so the operator rolls the pod when either
+                          changes.
+                        maxLength: 253
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      plaintext:
+                        description: |-
+                          Plaintext runs the link over plain TCP, for setups where something else
+                          secures it, such as a service mesh. It takes neither serverSpkiSha256
+                          nor clientCertSecretRef.
+                        type: boolean
+                      serverSpkiSha256:
+                        description: |-
+                          ServerSPKISHA256 pins the agent's TLS server key: the hex SHA-256 of its
+                          certificate's SubjectPublicKeyInfo (64 hex characters), which the agent
+                          logs at startup as server_spki_sha256. Requires TLS.
+                        type: string
+                    required:
+                    - address
                     type: object
                   slotsPerKESPeriod:
                     default: 129600
@@ -1452,8 +1513,14 @@ spec:
                     default: true
                     type: boolean
                   forceResync:
-                    description: ForceResync deletes existing DB data before bootstrapping.
-                      Dangerous.
+                    description: |-
+                      ForceResync deletes existing DB data before bootstrapping. Dangerous.
+                      The wipe runs once: while the field stays true, later pod restarts keep
+                      the re-synced data. To wipe again, set it to false, wait until a pod has
+                      restarted with it false, then set it to true; a quick false-then-true
+                      edit can be merged into one rollout and never re-arm.
+                      It only takes effect while mithril.enabled is true: the wipe runs in the
+                      Mithril init container, which is not rendered otherwise.
                     type: boolean
                   verifyCertificates:
                     default: true
@@ -2155,15 +2222,22 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               ha:
-                description: HAStatus reports the high-availability state of a block
-                  producer.
+                description: |-
+                  HAStatus reports the high-availability state of a block producer. Nothing
+                  writes it yet: it is reserved for ActiveStandby, which validation rejects.
                 properties:
                   activePod:
+                    description: ActivePod is reserved for ActiveStandby and is never
+                      set.
                     type: string
                   lastPromotion:
+                    description: LastPromotion is reserved for ActiveStandby and is
+                      never set.
                     format: date-time
                     type: string
                   standbyPods:
+                    description: StandbyPods is reserved for ActiveStandby and is
+                      never set.
                     items:
                       type: string
                     type: array
@@ -2192,9 +2266,44 @@ spec:
                 description: OpCertStatus reports operational certificate counter
                   state.
                 properties:
+                  inPlaceReload:
+                    description: |-
+                      InPlaceReload tracks the key bundle approved for an in-place reload
+                      (spec.blockProducer.rotation.reloadInPlace).
+                    properties:
+                      applied:
+                        description: Applied is set once the node reports Counter
+                          as its loaded opcert.
+                        type: boolean
+                      checksum:
+                        description: Checksum is the keys checksum of the approved
+                          bundle.
+                        type: string
+                      counter:
+                        description: Counter is the approved opcert's issue number.
+                        format: int64
+                        type: integer
+                      requestedAt:
+                        description: RequestedAt is when the bundle was approved.
+                        format: date-time
+                        type: string
+                    required:
+                    - checksum
+                    - counter
+                    - requestedAt
+                    type: object
                   lastRotated:
+                    description: LastRotated is declared but never written by the
+                      operator.
                     format: date-time
                     type: string
+                  loadedCounter:
+                    description: |-
+                      LoadedCounter is the issue number of the opcert the node reports it is
+                      forging with (Dingo's dingo_forge_opcert_counter). Unset means not
+                      observed; zero is a real counter.
+                    format: int64
+                    type: integer
                   onChainCounter:
                     description: |-
                       OnChainCounter is the highest opcert issue number the chain has accepted
@@ -2221,6 +2330,16 @@ spec:
                       enforced until it ages out.
                     type: string
                   onDiskCounter:
+                    format: int64
+                    type: integer
+                  rolledCounter:
+                    description: |-
+                      RolledCounter is the issue number of the opcert in the bundle the pod
+                      last started with. It is cleared when the node reports that counter, or
+                      when an in-place reload with a higher counter is confirmed. The pod
+                      template records the same counter (dingo.blinklabs.io/keys-counter),
+                      which a bundle must exceed to load in place; this value stands in, while
+                      set, for a template rendered before that annotation existed.
                     format: int64
                     type: integer
                 type: object
