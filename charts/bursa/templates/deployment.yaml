@@ -28,10 +28,13 @@ spec:
       {{- if eq .Values.mode "signer" }}
       annotations:
         checksum/signer-config: {{ include "bursa.signerConfig" . | sha256sum }}
+      {{- else if eq .Values.mode "kes-agent" }}
+      annotations:
+        checksum/kes-agent-config: {{ include "bursa.kesAgentConfig" . | sha256sum }}
       {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
-      {{- if eq .Values.mode "signer" }}
+      {{- if has .Values.mode (list "signer" "kes-agent") }}
       automountServiceAccountToken: false
       {{- end }}
       {{- if .Values.tolerations }}
@@ -40,7 +43,7 @@ spec:
       {{- if .Values.affinity }}
       affinity: {{- toYaml .Values.affinity | nindent 8 }}
       {{- end }}
-      {{- if eq .Values.mode "signer" }}
+      {{- if has .Values.mode (list "signer" "kes-agent") }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -49,13 +52,55 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       {{- end }}
-      {{- with .Values.initContainers }}
-      initContainers: {{- toYaml . | nindent 8 }}
+      {{- $ka := eq .Values.mode "kes-agent" }}
+      {{- $kaTLS := and $ka .Values.kesAgent.tls.secretName }}
+      {{- $kaAge := and $ka .Values.kesAgent.ageIdentity.secretName }}
+      {{- if or .Values.initContainers $kaTLS $kaAge }}
+      initContainers:
+        {{- if or $kaTLS $kaAge }}
+        - name: kes-agent-secrets
+          image: {{ .Values.kesAgent.copyImage }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              {{- if $kaTLS }}
+              install -m 0400 /in/tls/tls.crt /out/tls.crt
+              install -m 0400 /in/tls/tls.key /out/tls.key
+              {{- end }}
+              {{- if $kaAge }}
+              install -m 0400 /in/age/{{ .Values.kesAgent.ageIdentity.key }} /out/age-identity.txt
+              {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            {{- if $kaTLS }}
+            - name: kes-agent-tls
+              mountPath: /in/tls
+              readOnly: true
+            {{- end }}
+            {{- if $kaAge }}
+            - name: kes-agent-age
+              mountPath: /in/age
+              readOnly: true
+            {{- end }}
+            - name: kes-agent-secrets
+              mountPath: /out
+        {{- end }}
+        {{- with .Values.initContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       containers:
       - name: bursa
         {{- if eq .Values.mode "signer" }}
         command: ["bursa", "signer", "--config", "/etc/bursa/signer/config.yaml"]
+        {{- else if eq .Values.mode "kes-agent" }}
+        command: ["bursa", "kes-agent", "--config", "/etc/bursa/kes-agent/config.yaml"]
         {{- else }}
         command: ["bursa", "api"]
         {{- end }}
@@ -77,10 +122,18 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
           {{- end }}
+          {{- if eq .Values.mode "kes-agent" }}
+          {{- with .Values.kesAgent.extraEnv }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- end }}
         ports:
           {{- if eq .Values.mode "signer" }}
           - name: signer
             containerPort: {{ .Values.signer.port }}
+          {{- else if eq .Values.mode "kes-agent" }}
+          - name: kes-agent
+            containerPort: {{ .Values.kesAgent.port }}
           {{- else }}
           - name: api
             containerPort: 8080
@@ -137,6 +190,43 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
         {{- end }}
+        {{- if eq .Values.mode "kes-agent" }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        # The health endpoints listen on loopback only, so readiness is an
+        # exec probe. There is no liveness probe: readiness also covers the
+        # shared store, and a database outage must not restart every replica.
+        readinessProbe:
+          exec:
+            command: ["bursa", "kes-agent", "ready", "--config", "/etc/bursa/kes-agent/config.yaml"]
+          periodSeconds: 10
+          timeoutSeconds: {{ .Values.kesAgent.probes.timeoutSeconds }}
+        volumeMounts:
+          - name: kes-agent-config
+            mountPath: /etc/bursa/kes-agent/config.yaml
+            subPath: config.yaml
+            readOnly: true
+          - name: kes-agent-run
+            mountPath: /run/bursa/kes-agent
+          {{- if .Values.kesAgent.tls.clientCASecretName }}
+          - name: kes-agent-client-ca
+            mountPath: /etc/bursa/kes-agent/client-ca
+            readOnly: true
+          {{- end }}
+          {{- if or .Values.kesAgent.tls.secretName .Values.kesAgent.ageIdentity.secretName }}
+          - name: kes-agent-secrets
+            mountPath: /run/bursa/kes-agent-secrets
+            readOnly: true
+          {{- end }}
+          - name: tmp
+            mountPath: /tmp
+          {{- with .Values.kesAgent.extraVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- end }}
         {{- if .Values.resources }}
         resources: {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
@@ -175,6 +265,48 @@ spec:
         - name: tmp
           emptyDir: {}
         {{- with .Values.signer.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- if eq .Values.mode "kes-agent" }}
+      volumes:
+        - name: kes-agent-config
+          configMap:
+            name: {{ include "bursa.fullname" . }}-kes-agent
+        - name: kes-agent-run
+          emptyDir:
+            medium: Memory
+        {{- if .Values.kesAgent.tls.secretName }}
+        - name: kes-agent-tls
+          secret:
+            secretName: {{ .Values.kesAgent.tls.secretName }}
+            defaultMode: 0440
+        {{- end }}
+        {{- if .Values.kesAgent.tls.clientCASecretName }}
+        - name: kes-agent-client-ca
+          secret:
+            secretName: {{ .Values.kesAgent.tls.clientCASecretName }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
+        {{- if .Values.kesAgent.ageIdentity.secretName }}
+        - name: kes-agent-age
+          secret:
+            secretName: {{ .Values.kesAgent.ageIdentity.secretName }}
+            defaultMode: 0440
+            items:
+              - key: {{ .Values.kesAgent.ageIdentity.key }}
+                path: {{ .Values.kesAgent.ageIdentity.key }}
+        {{- end }}
+        {{- if or .Values.kesAgent.tls.secretName .Values.kesAgent.ageIdentity.secretName }}
+        - name: kes-agent-secrets
+          emptyDir:
+            medium: Memory
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.kesAgent.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       {{- end }}

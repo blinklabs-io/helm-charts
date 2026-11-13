@@ -13,6 +13,10 @@ spec:
     - name: signer
       port: {{ .Values.service.ports.signer }}
       targetPort: signer
+    {{- else if eq .Values.mode "kes-agent" }}
+    - name: kes-agent
+      port: {{ .Values.service.ports.kesAgent }}
+      targetPort: kes-agent
     {{- else }}
     - name: api
       port: {{ .Values.service.ports.api }}

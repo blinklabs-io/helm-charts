@@ -20,8 +20,11 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end }}
 
 {{- define "bursa.validate" -}}
-{{- if not (has .Values.mode (list "api" "signer")) -}}
-{{- fail (printf "mode must be \"api\" or \"signer\", got %q" (toString .Values.mode)) -}}
+{{- if not (has .Values.mode (list "api" "signer" "kes-agent")) -}}
+{{- fail (printf "mode must be \"api\", \"signer\" or \"kes-agent\", got %q" (toString .Values.mode)) -}}
+{{- end -}}
+{{- if eq .Values.mode "kes-agent" -}}
+{{- include "bursa.validateKesAgent" . -}}
 {{- end -}}
 {{- if .Values.podMonitor.enabled -}}
 {{- fail "podMonitor.enabled is not supported: Bursa serves metrics on loopback only and refuses a non-loopback METRICS_LISTEN_ADDRESS" -}}
@@ -154,5 +157,146 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- $_ := set $s "client_ca_cert" "/etc/bursa/signer/client-ca/ca.crt" -}}
 {{- end -}}
 {{- $_ := set $cfg "signer" $s -}}
+{{- toYaml $cfg -}}
+{{- end }}
+
+{{- define "bursa.validateKesAgent" -}}
+{{- $tag := toString .Values.image.tag -}}
+{{- if regexMatch "^v?[0-9]+\\.[0-9]+\\.[0-9]+$" $tag -}}
+{{- if semverCompare "<0.23.0-0" $tag -}}
+{{- fail (printf "mode kes-agent needs bursa 0.23.0 or newer (shared store, profiles and listener transport options); image.tag is %q" $tag) -}}
+{{- end -}}
+{{- end -}}
+{{- if not (int .Values.kesAgent.metricsPort) -}}
+{{- fail "kesAgent.metricsPort must not be 0: the readiness probe queries /readyz on the metrics listener" -}}
+{{- end -}}
+{{- $cfg := default dict .Values.kesAgent.config -}}
+{{- $k := default dict $cfg.kes_agent -}}
+{{- if and $k.mode (ne (toString $k.mode) "sign") -}}
+{{- fail (printf "kesAgent.config.kes_agent.mode must be sign (or unset), got %q: serve-key pushes the key over a Unix socket, which cannot reach a producer in another pod" (toString $k.mode)) -}}
+{{- end -}}
+{{- range $f := list "service_socket" "control_socket" "attested_listen_address" "attested_tls_cert_file" "attested_tls_key_file" "attested_client_ca_file" -}}
+{{- if hasKey $k $f -}}
+{{- fail (printf "kesAgent.config.kes_agent.%s is set by the chart and must not be set" $f) -}}
+{{- end -}}
+{{- end -}}
+{{- if or (hasKey (default dict $cfg.metrics) "address") (hasKey (default dict $cfg.metrics) "port") -}}
+{{- fail "kesAgent.config.metrics is set by the chart: use kesAgent.metricsPort" -}}
+{{- end -}}
+{{- $plain := eq (toString $k.attested_plaintext) "true" -}}
+{{- if and $plain .Values.kesAgent.tls.secretName -}}
+{{- fail "kesAgent.tls.secretName and kes_agent.attested_plaintext cannot both be set: the agent refuses TLS files on a plaintext listener" -}}
+{{- end -}}
+{{- if and (not $plain) (not .Values.kesAgent.tls.secretName) -}}
+{{- fail "mode kes-agent needs kesAgent.tls.secretName, or kes_agent.attested_plaintext: true with transport security provided elsewhere" -}}
+{{- end -}}
+{{- if and .Values.kesAgent.tls.clientCASecretName (not .Values.kesAgent.tls.secretName) -}}
+{{- fail "kesAgent.tls.clientCASecretName requires kesAgent.tls.secretName" -}}
+{{- end -}}
+{{- /* The config file is a ConfigMap, so a credential from a reused
+     application config must not reach it. */ -}}
+{{- $secretFields := list
+      (list "mnemonic" (dig "mnemonic" "" $cfg))
+      (list "api.jwt_secret" (dig "api" "jwt_secret" "" $cfg))
+      (list "storage.dsn" (dig "storage" "dsn" "" $cfg))
+      (list "signer.jwt_secret" (dig "signer" "jwt_secret" "" $cfg))
+      (list "signer.watermark.dsn" (dig "signer" "watermark" "dsn" "" $cfg)) -}}
+{{- range $secretFields -}}
+{{- if index . 1 -}}
+{{- fail (printf "kesAgent.config.%s must not be set: the config is a ConfigMap, and the KES agent does not use it" (index . 0)) -}}
+{{- end -}}
+{{- end -}}
+{{- $store := default dict $k.store -}}
+{{- $pg := eq (toString $store.type) "postgres" -}}
+{{- if hasKey $store "dsn" -}}
+{{- fail "kesAgent.config.kes_agent.store.dsn must not be set: the config is a ConfigMap; set store.dsn_env and that variable in kesAgent.extraEnv with valueFrom" -}}
+{{- end -}}
+{{- if and $pg (not $store.dsn_env) -}}
+{{- fail "kes_agent.store.type postgres needs store.dsn_env" -}}
+{{- end -}}
+{{- /* A guard file in a pod does not survive a restart unless it sits on
+     a persistent volume, and a ReadWriteOnce volume plus the guard's lock
+     stall a rolling update, so the chart takes only the shared store. */ -}}
+{{- if not $pg -}}
+{{- fail "mode kes-agent requires kes_agent.store.type postgres: a guard lost on restart lets the agent sign a second header for a slot, and replicas must share one guard" -}}
+{{- end -}}
+{{- if or (hasKey $k "guard_file") (gt (len (default list $k.profiles)) 0) -}}
+{{- range $i, $p := (default list $k.profiles) -}}
+{{- if hasKey (default dict $p) "guard_file" -}}
+{{- fail (printf "kes_agent.profiles[%d].guard_file must not be set with the postgres store" $i) -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey $k "guard_file" -}}
+{{- fail "kes_agent.guard_file must not be set with the postgres store" -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey $store "age_identity_file" -}}
+{{- fail "kesAgent.config.kes_agent.store.age_identity_file is set by the chart: use kesAgent.ageIdentity.secretName" -}}
+{{- end -}}
+{{- if and $store.age_recipients (not .Values.kesAgent.ageIdentity.secretName) -}}
+{{- fail "kes_agent.store.age_recipients needs kesAgent.ageIdentity.secretName: the agent sets both or neither" -}}
+{{- end -}}
+{{- if and .Values.kesAgent.ageIdentity.secretName (not $store.age_recipients) -}}
+{{- fail "kesAgent.ageIdentity.secretName needs kes_agent.store.age_recipients" -}}
+{{- end -}}
+{{- if and .Values.kesAgent.ageIdentity.secretName (not $pg) -}}
+{{- fail "kesAgent.ageIdentity.secretName needs kes_agent.store.type postgres: the sealed key lives in the shared store" -}}
+{{- end -}}
+{{- if and .Values.kesAgent.ageIdentity.secretName (not .Values.kesAgent.ageIdentity.key) -}}
+{{- fail "kesAgent.ageIdentity.key is required with kesAgent.ageIdentity.secretName" -}}
+{{- end -}}
+{{- /* Bursa applies environment variables after the config file, so these
+     would undo what the chart sets or checks above. envconfig reads each
+     under its BURSA_ prefixed name too: BURSA_KESAGENT_<name> for the
+     kes_agent section and BURSA_METRICS_<name> for metrics. */ -}}
+{{- $bare := list "KESAGENT_MODE" "KESAGENT_SERVICE_SOCKET" "KESAGENT_CONTROL_SOCKET" "KESAGENT_ATTESTED_LISTEN_ADDRESS" "KESAGENT_ATTESTED_TLS_CERT_FILE" "KESAGENT_ATTESTED_TLS_KEY_FILE" "KESAGENT_ATTESTED_CLIENT_CA_FILE" "KESAGENT_ATTESTED_PLAINTEXT" "KESAGENT_GUARD_FILE" "METRICS_LISTEN_ADDRESS" "METRICS_LISTEN_PORT" -}}
+{{- $owned := list -}}
+{{- range $bare -}}
+{{- $owned = append $owned . -}}
+{{- if hasPrefix "KESAGENT_" . -}}
+{{- $owned = append $owned (printf "BURSA_KESAGENT_%s" .) -}}
+{{- else -}}
+{{- $owned = append $owned (printf "BURSA_METRICS_%s" .) -}}
+{{- end -}}
+{{- end -}}
+{{- $envNames := list -}}
+{{- range $n, $v := .Values.environment -}}{{- if $v -}}{{- $envNames = append $envNames $n -}}{{- end -}}{{- end -}}
+{{- range .Values.kesAgent.extraEnv -}}{{- $envNames = append $envNames (toString .name) -}}{{- end -}}
+{{- range $envNames -}}
+{{- if has . $owned -}}
+{{- fail (printf "%s must not be set in kes-agent mode: it overrides the config file the chart renders and validates" .) -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.kesAgent.extraEnv -}}
+{{- if and (eq (toString .name) (toString $store.dsn_env)) .value -}}
+{{- fail (printf "%s must come from valueFrom in kesAgent.extraEnv: the Deployment is readable" .name) -}}
+{{- end -}}
+{{- end -}}
+{{- if and $store.dsn_env (get (default dict .Values.environment) (toString $store.dsn_env)) -}}
+{{- fail (printf "%s must not be set in environment: the Deployment is readable; set it in kesAgent.extraEnv with valueFrom" (toString $store.dsn_env)) -}}
+{{- end -}}
+{{- end }}
+
+{{- define "bursa.kesAgentConfig" -}}
+{{- $cfg := deepCopy (default dict .Values.kesAgent.config) -}}
+{{- $k := deepCopy (default dict $cfg.kes_agent) -}}
+{{- $_ := set $k "mode" "sign" -}}
+{{- $_ := set $k "service_socket" "/run/bursa/kes-agent/service.sock" -}}
+{{- $_ := set $k "control_socket" "/run/bursa/kes-agent/control.sock" -}}
+{{- $_ := set $k "attested_listen_address" (printf ":%d" (int .Values.kesAgent.port)) -}}
+{{- if .Values.kesAgent.tls.secretName -}}
+{{- $_ := set $k "attested_tls_cert_file" "/run/bursa/kes-agent-secrets/tls.crt" -}}
+{{- $_ := set $k "attested_tls_key_file" "/run/bursa/kes-agent-secrets/tls.key" -}}
+{{- end -}}
+{{- if .Values.kesAgent.tls.clientCASecretName -}}
+{{- $_ := set $k "attested_client_ca_file" "/etc/bursa/kes-agent/client-ca/ca.crt" -}}
+{{- end -}}
+{{- if .Values.kesAgent.ageIdentity.secretName -}}
+{{- $store := deepCopy (default dict $k.store) -}}
+{{- $_ := set $store "age_identity_file" "/run/bursa/kes-agent-secrets/age-identity.txt" -}}
+{{- $_ := set $k "store" $store -}}
+{{- end -}}
+{{- $_ := set $cfg "kes_agent" $k -}}
+{{- $_ := set $cfg "metrics" (dict "address" "127.0.0.1" "port" (int .Values.kesAgent.metricsPort)) -}}
 {{- toYaml $cfg -}}
 {{- end }}

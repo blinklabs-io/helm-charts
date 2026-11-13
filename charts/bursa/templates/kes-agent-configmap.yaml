@@ -1,0 +1,12 @@
+{{- if eq .Values.mode "kes-agent" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bursa.fullname" . }}-kes-agent
+  labels:
+    {{- include "bursa.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- include "bursa.kesAgentConfig" . | nindent 4 }}
+{{- end }}

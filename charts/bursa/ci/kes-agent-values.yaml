@@ -1,0 +1,37 @@
+mode: kes-agent
+replicaCount: 2
+kesAgent:
+  config:
+    kes_agent:
+      attestation_provider: none
+      store:
+        type: postgres
+        dsn_env: KESAGENT_PG_DSN
+        age_recipients: ["age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3290gq"]
+      profiles:
+        - name: preview-pool
+          cold_vkey_hex: "0000000000000000000000000000000000000000000000000000000000000000"
+          system_start: "2022-10-25T00:00:00Z"
+          slots_per_kes_period: 129600
+  tls:
+    secretName: bursa-kes-agent-tls
+    clientCASecretName: bursa-kes-agent-client-ca
+  ageIdentity:
+    secretName: bursa-kes-agent-age
+  extraEnv:
+    - name: KESAGENT_PG_DSN
+      valueFrom:
+        secretKeyRef:
+          name: bursa-kes-agent-store
+          key: dsn
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      # chart-testing generates release names, so select on the chart name;
+      # a real release also matches app.kubernetes.io/instance: <release>
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: bursa
+        topologyKey: kubernetes.io/hostname
+podDisruptionBudget:
+  enabled: true
