@@ -193,6 +193,19 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- if and .Values.kesAgent.tls.clientCASecretName (not .Values.kesAgent.tls.secretName) -}}
 {{- fail "kesAgent.tls.clientCASecretName requires kesAgent.tls.secretName" -}}
 {{- end -}}
+{{- /* The config file is a ConfigMap, so a credential from a reused
+     application config must not reach it. */ -}}
+{{- $secretFields := list
+      (list "mnemonic" (dig "mnemonic" "" $cfg))
+      (list "api.jwt_secret" (dig "api" "jwt_secret" "" $cfg))
+      (list "storage.dsn" (dig "storage" "dsn" "" $cfg))
+      (list "signer.jwt_secret" (dig "signer" "jwt_secret" "" $cfg))
+      (list "signer.watermark.dsn" (dig "signer" "watermark" "dsn" "" $cfg)) -}}
+{{- range $secretFields -}}
+{{- if index . 1 -}}
+{{- fail (printf "kesAgent.config.%s must not be set: the config is a ConfigMap, and the KES agent does not use it" (index . 0)) -}}
+{{- end -}}
+{{- end -}}
 {{- $store := default dict $k.store -}}
 {{- $pg := eq (toString $store.type) "postgres" -}}
 {{- if hasKey $store "dsn" -}}
@@ -233,8 +246,19 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- fail "kesAgent.ageIdentity.key is required with kesAgent.ageIdentity.secretName" -}}
 {{- end -}}
 {{- /* Bursa applies environment variables after the config file, so these
-     would undo what the chart sets or checks above. */ -}}
-{{- $owned := list "KESAGENT_MODE" "KESAGENT_SERVICE_SOCKET" "KESAGENT_CONTROL_SOCKET" "KESAGENT_ATTESTED_LISTEN_ADDRESS" "KESAGENT_ATTESTED_TLS_CERT_FILE" "KESAGENT_ATTESTED_TLS_KEY_FILE" "KESAGENT_ATTESTED_CLIENT_CA_FILE" "KESAGENT_ATTESTED_PLAINTEXT" "KESAGENT_GUARD_FILE" "METRICS_LISTEN_ADDRESS" "METRICS_LISTEN_PORT" -}}
+     would undo what the chart sets or checks above. envconfig reads each
+     under its BURSA_ prefixed name too: BURSA_KESAGENT_<name> for the
+     kes_agent section and BURSA_METRICS_<name> for metrics. */ -}}
+{{- $bare := list "KESAGENT_MODE" "KESAGENT_SERVICE_SOCKET" "KESAGENT_CONTROL_SOCKET" "KESAGENT_ATTESTED_LISTEN_ADDRESS" "KESAGENT_ATTESTED_TLS_CERT_FILE" "KESAGENT_ATTESTED_TLS_KEY_FILE" "KESAGENT_ATTESTED_CLIENT_CA_FILE" "KESAGENT_ATTESTED_PLAINTEXT" "KESAGENT_GUARD_FILE" "METRICS_LISTEN_ADDRESS" "METRICS_LISTEN_PORT" -}}
+{{- $owned := list -}}
+{{- range $bare -}}
+{{- $owned = append $owned . -}}
+{{- if hasPrefix "KESAGENT_" . -}}
+{{- $owned = append $owned (printf "BURSA_KESAGENT_%s" .) -}}
+{{- else -}}
+{{- $owned = append $owned (printf "BURSA_METRICS_%s" .) -}}
+{{- end -}}
+{{- end -}}
 {{- $envNames := list -}}
 {{- range $n, $v := .Values.environment -}}{{- if $v -}}{{- $envNames = append $envNames $n -}}{{- end -}}{{- end -}}
 {{- range .Values.kesAgent.extraEnv -}}{{- $envNames = append $envNames (toString .name) -}}{{- end -}}
@@ -247,6 +271,9 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- if and (eq (toString .name) (toString $store.dsn_env)) .value -}}
 {{- fail (printf "%s must come from valueFrom in kesAgent.extraEnv: the Deployment is readable" .name) -}}
 {{- end -}}
+{{- end -}}
+{{- if and $store.dsn_env (get (default dict .Values.environment) (toString $store.dsn_env)) -}}
+{{- fail (printf "%s must not be set in environment: the Deployment is readable; set it in kesAgent.extraEnv with valueFrom" (toString $store.dsn_env)) -}}
 {{- end -}}
 {{- end }}
 
@@ -266,7 +293,7 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 {{- if .Values.kesAgent.ageIdentity.secretName -}}
 {{- $store := deepCopy (default dict $k.store) -}}
-{{- $_ := set $store "age_identity_file" (printf "/run/bursa/kes-agent-secrets/%s" .Values.kesAgent.ageIdentity.key) -}}
+{{- $_ := set $store "age_identity_file" "/run/bursa/kes-agent-secrets/age-identity.txt" -}}
 {{- $_ := set $k "store" $store -}}
 {{- end -}}
 {{- $_ := set $cfg "kes_agent" $k -}}

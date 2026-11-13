@@ -70,7 +70,7 @@ spec:
               install -m 0400 /in/tls/tls.key /out/tls.key
               {{- end }}
               {{- if $kaAge }}
-              install -m 0400 /in/age/{{ .Values.kesAgent.ageIdentity.key }} /out/{{ .Values.kesAgent.ageIdentity.key }}
+              install -m 0400 /in/age/{{ .Values.kesAgent.ageIdentity.key }} /out/age-identity.txt
               {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
