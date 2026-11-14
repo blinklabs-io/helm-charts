@@ -41,6 +41,10 @@ podMonitor:
 service:
   annotations: {}
   type: ClusterIP
+  # Optional spec.trafficDistribution, for example PreferClose: kube-proxy
+  # sends a client to a replica in its own zone (topology.kubernetes.io/zone)
+  # when one is ready, and to any replica otherwise. Empty leaves it unset.
+  trafficDistribution: ""
   ports:
     api: 8080
     metrics: 8081
