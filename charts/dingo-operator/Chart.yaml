@@ -2,8 +2,8 @@
 apiVersion: v2
 name: dingo-operator
 description: "A Helm chart for deploying the Dingo operator, which manages Dingo Cardano relays and block producers"
-version: 0.7.0
-appVersion: "0.1.0"
+version: 0.8.0
+appVersion: "0.2.0"
 
 sources:
   - https://github.com/blinklabs-io/dingo-operator
