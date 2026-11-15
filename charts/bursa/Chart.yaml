@@ -1,8 +1,8 @@
 apiVersion: v2
 name: bursa
 description: "A Helm chart for deploying Bursa"
-version: 0.0.14
-appVersion: "0.24.0"
+version: 0.0.15
+appVersion: "0.25.0"
 
 sources:
   - https://github.com/blinklabs-io/bursa
