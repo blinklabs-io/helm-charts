@@ -15,8 +15,10 @@ image:
   pullPolicy: IfNotPresent
 
 environment:
-  CARDANO_NETWORK: "mainnet"
   # Optional variables. Uncomment and set to use.
+  # CARDANO_NETWORK sets the wallet API's address network (Bursa defaults to
+  # mainnet). The signer and KES agent do not read it.
+  # CARDANO_NETWORK: "mainnet"
   # API_LISTEN_ADDRESS: ""
   # API_LISTEN_PORT: 8080
   # GOOGLE_PROJECT: ""
