@@ -4,7 +4,7 @@ Labels on chart-owned objects.
 {{- define "dingonodes.labels" -}}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: {{ .Release.Name }}
+app.kubernetes.io/part-of: {{ .Release.Name | quote }}
 {{- end }}
 
 {{/*

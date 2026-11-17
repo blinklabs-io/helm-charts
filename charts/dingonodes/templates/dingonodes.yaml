@@ -4,7 +4,7 @@
 apiVersion: dingo.blinklabs.io/v1alpha1
 kind: DingoNode
 metadata:
-  name: {{ $name }}
+  name: {{ $name | quote }}
   labels:
     {{- include "dingonodes.labels" $ | nindent 4 }}
   {{- with include "dingonodes.keepAnnotations" $ }}

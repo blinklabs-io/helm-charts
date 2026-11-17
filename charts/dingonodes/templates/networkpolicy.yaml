@@ -22,7 +22,7 @@ spec:
         operator: In
         values:
           {{- range $enabled }}
-          - {{ . }}
+          - {{ . | quote }}
           {{- end }}
   policyTypes: [Ingress]
   ingress:

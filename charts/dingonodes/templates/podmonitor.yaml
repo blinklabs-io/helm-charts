@@ -5,7 +5,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: {{ $name }}
+  name: {{ $name | quote }}
   labels:
     {{- toYaml (merge (dict) ($.Values.podMonitor.labels | default dict) (include "dingonodes.labels" $ | fromYaml)) | nindent 4 }}
   {{- with include "dingonodes.keepAnnotations" $ }}
@@ -23,10 +23,10 @@ spec:
     matchLabels:
       # The operator's stable selector labels.
       app.kubernetes.io/name: dingo
-      app.kubernetes.io/instance: {{ $name }}
+      app.kubernetes.io/instance: {{ $name | quote }}
   namespaceSelector:
     matchNames:
-      - {{ $.Release.Namespace }}
+      - {{ $.Release.Namespace | quote }}
   podMetricsEndpoints:
     - port: metrics
       path: /metrics
@@ -39,7 +39,7 @@ spec:
           targetLabel: instance
         {{- end }}
         {{- range $key, $val := $metricLabels }}
-        - targetLabel: {{ $key }}
+        - targetLabel: {{ $key | quote }}
           replacement: {{ $val | quote }}
         {{- end }}
       {{- end }}
