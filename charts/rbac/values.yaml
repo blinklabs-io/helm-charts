@@ -1,3 +1,12 @@
+# A namespace created here cannot be this release's own namespace: Helm stores
+# the release record there before it creates any resources.
+namespaces: {}
+#  my-namespace:
+#    labels:
+#      pod-security.kubernetes.io/enforce: baseline
+#    annotations:
+#      helm.sh/resource-policy: keep
+
 serviceAccounts: {}
 #  my-svcacct:
 #    automountServiceAccountToken: true
