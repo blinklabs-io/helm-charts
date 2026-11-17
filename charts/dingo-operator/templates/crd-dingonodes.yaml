@@ -1374,9 +1374,12 @@ spec:
                       required nor staged, and Dingo checks the opcert against the agent when
                       it connects. Leios vote signing can move to the agent later, once Dingo
                       and Bursa support it; until then an optional vote key stays in the keys
-                      Secret. Not compatible with rotation.mode Auto, which generates the KES
-                      key in the operator. Requires a Dingo image that reads the remote agent
-                      settings; older canonical image tags are refused.
+                      Secret. With rotation.mode Auto the operator does not generate the KES
+                      key: it drives the agent's control role to generate it inside the agent
+                      and to install the opcert issued for it, which needs TLS, serverSpkiSha256,
+                      controlClientCertSecretRef and rotation.reloadInPlace. Requires a Dingo
+                      image that reads the remote agent settings; older canonical image tags are
+                      refused.
                     properties:
                       address:
                         description: Address is the host:port of the agent's remote
@@ -1392,6 +1395,27 @@ spec:
                           changes.
                         maxLength: 253
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      controlClientCertSecretRef:
+                        description: |-
+                          ControlClientCertSecretRef names a Secret in the DingoNode's namespace
+                          holding tls.crt and tls.key, the TLS client certificate the operator
+                          presents to the agent's control role on the same address. The agent
+                          admits only a client whose certificate key is pinned in
+                          control_client_spki_sha256 on the pool's profile. Only the operator
+                          reads it; it is never mounted into the node, so it may differ from
+                          clientCertSecretRef. Required by rotation.mode Auto, which needs TLS,
+                          serverSpkiSha256 and rotation.reloadInPlace as well, and refused
+                          otherwise.
+                        maxLength: 253
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      controlProfile:
+                        description: |-
+                          ControlProfile names the agent profile that holds this pool's KES key,
+                          for the operator's control commands. It may be omitted when the agent
+                          has one profile. Refused unless rotation.mode is Auto.
+                        maxLength: 253
                         type: string
                       plaintext:
                         description: |-
@@ -1545,6 +1569,75 @@ spec:
               nodeSelector:
                 additionalProperties:
                   type: string
+                type: object
+              otlp:
+                description: |-
+                  OTLP exports the node's logs and metrics over OpenTelemetry and sets
+                  OTEL_RESOURCE_ATTRIBUTES. An empty otlp: {} adds only the resource
+                  attributes, for example to traces.
+                properties:
+                  endpoint:
+                    description: |-
+                      Endpoint is the OTLP collector base URL, for example
+                      http://otel-collector.observability:4317. When empty, the OpenTelemetry
+                      default for the protocol applies.
+                    maxLength: 2048
+                    pattern: ^https?://[^\s]+$
+                    type: string
+                  headersSecretRef:
+                    description: |-
+                      HeadersSecretRef names a Secret key holding OTEL_EXPORTER_OTLP_HEADERS
+                      (comma-separated key=value pairs, for example an authorization header).
+                      The pod does not start until the Secret and key exist.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  logs:
+                    description: Logs exports every log record over OTLP as well as
+                      to stdout.
+                    type: boolean
+                  metrics:
+                    description: |-
+                      Metrics pushes the node's Prometheus metrics over OTLP, with the same
+                      names as /metrics.
+                    type: boolean
+                  protocol:
+                    description: |-
+                      Protocol is the OTLP transport. When empty, the OpenTelemetry default
+                      (http/protobuf) applies.
+                    enum:
+                    - grpc
+                    - http/protobuf
+                    type: string
+                  resourceAttributes:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      ResourceAttributes are added to OTEL_RESOURCE_ATTRIBUTES on every
+                      exported signal. The operator always sets k8s.pod.name,
+                      k8s.namespace.name, k8s.node.name and cardano.network.name, so those
+                      keys are refused. Values are percent-encoded.
+                    maxProperties: 32
+                    type: object
                 type: object
               persistence:
                 description: PersistenceSpec configures the blockchain database volume.
@@ -2121,6 +2214,16 @@ spec:
               tracing:
                 description: Tracing configures OpenTelemetry trace export.
                 properties:
+                  alwaysSamplePools:
+                    description: |-
+                      AlwaysSamplePools lists stake pool IDs, bech32 (pool1...) or the hex
+                      key hash, whose blocks are traced whatever sampleRatio says. Requires a
+                      Dingo image of v0.91.0 or later.
+                    items:
+                      pattern: ^(pool1[0-9a-z]{50,60}|[0-9a-fA-F]{56})$
+                      type: string
+                    maxItems: 64
+                    type: array
                   enabled:
                     description: |-
                       Enabled turns on trace export. It is off by default because an exporter
@@ -2150,9 +2253,10 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-validations:
-                - message: endpoint, serviceName and sampleRatio require enabled=true
-                  rule: (!has(self.endpoint) && !has(self.serviceName) && !has(self.sampleRatio))
-                    || (has(self.enabled) && self.enabled)
+                - message: endpoint, serviceName, sampleRatio and alwaysSamplePools
+                    require enabled=true
+                  rule: (!has(self.endpoint) && !has(self.serviceName) && !has(self.sampleRatio)
+                    && !has(self.alwaysSamplePools)) || (has(self.enabled) && self.enabled)
             required:
             - network
             - role
