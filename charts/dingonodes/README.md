@@ -12,8 +12,10 @@ Each enabled node gets:
 - a PodMonitor of the same name, which a label-selected Prometheus can pick up
   through `podMonitor.labels`.
 
-Each release also gets a NetworkPolicy that admits `metricsNetworkPolicy.from`
-to the metrics port. It is not rendered while `from` is empty.
+Each release also gets a NetworkPolicy, `<release>-metrics`, that admits
+`metricsNetworkPolicy.from` to the metrics port. It is not rendered while `from`
+is empty. No node may take that name, because the operator names each node's own
+NetworkPolicy after the node.
 
 ## Example
 

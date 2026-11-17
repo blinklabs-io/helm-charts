@@ -4,12 +4,19 @@
 {{- $enabled = append $enabled $name }}
 {{- end }}
 {{- end }}
+{{- $policyName := printf "%s-metrics" .Release.Name }}
+{{- /* The operator names each node's own NetworkPolicy after the node, so a
+node with this name would make the two objects collide. Checked even while
+from is empty or the node is disabled, so the collision cannot appear later. */}}
+{{- if and .Values.metricsNetworkPolicy.enabled (hasKey .Values.nodes $policyName) }}
+{{- fail (printf "nodes.%s: the name is reserved for the release's metrics NetworkPolicy; rename the node or set metricsNetworkPolicy.enabled=false" $policyName) }}
+{{- end }}
 {{- /* An empty from would admit every peer, so render nothing without one. */}}
 {{- if and .Values.metricsNetworkPolicy.enabled $enabled .Values.metricsNetworkPolicy.from }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ .Release.Name }}-metrics
+  name: {{ $policyName | quote }}
   labels:
     {{- include "dingonodes.labels" . | nindent 4 }}
 spec:
