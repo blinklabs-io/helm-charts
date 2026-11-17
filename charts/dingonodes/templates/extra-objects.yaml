@@ -1,0 +1,13 @@
+{{- /* A map keyed by object name, so several values files can each add
+objects; a list is still accepted. */}}
+{{- range $_, $obj := .Values.extraObjects }}
+---
+{{- $o := deepCopy $obj }}
+{{- if $.Values.keep }}
+{{- $meta := $o.metadata | default dict }}
+{{- $ann := merge (dict "helm.sh/resource-policy" "keep") ($meta.annotations | default dict) }}
+{{- $_ := set $meta "annotations" $ann }}
+{{- $_ := set $o "metadata" $meta }}
+{{- end }}
+{{ toYaml $o }}
+{{- end }}

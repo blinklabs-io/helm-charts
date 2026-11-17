@@ -1,0 +1,59 @@
+# Each entry renders one DingoNode named after its key, plus a PodMonitor.
+#   <name>:
+#     # Static labels added to every scraped series.
+#     metricLabels: {}
+#     # The DingoNode spec, merged over defaults.spec.
+#     spec: {}
+#     # false removes the node (its DingoNode, PodMonitor and metrics
+#     # NetworkPolicy entry) and keeps the spec here. Its PVC has no owner, so
+#     # it survives for when the node comes back.
+#     enabled: true
+nodes: {}
+
+# Spec settings shared by every node, deep-merged under each node's own spec
+# (the node wins). Lists are replaced, not merged. A node cannot set a zero
+# value (false, 0, "") over a default, so keep switches a node may turn off
+# out of here.
+defaults:
+  spec: {}
+
+# Add helm.sh/resource-policy: keep to the DingoNodes, PodMonitors and extra
+# objects. Set it on a release before uninstalling or renaming it, so its
+# objects survive for the next release to adopt.
+# The metrics NetworkPolicy is named after the release and is not kept.
+keep: false
+
+# Static labels added to every node's scraped series, under each node's own
+# metricLabels (a node's value wins on a shared key).
+metricLabels: {}
+
+# A PodMonitor per node, named after it, in place of the operator's own
+# (leave spec.metrics.podMonitor disabled).
+podMonitor:
+  enabled: true
+  interval: 30s
+  # Labels the Prometheus podMonitorSelector requires. They win over the
+  # chart's own labels on a shared key.
+  labels: {}
+  # Pod labels copied onto every series. Set them on the pods through
+  # spec.podLabels.
+  podTargetLabels:
+    - cardano_network
+    - cardano_service
+  # Replace the instance label (pod IP and port) with the pod name.
+  instanceFromPodName: false
+  # Scrape protocol for targets that send no Content-Type. Prometheus 3
+  # needs one for Dingo's text exposition; empty leaves it unset.
+  fallbackScrapeProtocol: ""
+
+# The operator's NetworkPolicy admits metrics only from pods and namespaces
+# labelled dingo.blinklabs.io/metrics=allowed. NetworkPolicies are additive,
+# so this one admits the peers below to the metrics port without relabelling
+# their namespaces. Include the operator, which reads node metrics.
+metricsNetworkPolicy:
+  enabled: true
+  from: []
+
+# Extra manifests rendered as given, keyed by object name (a list is also
+# accepted).
+extraObjects: {}

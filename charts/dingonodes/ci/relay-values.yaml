@@ -1,0 +1,24 @@
+nodes:
+  preview-relay:
+    spec:
+      role: relay
+      network: preview
+      podLabels:
+        team: example
+podMonitor:
+  labels:
+    release: prometheus
+  podTargetLabels:
+    - team
+  instanceFromPodName: true
+  fallbackScrapeProtocol: PrometheusText0.0.4
+metricLabels:
+  environment: test
+metricsNetworkPolicy:
+  from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus

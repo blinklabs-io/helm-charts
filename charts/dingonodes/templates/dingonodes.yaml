@@ -1,0 +1,19 @@
+{{- range $name, $node := .Values.nodes }}
+{{- if ne $node.enabled false }}
+---
+apiVersion: dingo.blinklabs.io/v1alpha1
+kind: DingoNode
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "dingonodes.labels" $ | nindent 4 }}
+  {{- with include "dingonodes.keepAnnotations" $ }}
+  {{- . | nindent 2 }}
+  {{- end }}
+spec:
+  {{- /* defaults.spec under the node's own spec. mergeOverwrite skips zero
+  values (false, 0, ""), so a node cannot turn off a default that is on:
+  keep such settings out of defaults. */}}
+  {{- toYaml (mergeOverwrite (deepCopy ($.Values.defaults.spec | default dict)) ($node.spec | default dict)) | nindent 2 }}
+{{- end }}
+{{- end }}

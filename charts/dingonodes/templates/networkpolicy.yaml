@@ -1,0 +1,34 @@
+{{- $enabled := list }}
+{{- range $name, $node := .Values.nodes }}
+{{- if ne $node.enabled false }}
+{{- $enabled = append $enabled $name }}
+{{- end }}
+{{- end }}
+{{- /* An empty from would admit every peer, so render nothing without one. */}}
+{{- if and .Values.metricsNetworkPolicy.enabled $enabled .Values.metricsNetworkPolicy.from }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-metrics
+  labels:
+    {{- include "dingonodes.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [dingo]
+      - key: app.kubernetes.io/instance
+        operator: In
+        values:
+          {{- range $enabled }}
+          - {{ . }}
+          {{- end }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- toYaml .Values.metricsNetworkPolicy.from | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: 12798
+{{- end }}
