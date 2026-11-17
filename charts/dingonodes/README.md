@@ -42,6 +42,12 @@ metricsNetworkPolicy:
       podSelector:
         matchLabels:
           app.kubernetes.io/name: prometheus
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: dingo-operator
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: dingo-operator
 ```
 
 ## Notes
