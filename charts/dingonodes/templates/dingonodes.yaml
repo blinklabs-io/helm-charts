@@ -11,9 +11,8 @@ metadata:
   {{- . | nindent 2 }}
   {{- end }}
 spec:
-  {{- /* defaults.spec under the node's own spec. mergeOverwrite skips zero
-  values (false, 0, ""), so a node cannot turn off a default that is on:
-  keep such settings out of defaults. */}}
+  {{- /* deepCopy keeps mergeOverwrite from writing one node's spec into
+  defaults.spec, which every later node would then inherit. */}}
   {{- toYaml (mergeOverwrite (deepCopy ($.Values.defaults.spec | default dict)) ($node.spec | default dict)) | nindent 2 }}
 {{- end }}
 {{- end }}

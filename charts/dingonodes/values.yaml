@@ -11,9 +11,7 @@
 nodes: {}
 
 # Spec settings shared by every node, deep-merged under each node's own spec
-# (the node wins). Lists are replaced, not merged. A node cannot set a zero
-# value (false, 0, "") over a default, so keep switches a node may turn off
-# out of here.
+# (the node wins, including false, 0 and ""). Lists are replaced, not merged.
 defaults:
   spec: {}
 

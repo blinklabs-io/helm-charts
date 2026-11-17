@@ -46,8 +46,8 @@ metricsNetworkPolicy:
 
 ## Notes
 
-- A node cannot set `false`, `0` or `""` over a value in `defaults.spec`, so
-  keep switches a node may turn off out of `defaults.spec`.
+- A node's `false`, `0` or `""` overrides the value in `defaults.spec`; lists
+  are replaced, not merged.
 - `nodes.<name>.enabled: false` removes the node's DingoNode and PodMonitor and
   keeps its spec in values. Its PVC has no owner, so the data survives.
 - `keep: true` adds `helm.sh/resource-policy: keep` to the DingoNodes,
