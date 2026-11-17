@@ -49,7 +49,9 @@ metricsNetworkPolicy:
 - A node's `false`, `0` or `""` overrides the value in `defaults.spec`; lists
   are replaced, not merged.
 - `nodes.<name>.enabled: false` removes the node's DingoNode and PodMonitor and
-  keeps its spec in values. Its PVC has no owner, so the data survives.
+  keeps its spec in values. Its PVC has no owner, so the data survives. Helm
+  reads `keep` from the live object, so under `keep: true` the node stays: set
+  `keep: false` in one upgrade, then `enabled: false` in the next.
 - `keep: true` adds `helm.sh/resource-policy: keep` to the DingoNodes,
   PodMonitors and extra objects, so they survive an uninstall or a release
   rename.
