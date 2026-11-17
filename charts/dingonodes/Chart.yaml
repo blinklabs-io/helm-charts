@@ -1,0 +1,16 @@
+---
+apiVersion: v2
+name: dingonodes
+description: "A Helm chart for DingoNode resources managed by the Dingo operator, with a PodMonitor and metrics NetworkPolicy per node"
+version: 0.1.0
+
+sources:
+  - https://github.com/blinklabs-io/dingo-operator
+
+maintainers:
+  - name: wcatz
+    email: wayne@blinklabs.io
+  - name: verbotenj
+    email: verbotenj@blinklabs.io
+  - name: wolf31o2
+    email: wolf31o2@blinklabs.io
