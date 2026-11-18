@@ -173,11 +173,14 @@ class BursaApiServiceTests(unittest.TestCase):
         pod = docs["Deployment"]["spec"]["template"]["spec"]
         container = pod["containers"][0]
         env = {entry["name"]: entry for entry in container["env"]}
+        self.assertEqual(pod["securityContext"]["runAsUser"], 65532)
+        self.assertEqual(pod["securityContext"]["runAsGroup"], 65532)
+        self.assertEqual(pod["securityContext"]["fsGroup"], 65532)
         self.assertEqual(env["API_JWT_SECRET"]["valueFrom"]["secretKeyRef"], {"name": "wallet-auth", "key": "jwt"})
         self.assertEqual(env["API_TLS_CERT_FILE"]["value"], "/etc/bursa/api/tls/tls.crt")
         self.assertEqual(env["API_TLS_KEY_FILE"]["value"], "/etc/bursa/api/tls/tls.key")
         self.assertIn({"name": "api", "containerPort": 8443}, container["ports"])
-        self.assertIn({"name": "api-tls", "secret": {"secretName": "wallet-tls", "defaultMode": 0o400}}, pod["volumes"])
+        self.assertIn({"name": "api-tls", "secret": {"secretName": "wallet-tls", "defaultMode": 0o440}}, pod["volumes"])
         self.assertIn({"name": "api", "port": 8080, "targetPort": "api"}, docs["Service"]["spec"]["ports"])
 
     def test_jwks_auth_exposes_the_api_without_a_literal_secret(self):
@@ -212,6 +215,9 @@ class BursaApiServiceTests(unittest.TestCase):
                           "api": {"auth": {"existingSecret": "wallet-auth"}}}, "cannot be combined")
         self.assertFails({"environment": {"API_JWKS_URL": "https://issuer.example/jwks"},
                           "api": {"auth": {"existingSecret": "wallet-auth"}}}, "mutually exclusive")
+        self.assertFails({"environment": {"API_JWT_SECRET": "x" * 32,
+                                          "API_JWKS_URL": "https://issuer.example/jwks"}},
+                         "mutually exclusive")
         self.assertFails({"api": {"auth": {"existingSecret": "wallet-auth", "existingSecretKey": ""}}}, "existingSecretKey is required")
 
     def test_authentication_requires_audience(self):
@@ -226,7 +232,7 @@ class BursaApiServiceTests(unittest.TestCase):
                           "api": {"tls": {"secretName": "wallet-tls"}}}, "cannot be combined")
 
     def test_invalid_api_port_is_rejected(self):
-        for port in ("not-a-port", "0", "65536"):
+        for port in ("not-a-port", 0, "0", "65536"):
             with self.subTest(port=port):
                 self.assertFails({"environment": {"API_LISTEN_PORT": port}}, "between 1 and 65535")
 

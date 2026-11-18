@@ -314,7 +314,10 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 
 {{- define "bursa.apiPort" -}}
-{{- $port := include "bursa.apiEnv" (dict "root" . "name" "API_LISTEN_PORT" "default" "8080") -}}
+{{- $port := "8080" -}}
+{{- if hasKey .Values.environment "API_LISTEN_PORT" -}}
+{{- $port = printf "%v" (get .Values.environment "API_LISTEN_PORT") -}}
+{{- end -}}
 {{- if or (not (regexMatch "^[0-9]+$" $port)) (lt (int $port) 1) (gt (int $port) 65535) -}}
 {{- fail "API_LISTEN_PORT must be an integer between 1 and 65535" -}}
 {{- end -}}
@@ -330,6 +333,9 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 {{- if and $secret $jwks -}}
 {{- fail "api.auth.existingSecret and API_JWKS_URL are mutually exclusive" -}}
+{{- end -}}
+{{- if and $literalSecret $jwks -}}
+{{- fail "API_JWT_SECRET and API_JWKS_URL are mutually exclusive" -}}
 {{- end -}}
 {{- if and $secret (not .Values.api.auth.existingSecretKey) -}}
 {{- fail "api.auth.existingSecretKey is required with api.auth.existingSecret" -}}

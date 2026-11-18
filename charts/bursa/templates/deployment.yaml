@@ -47,7 +47,7 @@ spec:
       {{- if .Values.affinity }}
       affinity: {{- toYaml .Values.affinity | nindent 8 }}
       {{- end }}
-      {{- if has .Values.mode (list "signer" "kes-agent") }}
+      {{- if has .Values.mode (list "api" "signer" "kes-agent") }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -339,6 +339,6 @@ spec:
       volumes:
         - name: api-tls
           secret:
-            secretName: {{ .Values.api.tls.secretName }}
-            defaultMode: 0400
+            secretName: {{ .Values.api.tls.secretName | quote }}
+            defaultMode: 0440
       {{- end }}
