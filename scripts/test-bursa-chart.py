@@ -163,6 +163,35 @@ class BursaApiServiceTests(unittest.TestCase):
                 self.assertIn({"name": "api", "containerPort": 8080}, container["ports"])
                 self.assertNotIn("api", [port["name"] for port in docs["Service"]["spec"]["ports"]])
 
+    def test_null_environment_uses_safe_api_defaults(self):
+        docs = self.documents({"environment": None})
+        container = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0]
+        self.assertIn({"name": "api", "containerPort": 8080}, container["ports"])
+        self.assertNotIn("api", [port["name"] for port in docs["Service"]["spec"]["ports"]])
+
+    def test_prefixed_api_environment_takes_precedence(self):
+        docs = self.documents({
+            "environment": {
+                "API_LISTEN_ADDRESS": "127.0.0.1",
+                "API_LISTEN_PORT": 8080,
+                "BURSA_API_API_LISTEN_ADDRESS": "0.0.0.0",
+                "BURSA_API_API_LISTEN_PORT": 9443,
+                "BURSA_API_API_JWKS_URL": "https://issuer.example/jwks",
+                "BURSA_API_API_JWT_AUDIENCE": "bursa-api",
+                "BURSA_API_API_TLS_CERT_FILE": "/custom/cert",
+                "BURSA_API_API_TLS_KEY_FILE": "/custom/key",
+            },
+        })
+        container = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0]
+        self.assertIn({"name": "api", "containerPort": 9443}, container["ports"])
+        self.assertIn("api", [port["name"] for port in docs["Service"]["spec"]["ports"]])
+
+    def test_prefixed_public_and_empty_addresses_require_protection(self):
+        self.assertFails({"environment": {"BURSA_API_API_LISTEN_ADDRESS": "0.0.0.0"}},
+                         "requires api.auth.existingSecret")
+        self.assertFails({"environment": {"API_LISTEN_ADDRESS": ""}},
+                         "requires api.auth.existingSecret")
+
     def test_protected_api_uses_configured_port_and_secret_references(self):
         docs = self.documents({
             "environment": {"API_LISTEN_ADDRESS": "0.0.0.0", "API_LISTEN_PORT": 8443,

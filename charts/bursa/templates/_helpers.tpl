@@ -305,7 +305,15 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end }}
 
 {{- define "bursa.apiEnv" -}}
-{{- default .default (get .root.Values.environment .name) -}}
+{{- $environment := default dict .root.Values.environment -}}
+{{- $prefixedName := printf "BURSA_API_%s" .name -}}
+{{- if hasKey $environment $prefixedName -}}
+{{- printf "%v" (get $environment $prefixedName) -}}
+{{- else if hasKey $environment .name -}}
+{{- printf "%v" (get $environment .name) -}}
+{{- else -}}
+{{- .default -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "bursa.apiLoopback" -}}
@@ -314,10 +322,7 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 
 {{- define "bursa.apiPort" -}}
-{{- $port := "8080" -}}
-{{- if hasKey .Values.environment "API_LISTEN_PORT" -}}
-{{- $port = printf "%v" (get .Values.environment "API_LISTEN_PORT") -}}
-{{- end -}}
+{{- $port := include "bursa.apiEnv" (dict "root" . "name" "API_LISTEN_PORT" "default" "8080") -}}
 {{- if or (not (regexMatch "^[0-9]+$" $port)) (lt (int $port) 1) (gt (int $port) 65535) -}}
 {{- fail "API_LISTEN_PORT must be an integer between 1 and 65535" -}}
 {{- end -}}
