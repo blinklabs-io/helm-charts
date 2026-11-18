@@ -157,11 +157,17 @@ Uninstalling still deletes the release's other resources, including its
 Services, its NetworkPolicy, its ServiceAccount and the ConfigMaps the pod
 template mounts. The running pod keeps working, but a pod recreated from the
 kept template, for example after its node fails, cannot start until the next
-manager replaces that template. Until the next manager applies its own policy,
-no chart policy restricts ingress to the pod, which matters for a block
-producer or an enabled private listener. Uninstall the release and create its
-replacement in the same rollout, so the replacement's policy and template follow within one
-reconcile.
+manager replaces that template.
+
+Until the next manager applies its own policy, no chart policy restricts
+ingress to the pod, which matters for a block producer or an enabled private
+listener. Uninstalling the release and creating its replacement in the same
+rollout shortens that window to about one reconcile but does not close it. To
+keep ingress restricted throughout, apply a NetworkPolicy managed outside this
+release that selects the pod and allows only the intended peers before
+uninstalling, and remove it once the next manager's policy is in place:
+NetworkPolicies are additive, so a bridging policy left behind can widen
+the replacement's allowed ingress.
 
 ### Service exposure
 
