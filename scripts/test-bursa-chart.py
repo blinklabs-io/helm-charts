@@ -110,7 +110,7 @@ class BursaSignerGuardTests(unittest.TestCase):
         for name in (
             "SIGNER_POLICY_HOOK_URL", "BURSA_SIGNER_SIGNER_POLICY_HOOK_URL",
             "SIGNER_JWKS_URL", "BURSA_SIGNER_SIGNER_JWKS_URL",
-            "API_JWKS_URL", "BURSA_API_JWKS_URL",
+            "API_JWKS_URL", "BURSA_API_API_JWKS_URL",
         ):
             with self.subTest(name=name, source="extraEnv"):
                 self.assertFails(extra_env({"name": name, "value": url}), f"{name} must not carry URL userinfo")

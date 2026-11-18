@@ -147,7 +147,7 @@ signer:
   # clients, so rendering also fails if signer.policy_hook_url,
   # signer.jwks_url, api.jwks_url or a backend's address or jwks_url carries
   # it, or if SIGNER_POLICY_HOOK_URL, SIGNER_JWKS_URL, API_JWKS_URL or their
-  # BURSA_SIGNER_SIGNER_ / BURSA_API_ prefixed names carry it as a literal
+  # BURSA_SIGNER_SIGNER_ / BURSA_API_API_ prefixed names carry it as a literal
   # value. Supply the first three through extraEnv with valueFrom; backend
   # URLs have no environment override. Key backends and the per-key policy are configured here. A sops
   # backend reading the keys Secret below uses

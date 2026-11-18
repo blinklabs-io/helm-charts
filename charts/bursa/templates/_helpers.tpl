@@ -16,7 +16,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- /* Environment names whose URL Bursa fetches with a Go HTTP client:
      the envconfig name and its BURSA_-prefixed form. */ -}}
 {{- define "bursa.urlEnvNames" -}}
-SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA_SIGNER_SIGNER_JWKS_URL API_JWKS_URL BURSA_API_JWKS_URL
+SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA_SIGNER_SIGNER_JWKS_URL API_JWKS_URL BURSA_API_API_JWKS_URL
 {{- end }}
 
 {{- define "bursa.validate" -}}
