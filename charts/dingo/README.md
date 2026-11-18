@@ -131,6 +131,43 @@ connections can still close and must reconnect. Readiness cannot preserve
 availability when a single serving replica is replaced; retain a ready peer
 before upgrading another replica or AZ.
 
+### Keeping the StatefulSet on uninstall
+
+`statefulsetAnnotations` sets annotations on the StatefulSet object only.
+`helm.sh/resource-policy: keep` there makes `helm uninstall` leave the
+StatefulSet, its pod and its PersistentVolumeClaim in place, so another manager
+can take over a running node.
+
+The pod template carries the chart version in its `helm.sh/chart` label, so
+any upgrade to a new chart version replaces the pod under the default `RollingUpdate` strategy. To add the
+annotation without restarting the node, set both values in the same upgrade:
+
+```yaml
+statefulsetAnnotations:
+  helm.sh/resource-policy: keep
+updateStrategy:
+  type: OnDelete
+```
+
+With `OnDelete` the running pod keeps its template until it is deleted or the
+next manager rolls it.
+
+Uninstalling still deletes the release's other resources, including its
+Services, its NetworkPolicy, its ServiceAccount and the ConfigMaps the pod
+template mounts. The running pod keeps working, but a pod recreated from the
+kept template, for example after its node fails, cannot start until the next
+manager replaces that template.
+
+Until the next manager applies its own policy, no chart policy restricts
+ingress to the pod, which matters for a block producer or an enabled private
+listener. Uninstalling the release and creating its replacement in the same
+rollout shortens that window to about one reconcile but does not close it. To
+keep ingress restricted throughout, apply a NetworkPolicy managed outside this
+release that selects the pod and allows only the intended peers before
+uninstalling, and remove it once the next manager's policy is in place:
+NetworkPolicies are additive, so a bridging policy left behind can widen
+the replacement's allowed ingress.
+
 ### Service exposure
 
 Service exposure is split into tiers so public relay traffic is separated from
