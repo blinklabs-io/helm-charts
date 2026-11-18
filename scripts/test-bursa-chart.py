@@ -110,7 +110,7 @@ class BursaSignerGuardTests(unittest.TestCase):
         for name in (
             "SIGNER_POLICY_HOOK_URL", "BURSA_SIGNER_SIGNER_POLICY_HOOK_URL",
             "SIGNER_JWKS_URL", "BURSA_SIGNER_SIGNER_JWKS_URL",
-            "API_JWKS_URL", "BURSA_API_JWKS_URL",
+            "API_JWKS_URL", "BURSA_API_API_JWKS_URL",
         ):
             with self.subTest(name=name, source="extraEnv"):
                 self.assertFails(extra_env({"name": name, "value": url}), f"{name} must not carry URL userinfo")
@@ -141,6 +141,129 @@ class BursaSignerGuardTests(unittest.TestCase):
         for fixture in ("api-values.yaml", "signer-values.yaml"):
             with self.subTest(fixture=fixture):
                 self.assertFails({"podMonitor": {"enabled": True}}, "podMonitor.enabled is not supported", fixture)
+
+
+class BursaApiServiceTests(unittest.TestCase):
+    def documents(self, values):
+        result = render(values, "api-values.yaml")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return {doc["kind"]: doc for doc in yaml.safe_load_all(result.stdout) if doc}
+
+    def assertFails(self, values, message):
+        result = render(values, "api-values.yaml")
+        self.assertNotEqual(result.returncode, 0, "render succeeded")
+        self.assertIn(message, result.stderr)
+
+    def test_loopback_api_is_not_exposed_by_service(self):
+        for address in (None, "127.0.0.1", "127.2.3.4", "::1", "[::1]", "localhost"):
+            with self.subTest(address=address):
+                values = {} if address is None else {"environment": {"API_LISTEN_ADDRESS": address}}
+                docs = self.documents(values)
+                container = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0]
+                self.assertIn({"name": "api", "containerPort": 8080}, container["ports"])
+                self.assertNotIn("api", [port["name"] for port in docs["Service"]["spec"]["ports"]])
+
+    def test_null_environment_uses_safe_api_defaults(self):
+        docs = self.documents({"environment": None})
+        container = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0]
+        self.assertIn({"name": "api", "containerPort": 8080}, container["ports"])
+        self.assertNotIn("api", [port["name"] for port in docs["Service"]["spec"]["ports"]])
+
+    def test_prefixed_api_environment_takes_precedence(self):
+        docs = self.documents({
+            "environment": {
+                "API_LISTEN_ADDRESS": "127.0.0.1",
+                "API_LISTEN_PORT": 8080,
+                "BURSA_API_API_LISTEN_ADDRESS": "0.0.0.0",
+                "BURSA_API_API_LISTEN_PORT": 9443,
+                "BURSA_API_API_JWKS_URL": "https://issuer.example/jwks",
+                "BURSA_API_API_JWT_AUDIENCE": "bursa-api",
+                "BURSA_API_API_TLS_CERT_FILE": "/custom/cert",
+                "BURSA_API_API_TLS_KEY_FILE": "/custom/key",
+            },
+        })
+        container = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0]
+        self.assertIn({"name": "api", "containerPort": 9443}, container["ports"])
+        self.assertIn("api", [port["name"] for port in docs["Service"]["spec"]["ports"]])
+
+    def test_prefixed_public_and_empty_addresses_require_protection(self):
+        self.assertFails({"environment": {"BURSA_API_API_LISTEN_ADDRESS": "0.0.0.0"}},
+                         "requires api.auth.existingSecret")
+        self.assertFails({"environment": {"API_LISTEN_ADDRESS": ""}},
+                         "requires api.auth.existingSecret")
+
+    def test_protected_api_uses_configured_port_and_secret_references(self):
+        docs = self.documents({
+            "environment": {"API_LISTEN_ADDRESS": "0.0.0.0", "API_LISTEN_PORT": 8443,
+                            "API_JWT_AUDIENCE": "bursa-api"},
+            "api": {"auth": {"existingSecret": "wallet-auth", "existingSecretKey": "jwt"},
+                    "tls": {"secretName": "wallet-tls"}},
+        })
+        pod = docs["Deployment"]["spec"]["template"]["spec"]
+        container = pod["containers"][0]
+        env = {entry["name"]: entry for entry in container["env"]}
+        self.assertEqual(pod["securityContext"]["runAsUser"], 65532)
+        self.assertEqual(pod["securityContext"]["runAsGroup"], 65532)
+        self.assertEqual(pod["securityContext"]["fsGroup"], 65532)
+        self.assertEqual(env["API_JWT_SECRET"]["valueFrom"]["secretKeyRef"], {"name": "wallet-auth", "key": "jwt"})
+        self.assertEqual(env["API_TLS_CERT_FILE"]["value"], "/etc/bursa/api/tls/tls.crt")
+        self.assertEqual(env["API_TLS_KEY_FILE"]["value"], "/etc/bursa/api/tls/tls.key")
+        self.assertIn({"name": "api", "containerPort": 8443}, container["ports"])
+        self.assertIn({"name": "api-tls", "secret": {"secretName": "wallet-tls", "defaultMode": 0o440}}, pod["volumes"])
+        self.assertIn({"name": "api", "port": 8080, "targetPort": "api"}, docs["Service"]["spec"]["ports"])
+
+    def test_jwks_auth_exposes_the_api_without_a_literal_secret(self):
+        docs = self.documents({
+            "environment": {"API_LISTEN_ADDRESS": "::", "API_LISTEN_PORT": 9443,
+                            "API_JWKS_URL": "https://issuer.example/jwks",
+                            "API_JWT_AUDIENCE": "bursa-api"},
+            "api": {"tls": {"secretName": "wallet-tls"}},
+        })
+        container = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0]
+        self.assertIn({"name": "api", "containerPort": 9443}, container["ports"])
+        self.assertIn("api", [port["name"] for port in docs["Service"]["spec"]["ports"]])
+        self.assertNotIn("API_JWT_SECRET", [entry["name"] for entry in container["env"]])
+
+    def test_public_api_requires_authentication_and_tls(self):
+        self.assertFails({"environment": {"API_LISTEN_ADDRESS": "0.0.0.0"}}, "requires api.auth.existingSecret")
+        self.assertFails({"environment": {"API_LISTEN_ADDRESS": "127.999.999.999"}}, "requires api.auth.existingSecret")
+        self.assertFails({"environment": {"API_LISTEN_ADDRESS": "0.0.0.0",
+                                          "API_JWKS_URL": "https://issuer.example/jwks",
+                                          "API_JWT_AUDIENCE": "bursa-api"}}, "requires api.tls.secretName")
+
+    def test_literal_secret_environment_remains_compatible(self):
+        docs = self.documents({"environment": {"API_LISTEN_ADDRESS": "0.0.0.0",
+                                                "API_JWT_SECRET": "x" * 32,
+                                                "API_JWT_AUDIENCE": "bursa-api"},
+                               "api": {"tls": {"secretName": "wallet-tls"}}})
+        env = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0]["env"]
+        self.assertIn({"name": "API_JWT_SECRET", "value": "x" * 32}, env)
+
+    def test_new_secret_option_rejects_ambiguous_trust_sources(self):
+        self.assertFails({"environment": {"API_JWT_SECRET": "x" * 32},
+                          "api": {"auth": {"existingSecret": "wallet-auth"}}}, "cannot be combined")
+        self.assertFails({"environment": {"API_JWKS_URL": "https://issuer.example/jwks"},
+                          "api": {"auth": {"existingSecret": "wallet-auth"}}}, "mutually exclusive")
+        self.assertFails({"environment": {"API_JWT_SECRET": "x" * 32,
+                                          "API_JWKS_URL": "https://issuer.example/jwks"}},
+                         "mutually exclusive")
+        self.assertFails({"api": {"auth": {"existingSecret": "wallet-auth", "existingSecretKey": ""}}}, "existingSecretKey is required")
+
+    def test_authentication_requires_audience(self):
+        self.assertFails({"api": {"auth": {"existingSecret": "wallet-auth"}}},
+                         "API_JWT_AUDIENCE is required")
+        self.assertFails({"environment": {"API_JWKS_URL": "https://issuer.example/jwks"}},
+                         "API_JWT_AUDIENCE is required")
+
+    def test_tls_sources_must_be_complete_and_unambiguous(self):
+        self.assertFails({"environment": {"API_TLS_CERT_FILE": "/custom/cert"}}, "must both be configured")
+        self.assertFails({"environment": {"API_TLS_CERT_FILE": "/custom/cert", "API_TLS_KEY_FILE": "/custom/key"},
+                          "api": {"tls": {"secretName": "wallet-tls"}}}, "cannot be combined")
+
+    def test_invalid_api_port_is_rejected(self):
+        for port in ("not-a-port", 0, "0", "65536"):
+            with self.subTest(port=port):
+                self.assertFails({"environment": {"API_LISTEN_PORT": port}}, "between 1 and 65535")
 
 
 if __name__ == "__main__":

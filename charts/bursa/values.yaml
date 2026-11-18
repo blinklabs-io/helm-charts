@@ -19,8 +19,12 @@ environment:
   # CARDANO_NETWORK sets the wallet API's address network (Bursa defaults to
   # mainnet). The signer and KES agent do not read it.
   # CARDANO_NETWORK: "mainnet"
-  # API_LISTEN_ADDRESS: ""
-  # API_LISTEN_PORT: 8080
+  # The API remains pod-local unless a protected Service listener is enabled.
+  API_LISTEN_ADDRESS: "127.0.0.1"
+  API_LISTEN_PORT: 8080
+  # API_JWKS_URL: "https://issuer.example/.well-known/jwks.json"
+  # API_JWT_AUDIENCE: "bursa-api"
+  # API_JWT_ISSUER: "https://issuer.example"
   # GOOGLE_PROJECT: ""
   # GCP_KMS_RESOURCE_ID: ""
   # GCP_SECRET_PREFIX: ""
@@ -29,6 +33,19 @@ environment:
   # METRICS_LISTEN_ADDRESS.
   # METRICS_LISTEN_ADDRESS: "127.0.0.1"
   # METRICS_LISTEN_PORT: 8081
+
+# A non-loopback API listener requires TLS, API_JWT_AUDIENCE, and exactly one
+# JWT trust source: this Secret or environment.API_JWKS_URL. Set
+# environment.API_LISTEN_ADDRESS to 0.0.0.0 for Service access.
+api:
+  auth:
+    # The chart injects this Secret key as API_JWT_SECRET without placing the
+    # secret value in the Deployment manifest.
+    existingSecret: ""
+    existingSecretKey: API_JWT_SECRET
+  tls:
+    # A kubernetes.io/tls Secret containing tls.crt and tls.key.
+    secretName: ""
 
 extraPodLabels: {}
 
@@ -130,7 +147,7 @@ signer:
   # clients, so rendering also fails if signer.policy_hook_url,
   # signer.jwks_url, api.jwks_url or a backend's address or jwks_url carries
   # it, or if SIGNER_POLICY_HOOK_URL, SIGNER_JWKS_URL, API_JWKS_URL or their
-  # BURSA_SIGNER_SIGNER_ / BURSA_API_ prefixed names carry it as a literal
+  # BURSA_SIGNER_SIGNER_ / BURSA_API_API_ prefixed names carry it as a literal
   # value. Supply the first three through extraEnv with valueFrom; backend
   # URLs have no environment override. Key backends and the per-key policy are configured here. A sops
   # backend reading the keys Secret below uses
