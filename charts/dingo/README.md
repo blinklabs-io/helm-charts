@@ -133,18 +133,32 @@ before upgrading another replica or AZ.
 
 ### Keeping the StatefulSet on uninstall
 
-`statefulsetAnnotations` sets annotations on the StatefulSet object only, so
-changing them does not restart the pod. To hand a running node to another
-manager without stopping it, set:
+`statefulsetAnnotations` sets annotations on the StatefulSet object only.
+`helm.sh/resource-policy: keep` there makes `helm uninstall` leave the
+StatefulSet, its pod and its PersistentVolumeClaim in place, so another manager
+can take over a running node.
+
+The pod template carries the chart version in its `helm.sh/chart` and
+`app.kubernetes.io/version` labels, so any upgrade to a new chart version
+replaces the pod under the default `RollingUpdate` strategy. To add the
+annotation without restarting the node, set both values in the same upgrade:
 
 ```yaml
 statefulsetAnnotations:
   helm.sh/resource-policy: keep
+updateStrategy:
+  type: OnDelete
 ```
 
-Apply that first, then uninstall the release. Helm leaves the StatefulSet, its
-pod and its PersistentVolumeClaim in place. It still deletes the release's other
-resources, such as its Services.
+With `OnDelete` the running pod keeps its template until it is deleted or the
+next manager rolls it.
+
+Uninstalling still deletes the release's other resources, including its
+Services and its NetworkPolicy. Until the next manager applies its own policy,
+no chart policy restricts ingress to the pod, which matters for a block
+producer or an enabled private listener. Uninstall the release and create its
+replacement in the same rollout, so the replacement's policy follows within one
+reconcile.
 
 ### Service exposure
 
