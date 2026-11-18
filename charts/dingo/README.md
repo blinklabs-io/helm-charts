@@ -131,6 +131,21 @@ connections can still close and must reconnect. Readiness cannot preserve
 availability when a single serving replica is replaced; retain a ready peer
 before upgrading another replica or AZ.
 
+### Keeping the StatefulSet on uninstall
+
+`statefulsetAnnotations` sets annotations on the StatefulSet object only, so
+changing them does not restart the pod. To hand a running node to another
+manager without stopping it, set:
+
+```yaml
+statefulsetAnnotations:
+  helm.sh/resource-policy: keep
+```
+
+Apply that first, then uninstall the release. Helm leaves the StatefulSet, its
+pod and its PersistentVolumeClaim in place. It still deletes the release's other
+resources, such as its Services.
+
 ### Service exposure
 
 Service exposure is split into tiers so public relay traffic is separated from

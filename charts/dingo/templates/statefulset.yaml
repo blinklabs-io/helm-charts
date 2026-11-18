@@ -9,6 +9,10 @@ metadata:
   name: {{ include "dingo.fullname" . }}
   labels:
     {{- include "dingo.labels" . | nindent 4 }}
+  {{- with .Values.statefulsetAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   serviceName: {{ include "dingo.fullname" . }}-headless
   replicas: {{ .Values.replicaCount }}
