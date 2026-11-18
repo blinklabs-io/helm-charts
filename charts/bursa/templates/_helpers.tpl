@@ -16,7 +16,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- /* Environment names whose URL Bursa fetches with a Go HTTP client:
      the envconfig name and its BURSA_-prefixed form. */ -}}
 {{- define "bursa.urlEnvNames" -}}
-SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA_SIGNER_SIGNER_JWKS_URL API_JWKS_URL BURSA_API_JWKS_URL
+SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA_SIGNER_SIGNER_JWKS_URL API_JWKS_URL BURSA_API_API_JWKS_URL
 {{- end }}
 
 {{- define "bursa.validate" -}}
@@ -36,6 +36,9 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- fail (printf "%s must not carry URL userinfo as a literal environment value: the Deployment is readable%s" $k $hint) -}}
 {{- end -}}
 {{- end -}}
+{{- end -}}
+{{- if eq .Values.mode "api" -}}
+{{- include "bursa.apiValidation" . -}}
 {{- end -}}
 {{- if eq .Values.mode "signer" -}}
 {{- if not .Values.signer.tls.secretName -}}
@@ -300,3 +303,65 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- $_ := set $cfg "metrics" (dict "address" "127.0.0.1" "port" (int .Values.kesAgent.metricsPort)) -}}
 {{- toYaml $cfg -}}
 {{- end }}
+
+{{- define "bursa.apiEnv" -}}
+{{- $environment := default dict .root.Values.environment -}}
+{{- $prefixedName := printf "BURSA_API_%s" .name -}}
+{{- if hasKey $environment $prefixedName -}}
+{{- printf "%v" (get $environment $prefixedName) -}}
+{{- else if hasKey $environment .name -}}
+{{- printf "%v" (get $environment .name) -}}
+{{- else -}}
+{{- .default -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "bursa.apiLoopback" -}}
+{{- $address := include "bursa.apiEnv" (dict "root" . "name" "API_LISTEN_ADDRESS" "default" "127.0.0.1") | trim | lower -}}
+{{- if or (eq $address "localhost") (regexMatch "^127(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$" $address) (has $address (list "::1" "[::1]")) -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{- define "bursa.apiPort" -}}
+{{- $port := include "bursa.apiEnv" (dict "root" . "name" "API_LISTEN_PORT" "default" "8080") -}}
+{{- if or (not (regexMatch "^[0-9]+$" $port)) (lt (int $port) 1) (gt (int $port) 65535) -}}
+{{- fail "API_LISTEN_PORT must be an integer between 1 and 65535" -}}
+{{- end -}}
+{{- int $port -}}
+{{- end -}}
+
+{{- define "bursa.apiValidation" -}}
+{{- $jwks := include "bursa.apiEnv" (dict "root" . "name" "API_JWKS_URL" "default" "") | trim -}}
+{{- $secret := .Values.api.auth.existingSecret | trim -}}
+{{- $literalSecret := include "bursa.apiEnv" (dict "root" . "name" "API_JWT_SECRET" "default" "") -}}
+{{- if and $secret $literalSecret -}}
+{{- fail "api.auth.existingSecret cannot be combined with environment.API_JWT_SECRET" -}}
+{{- end -}}
+{{- if and $secret $jwks -}}
+{{- fail "api.auth.existingSecret and API_JWKS_URL are mutually exclusive" -}}
+{{- end -}}
+{{- if and $literalSecret $jwks -}}
+{{- fail "API_JWT_SECRET and API_JWKS_URL are mutually exclusive" -}}
+{{- end -}}
+{{- if and $secret (not .Values.api.auth.existingSecretKey) -}}
+{{- fail "api.auth.existingSecretKey is required with api.auth.existingSecret" -}}
+{{- end -}}
+{{- $cert := include "bursa.apiEnv" (dict "root" . "name" "API_TLS_CERT_FILE" "default" "") -}}
+{{- $key := include "bursa.apiEnv" (dict "root" . "name" "API_TLS_KEY_FILE" "default" "") -}}
+{{- if and .Values.api.tls.secretName (or $cert $key) -}}
+{{- fail "api.tls.secretName cannot be combined with API_TLS_CERT_FILE or API_TLS_KEY_FILE" -}}
+{{- end -}}
+{{- if ne (empty $cert) (empty $key) -}}
+{{- fail "API_TLS_CERT_FILE and API_TLS_KEY_FILE must both be configured" -}}
+{{- end -}}
+{{- if and (or $secret $literalSecret $jwks) (not (include "bursa.apiEnv" (dict "root" . "name" "API_JWT_AUDIENCE" "default" "") | trim)) -}}
+{{- fail "API_JWT_AUDIENCE is required with API JWT/JWKS authentication" -}}
+{{- end -}}
+{{- if eq (include "bursa.apiLoopback" .) "false" -}}
+{{- if not (or $secret $literalSecret $jwks) -}}
+{{- fail "a non-loopback API_LISTEN_ADDRESS requires api.auth.existingSecret or API_JWKS_URL" -}}
+{{- end -}}
+{{- if not (or .Values.api.tls.secretName (and $cert $key)) -}}
+{{- fail "a non-loopback API_LISTEN_ADDRESS requires api.tls.secretName or API TLS files" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
