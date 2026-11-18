@@ -138,9 +138,8 @@ before upgrading another replica or AZ.
 StatefulSet, its pod and its PersistentVolumeClaim in place, so another manager
 can take over a running node.
 
-The pod template carries the chart version in its `helm.sh/chart` and
-`app.kubernetes.io/version` labels, so any upgrade to a new chart version
-replaces the pod under the default `RollingUpdate` strategy. To add the
+The pod template carries the chart version in its `helm.sh/chart` label, so
+any upgrade to a new chart version replaces the pod under the default `RollingUpdate` strategy. To add the
 annotation without restarting the node, set both values in the same upgrade:
 
 ```yaml
