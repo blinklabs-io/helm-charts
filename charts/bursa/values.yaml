@@ -49,8 +49,9 @@ api:
 
 extraPodLabels: {}
 
-# Must stay disabled: Bursa serves metrics on loopback only, so a pod scrape
-# cannot reach them and the chart refuses to render with enabled: true.
+# Supported only in kes-agent mode with a non-loopback kesAgent.metricsAddress
+# (Bursa 0.26.0 or newer). The API and signer serve metrics on loopback only,
+# so the chart refuses to render enabled: true in those modes.
 podMonitor:
   enabled: false
   extraLabels: {}
@@ -223,10 +224,15 @@ kesAgent:
   # Port of the remote sign listener (bursa-attested-kes/1) that Dingo
   # producers connect to. The Service exposes it as service.ports.kesAgent.
   port: 9443
-  # Loopback metrics listener, which also serves /healthz and /readyz. The
-  # readiness probe runs `bursa kes-agent ready`, which queries it, so it
-  # cannot be 0.
+  # Metrics listener, which also serves /healthz and /readyz. The readiness
+  # probe runs `bursa kes-agent ready`, which queries it, so the port cannot be
+  # 0.
   metricsPort: 8082
+  # Host the metrics listener binds, without a port. Loopback by default; set
+  # 0.0.0.0 (Bursa 0.26.0 or newer) to expose the metrics port on the container
+  # and allow podMonitor. The ready command still queries loopback for a
+  # wildcard bind.
+  metricsAddress: "127.0.0.1"
   probes:
     # The agent answers /readyz within 3s and the ready command waits 5s.
     timeoutSeconds: 6
