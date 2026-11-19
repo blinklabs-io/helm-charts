@@ -153,6 +153,10 @@ spec:
           {{- else if eq .Values.mode "kes-agent" }}
           - name: kes-agent
             containerPort: {{ .Values.kesAgent.port }}
+          {{- if not (include "bursa.kesAgentMetricsLoopback" .) }}
+          - name: metrics
+            containerPort: {{ .Values.kesAgent.metricsPort }}
+          {{- end }}
           {{- else }}
           - name: api
             containerPort: {{ $apiPort }}

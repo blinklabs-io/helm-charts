@@ -41,3 +41,27 @@ issuer. Bursa requires HTTPS for a non-loopback JWKS endpoint.
 | `api.auth.existingSecret` | empty | Secret containing the HS256 key |
 | `api.auth.existingSecretKey` | `API_JWT_SECRET` | Key selected from the authentication Secret |
 | `api.tls.secretName` | empty | Secret containing `tls.crt` and `tls.key` |
+
+## KES agent metrics
+
+In `kes-agent` mode the metrics listener, which also serves `/healthz` and
+`/readyz`, binds `kesAgent.metricsAddress` on `kesAgent.metricsPort`. It binds
+loopback by default. Set the address to `0.0.0.0` to let Prometheus scrape it:
+the container then exposes a `metrics` port and `podMonitor.enabled: true` is
+accepted. A non-loopback address needs Bursa 0.26.0 or newer.
+
+```yaml
+mode: kes-agent
+image:
+  tag: "0.26.0"
+kesAgent:
+  metricsAddress: "0.0.0.0"
+podMonitor:
+  enabled: true
+```
+
+| Value | Default | Purpose |
+| --- | --- | --- |
+| `kesAgent.metricsAddress` | `127.0.0.1` | Metrics bind host, without a port |
+| `kesAgent.metricsPort` | `8082` | Metrics port; the readiness probe needs it, so it cannot be 0 |
+| `podMonitor.enabled` | `false` | Create a PodMonitor; `kes-agent` mode with a non-loopback address only |

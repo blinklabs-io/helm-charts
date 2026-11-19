@@ -27,7 +27,11 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- include "bursa.validateKesAgent" . -}}
 {{- end -}}
 {{- if .Values.podMonitor.enabled -}}
-{{- fail "podMonitor.enabled is not supported: Bursa serves metrics on loopback only and refuses a non-loopback METRICS_LISTEN_ADDRESS" -}}
+{{- if ne .Values.mode "kes-agent" -}}
+{{- fail (printf "podMonitor.enabled is not supported in mode %s: it serves metrics on loopback only" .Values.mode) -}}
+{{- else if include "bursa.kesAgentMetricsLoopback" . -}}
+{{- fail "podMonitor.enabled needs a non-loopback kesAgent.metricsAddress, such as 0.0.0.0: a loopback listener cannot be scraped" -}}
+{{- end -}}
 {{- end -}}
 {{- range $k, $v := .Values.environment -}}
 {{- if and (has $k (include "bursa.urlEnvNames" "" | splitList " ")) $v -}}
@@ -184,7 +188,16 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 {{- end -}}
 {{- if or (hasKey (default dict $cfg.metrics) "address") (hasKey (default dict $cfg.metrics) "port") -}}
-{{- fail "kesAgent.config.metrics is set by the chart: use kesAgent.metricsPort" -}}
+{{- fail "kesAgent.config.metrics is set by the chart: use kesAgent.metricsAddress and kesAgent.metricsPort" -}}
+{{- end -}}
+{{- $maddr := toString .Values.kesAgent.metricsAddress -}}
+{{- if regexMatch "^[^:\\[]+:[0-9]+$|^\\[.*\\]:[0-9]+$" $maddr -}}
+{{- fail (printf "kesAgent.metricsAddress must be a host without a port (use kesAgent.metricsPort), got %q" $maddr) -}}
+{{- end -}}
+{{- if and (not (include "bursa.kesAgentMetricsLoopback" .)) (regexMatch "^v?[0-9]+\\.[0-9]+\\.[0-9]+$" $tag) -}}
+{{- if semverCompare "<0.26.0-0" $tag -}}
+{{- fail (printf "a non-loopback kesAgent.metricsAddress needs bursa 0.26.0 or newer, which accepts a non-loopback metrics listener; image.tag is %q" $tag) -}}
+{{- end -}}
 {{- end -}}
 {{- $plain := eq (toString $k.attested_plaintext) "true" -}}
 {{- if and $plain .Values.kesAgent.tls.secretName -}}
@@ -300,7 +313,7 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- $_ := set $k "store" $store -}}
 {{- end -}}
 {{- $_ := set $cfg "kes_agent" $k -}}
-{{- $_ := set $cfg "metrics" (dict "address" "127.0.0.1" "port" (int .Values.kesAgent.metricsPort)) -}}
+{{- $_ := set $cfg "metrics" (dict "address" (default "127.0.0.1" (toString .Values.kesAgent.metricsAddress)) "port" (int .Values.kesAgent.metricsPort)) -}}
 {{- toYaml $cfg -}}
 {{- end }}
 
@@ -364,4 +377,12 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- fail "a non-loopback API_LISTEN_ADDRESS requires api.tls.secretName or API TLS files" -}}
 {{- end -}}
 {{- end -}}
+{{- end -}}
+
+{{- /* Non-empty when the KES agent's metrics listener binds loopback: an
+     empty address (Bursa's default, 127.0.0.1), localhost, 127.0.0.0/8 or
+     ::1. */ -}}
+{{- define "bursa.kesAgentMetricsLoopback" -}}
+{{- $a := toString .Values.kesAgent.metricsAddress | trim | lower | trimPrefix "[" | trimSuffix "]" -}}
+{{- if or (eq $a "") (eq $a "localhost") (eq $a "::1") (hasPrefix "127." $a) -}}true{{- end -}}
 {{- end -}}

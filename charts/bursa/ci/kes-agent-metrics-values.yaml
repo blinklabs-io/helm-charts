@@ -1,0 +1,31 @@
+# kes-agent mode with the metrics listener on the pod IP and a PodMonitor.
+mode: kes-agent
+image:
+  tag: "0.26.0"
+kesAgent:
+  metricsAddress: "0.0.0.0"
+  config:
+    kes_agent:
+      attestation_provider: none
+      store:
+        type: postgres
+        dsn_env: KESAGENT_PG_DSN
+        age_recipients: ["age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3290gq"]
+      profiles:
+        - name: preview-pool
+          cold_vkey_hex: "0000000000000000000000000000000000000000000000000000000000000000"
+          system_start: "2022-10-25T00:00:00Z"
+          slots_per_kes_period: 129600
+  tls:
+    secretName: bursa-kes-agent-tls
+    clientCASecretName: bursa-kes-agent-client-ca
+  ageIdentity:
+    secretName: bursa-kes-agent-age
+  extraEnv:
+    - name: KESAGENT_PG_DSN
+      valueFrom:
+        secretKeyRef:
+          name: bursa-kes-agent-store
+          key: dsn
+podMonitor:
+  enabled: true
