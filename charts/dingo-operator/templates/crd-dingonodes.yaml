@@ -1207,8 +1207,8 @@ spec:
                         type: string
                     type: object
                   keys:
-                    description: KeysSpec references the block-producer signing key
-                      material.
+                    description: Keys is omitted when pools is set; each pool names
+                      its own keys.
                     properties:
                       secretRef:
                         description: |-
@@ -1276,11 +1276,78 @@ spec:
                     type: object
                   poolId:
                     description: |-
-                      PoolID (bech32 or hex) must be set for a block producer; without it the
-                      controller marks the node Degraded and does not reconcile it. It is
-                      cross-checked against the keys and selects the pool for the on-chain
-                      opcert counter lookup.
+                      PoolID (bech32 or hex) must be set for a block producer without pools;
+                      without it the controller marks the node Degraded and does not
+                      reconcile it. It is cross-checked against the keys and selects the pool
+                      for the on-chain opcert counter lookup. Mutually exclusive with pools.
                     type: string
+                  pools:
+                    description: |-
+                      Pools lists every pool this node forges for, in place of poolId and
+                      keys. Each entry has its own keys Secret and agent profile; all share
+                      signingAgent, which is required. The operator renders them as Dingo's
+                      blockProducerPools (YAML only, Dingo v0.94.0 or later), validates each
+                      pool's bundle on its own and leaves a pool whose bundle fails
+                      validation out of the node's configuration, so the other pools keep
+                      forging; with every bundle invalid the node is refused as a whole. A
+                      new opcert in one pool's Secret is loaded into the running node
+                      without a roll; adding, removing or dropping a pool rolls the pod.
+                      Rotation mode Auto is not supported with pools, and more than one pool
+                      is refused with Leios (a vote key, runMode leios or the Musashi
+                      network).
+                    items:
+                      description: BlockProducerPool is one pool of a block producer
+                        that forges for several.
+                      properties:
+                        agentProfile:
+                          description: |-
+                            AgentProfile names the signing agent profile that holds this pool's KES
+                            key. Pools that share the agent address need distinct profiles.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        keys:
+                          description: |-
+                            Keys references the pool's vrf.skey and opcert (kes.skey is not used:
+                            the signing agent holds the KES key).
+                          properties:
+                            secretRef:
+                              description: |-
+                                SecretRef names a Secret holding vrf.skey, kes.skey and the operational
+                                certificate in cardano-cli text-envelope JSON form. The certificate is
+                                opcert.cert or node.cert (the name the dingo Helm chart uses); a Secret
+                                may hold both only if they are identical. An optional vote.skey (or the
+                                chart's bls.skey) holds the Leios BLS12-381 vote signing key (text
+                                envelope or raw hex scalar); when present it is staged with the other keys and wired to
+                                DINGO_LEIOS_VOTE_SIGNING_KEY_FILE.
+                              minLength: 1
+                              type: string
+                            sourceType:
+                              default: Secret
+                              description: |-
+                                KeySourceType selects where signing key material is sourced from. Only Secret
+                                is implemented in v1; the others are reserved so the schema does not break
+                                when external backends are added.
+                              enum:
+                              - Secret
+                              - ExternalSecret
+                              - CSI
+                              type: string
+                          required:
+                          - secretRef
+                          type: object
+                        poolId:
+                          description: |-
+                            PoolID (bech32 or hex) identifies the pool. The pool's opcert must be
+                            signed by the cold key that hashes to it.
+                          minLength: 1
+                          type: string
+                      required:
+                      - agentProfile
+                      - keys
+                      - poolId
+                      type: object
+                    type: array
                   rotation:
                     description: RotationSpec configures KES/OpCert rotation behaviour.
                     properties:
@@ -2450,6 +2517,77 @@ spec:
               phase:
                 description: Phase is a coarse lifecycle summary.
                 type: string
+              pools:
+                description: |-
+                  Pools reports each pool of spec.blockProducer.pools. status.kes holds
+                  the pool with the fewest KES periods remaining.
+                items:
+                  description: |-
+                    PoolStatus reports one pool of a block producer that forges for several
+                    (spec.blockProducer.pools).
+                  properties:
+                    kes:
+                      description: KES is the pool's KES state as the node reports
+                        it.
+                      properties:
+                        currentPeriod:
+                          format: int64
+                          type: integer
+                        expiryPeriod:
+                          format: int64
+                          type: integer
+                        opcertKesPeriod:
+                          format: int64
+                          type: integer
+                        remainingPeriods:
+                          format: int64
+                          type: integer
+                      type: object
+                    keysMessage:
+                      type: string
+                    keysReason:
+                      description: |-
+                        KeysReason and KeysMessage say why the bundle was accepted or why the
+                        pool was left out of the node's configuration.
+                      type: string
+                    keysValid:
+                      description: |-
+                        KeysValid reports whether the pool's key bundle passed validation and is
+                        part of the node's configuration.
+                      type: boolean
+                    loadedCounter:
+                      description: |-
+                        LoadedCounter is the issue number of the opcert the node reports it is
+                        forging with for this pool. Unset means not observed.
+                      format: int64
+                      type: integer
+                    onChainCounter:
+                      description: |-
+                        OnChainCounter is the highest opcert issue number the chain has
+                        accepted for the pool; see status.opcert.onChainCounter.
+                      format: int64
+                      type: integer
+                    onChainCounterAt:
+                      description: OnChainCounterAt is when onChainCounter was last
+                        read successfully.
+                      format: date-time
+                      type: string
+                    onDiskCounter:
+                      description: OnDiskCounter is the issue number of the pool's
+                        accepted opcert.
+                      format: int64
+                      type: integer
+                    poolId:
+                      description: PoolID is the pool's hex cold-key hash.
+                      type: string
+                  required:
+                  - keysValid
+                  - poolId
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - poolId
+                x-kubernetes-list-type: map
               tip:
                 description: Tip tracks tip slot progress; see the LedgerPipelineHealthy
                   condition.

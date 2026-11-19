@@ -52,6 +52,9 @@ spec:
             {{- if .Values.rbac.watchKeySecrets }}
             - --key-namespaces={{ .Values.rbac.keySecretsNamespaces | default (list .Release.Namespace) | join "," }}
             {{- end }}
+            {{- with .Values.forgerFenceNamespaces }}
+            - --forger-fence-namespaces={{ join "," . }}
+            {{- end }}
             {{- range .Values.extraArgs }}
             - {{ . | quote }}
             {{- end }}

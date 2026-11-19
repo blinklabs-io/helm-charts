@@ -10,7 +10,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/blinklabs-io/dingo-operator
   # The dingo-operator release whose CRD is bundled in templates/.
-  tag: "0.4.0"
+  tag: "0.5.0"
   # Optional immutable digest (sha256:...). When set, it overrides the tag in
   # the image reference. When empty, the tag above is used.
   digest: ""
@@ -42,6 +42,15 @@ podMonitor:
 
 healthProbe:
   port: 8081
+
+# Namespaces trusted to fence each other, passed as --forger-fence-namespaces.
+# When two block producers of one pool are in namespaces that are both listed,
+# the newer is refused and scaled to zero, as within one namespace. Across
+# unlisted namespaces a claim that names only the pool ID does not stop a
+# producer, because a pool ID is public. List only namespaces one party
+# controls. Empty omits the flag. Requires an operator image that has
+# --forger-fence-namespaces; older images exit on the unknown flag.
+forgerFenceNamespaces: []
 
 # Extra controller arguments, e.g. ["--zap-log-level=debug"].
 extraArgs: []
