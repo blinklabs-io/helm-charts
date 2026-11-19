@@ -1,0 +1,48 @@
+{{- if .Values.podMonitor.enabled }}
+{{- range $name, $node := .Values.nodes }}
+{{- if ne $node.enabled false }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ $name | quote }}
+  labels:
+    {{- toYaml (merge (dict) ($.Values.podMonitor.labels | default dict) (include "dingonodes.labels" $ | fromYaml)) | nindent 4 }}
+  {{- with include "dingonodes.keepAnnotations" $ }}
+  {{- . | nindent 2 }}
+  {{- end }}
+spec:
+  {{- with $.Values.podMonitor.fallbackScrapeProtocol }}
+  fallbackScrapeProtocol: {{ . }}
+  {{- end }}
+  {{- with $.Values.podMonitor.podTargetLabels }}
+  podTargetLabels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      # The operator's stable selector labels.
+      app.kubernetes.io/name: dingo
+      app.kubernetes.io/instance: {{ $name | quote }}
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace | quote }}
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ $.Values.podMonitor.interval }}
+      {{- $metricLabels := merge (dict) ($node.metricLabels | default dict) ($.Values.metricLabels | default dict) }}
+      {{- if or $.Values.podMonitor.instanceFromPodName $metricLabels }}
+      relabelings:
+        {{- if $.Values.podMonitor.instanceFromPodName }}
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: instance
+        {{- end }}
+        {{- range $key, $val := $metricLabels }}
+        - targetLabel: {{ $key | quote }}
+          replacement: {{ $val | quote }}
+        {{- end }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

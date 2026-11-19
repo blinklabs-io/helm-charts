@@ -1,0 +1,18 @@
+{{- range $name, $node := .Values.nodes }}
+{{- if ne $node.enabled false }}
+---
+apiVersion: dingo.blinklabs.io/v1alpha1
+kind: DingoNode
+metadata:
+  name: {{ $name | quote }}
+  labels:
+    {{- include "dingonodes.labels" $ | nindent 4 }}
+  {{- with include "dingonodes.keepAnnotations" $ }}
+  {{- . | nindent 2 }}
+  {{- end }}
+spec:
+  {{- /* deepCopy keeps mergeOverwrite from writing one node's spec into
+  defaults.spec, which every later node would then inherit. */}}
+  {{- toYaml (mergeOverwrite (deepCopy ($.Values.defaults.spec | default dict)) ($node.spec | default dict)) | nindent 2 }}
+{{- end }}
+{{- end }}

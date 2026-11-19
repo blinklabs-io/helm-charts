@@ -1,3 +1,4 @@
+{{- $apiLoopback := eq (include "bursa.apiLoopback" .) "true" -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -21,9 +22,11 @@ spec:
       port: {{ .Values.service.ports.kesAgent }}
       targetPort: kes-agent
     {{- else }}
+    {{- if not $apiLoopback }}
     - name: api
       port: {{ .Values.service.ports.api }}
-      targetPort: 8080
+      targetPort: api
+    {{- end }}
     - name: metrics
       port: {{ .Values.service.ports.metrics }}
       targetPort: 8081

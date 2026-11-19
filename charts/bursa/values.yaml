@@ -15,10 +15,16 @@ image:
   pullPolicy: IfNotPresent
 
 environment:
-  CARDANO_NETWORK: "mainnet"
   # Optional variables. Uncomment and set to use.
-  # API_LISTEN_ADDRESS: ""
-  # API_LISTEN_PORT: 8080
+  # CARDANO_NETWORK sets the wallet API's address network (Bursa defaults to
+  # mainnet). The signer and KES agent do not read it.
+  # CARDANO_NETWORK: "mainnet"
+  # The API remains pod-local unless a protected Service listener is enabled.
+  API_LISTEN_ADDRESS: "127.0.0.1"
+  API_LISTEN_PORT: 8080
+  # API_JWKS_URL: "https://issuer.example/.well-known/jwks.json"
+  # API_JWT_AUDIENCE: "bursa-api"
+  # API_JWT_ISSUER: "https://issuer.example"
   # GOOGLE_PROJECT: ""
   # GCP_KMS_RESOURCE_ID: ""
   # GCP_SECRET_PREFIX: ""
@@ -28,10 +34,24 @@ environment:
   # METRICS_LISTEN_ADDRESS: "127.0.0.1"
   # METRICS_LISTEN_PORT: 8081
 
+# A non-loopback API listener requires TLS, API_JWT_AUDIENCE, and exactly one
+# JWT trust source: this Secret or environment.API_JWKS_URL. Set
+# environment.API_LISTEN_ADDRESS to 0.0.0.0 for Service access.
+api:
+  auth:
+    # The chart injects this Secret key as API_JWT_SECRET without placing the
+    # secret value in the Deployment manifest.
+    existingSecret: ""
+    existingSecretKey: API_JWT_SECRET
+  tls:
+    # A kubernetes.io/tls Secret containing tls.crt and tls.key.
+    secretName: ""
+
 extraPodLabels: {}
 
-# Must stay disabled: Bursa serves metrics on loopback only, so a pod scrape
-# cannot reach them and the chart refuses to render with enabled: true.
+# Supported only in kes-agent mode with a non-loopback kesAgent.metricsAddress
+# (Bursa 0.26.0 or newer). The API and signer serve metrics on loopback only,
+# so the chart refuses to render enabled: true in those modes.
 podMonitor:
   enabled: false
   extraLabels: {}
@@ -128,7 +148,7 @@ signer:
   # clients, so rendering also fails if signer.policy_hook_url,
   # signer.jwks_url, api.jwks_url or a backend's address or jwks_url carries
   # it, or if SIGNER_POLICY_HOOK_URL, SIGNER_JWKS_URL, API_JWKS_URL or their
-  # BURSA_SIGNER_SIGNER_ / BURSA_API_ prefixed names carry it as a literal
+  # BURSA_SIGNER_SIGNER_ / BURSA_API_API_ prefixed names carry it as a literal
   # value. Supply the first three through extraEnv with valueFrom; backend
   # URLs have no environment override. Key backends and the per-key policy are configured here. A sops
   # backend reading the keys Secret below uses
@@ -204,10 +224,15 @@ kesAgent:
   # Port of the remote sign listener (bursa-attested-kes/1) that Dingo
   # producers connect to. The Service exposes it as service.ports.kesAgent.
   port: 9443
-  # Loopback metrics listener, which also serves /healthz and /readyz. The
-  # readiness probe runs `bursa kes-agent ready`, which queries it, so it
-  # cannot be 0.
+  # Metrics listener, which also serves /healthz and /readyz. The readiness
+  # probe runs `bursa kes-agent ready`, which queries it, so the port cannot be
+  # 0.
   metricsPort: 8082
+  # Host the metrics listener binds, without a port. Loopback by default; set
+  # 0.0.0.0 (Bursa 0.26.0 or newer) to expose the metrics port on the container
+  # and allow podMonitor. The ready command still queries loopback for a
+  # wildcard bind.
+  metricsAddress: "127.0.0.1"
   probes:
     # The agent answers /readyz within 3s and the ready command waits 5s.
     timeoutSeconds: 6

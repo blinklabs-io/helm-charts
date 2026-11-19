@@ -1207,8 +1207,8 @@ spec:
                         type: string
                     type: object
                   keys:
-                    description: KeysSpec references the block-producer signing key
-                      material.
+                    description: Keys is omitted when pools is set; each pool names
+                      its own keys.
                     properties:
                       secretRef:
                         description: |-
@@ -1276,11 +1276,78 @@ spec:
                     type: object
                   poolId:
                     description: |-
-                      PoolID (bech32 or hex) must be set for a block producer; without it the
-                      controller marks the node Degraded and does not reconcile it. It is
-                      cross-checked against the keys and selects the pool for the on-chain
-                      opcert counter lookup.
+                      PoolID (bech32 or hex) must be set for a block producer without pools;
+                      without it the controller marks the node Degraded and does not
+                      reconcile it. It is cross-checked against the keys and selects the pool
+                      for the on-chain opcert counter lookup. Mutually exclusive with pools.
                     type: string
+                  pools:
+                    description: |-
+                      Pools lists every pool this node forges for, in place of poolId and
+                      keys. Each entry has its own keys Secret and agent profile; all share
+                      signingAgent, which is required. The operator renders them as Dingo's
+                      blockProducerPools (YAML only, Dingo v0.94.0 or later), validates each
+                      pool's bundle on its own and leaves a pool whose bundle fails
+                      validation out of the node's configuration, so the other pools keep
+                      forging; with every bundle invalid the node is refused as a whole. A
+                      new opcert in one pool's Secret is loaded into the running node
+                      without a roll; adding, removing or dropping a pool rolls the pod.
+                      Rotation mode Auto is not supported with pools, and more than one pool
+                      is refused with Leios (a vote key, runMode leios or the Musashi
+                      network).
+                    items:
+                      description: BlockProducerPool is one pool of a block producer
+                        that forges for several.
+                      properties:
+                        agentProfile:
+                          description: |-
+                            AgentProfile names the signing agent profile that holds this pool's KES
+                            key. Pools that share the agent address need distinct profiles.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        keys:
+                          description: |-
+                            Keys references the pool's vrf.skey and opcert (kes.skey is not used:
+                            the signing agent holds the KES key).
+                          properties:
+                            secretRef:
+                              description: |-
+                                SecretRef names a Secret holding vrf.skey, kes.skey and the operational
+                                certificate in cardano-cli text-envelope JSON form. The certificate is
+                                opcert.cert or node.cert (the name the dingo Helm chart uses); a Secret
+                                may hold both only if they are identical. An optional vote.skey (or the
+                                chart's bls.skey) holds the Leios BLS12-381 vote signing key (text
+                                envelope or raw hex scalar); when present it is staged with the other keys and wired to
+                                DINGO_LEIOS_VOTE_SIGNING_KEY_FILE.
+                              minLength: 1
+                              type: string
+                            sourceType:
+                              default: Secret
+                              description: |-
+                                KeySourceType selects where signing key material is sourced from. Only Secret
+                                is implemented in v1; the others are reserved so the schema does not break
+                                when external backends are added.
+                              enum:
+                              - Secret
+                              - ExternalSecret
+                              - CSI
+                              type: string
+                          required:
+                          - secretRef
+                          type: object
+                        poolId:
+                          description: |-
+                            PoolID (bech32 or hex) identifies the pool. The pool's opcert must be
+                            signed by the cold key that hashes to it.
+                          minLength: 1
+                          type: string
+                      required:
+                      - agentProfile
+                      - keys
+                      - poolId
+                      type: object
+                    type: array
                   rotation:
                     description: RotationSpec configures KES/OpCert rotation behaviour.
                     properties:
@@ -1374,9 +1441,12 @@ spec:
                       required nor staged, and Dingo checks the opcert against the agent when
                       it connects. Leios vote signing can move to the agent later, once Dingo
                       and Bursa support it; until then an optional vote key stays in the keys
-                      Secret. Not compatible with rotation.mode Auto, which generates the KES
-                      key in the operator. Requires a Dingo image that reads the remote agent
-                      settings; older canonical image tags are refused.
+                      Secret. With rotation.mode Auto the operator does not generate the KES
+                      key: it drives the agent's control role to generate it inside the agent
+                      and to install the opcert issued for it, which needs TLS, serverSpkiSha256,
+                      controlClientCertSecretRef and rotation.reloadInPlace. Requires a Dingo
+                      image that reads the remote agent settings; older canonical image tags are
+                      refused.
                     properties:
                       address:
                         description: Address is the host:port of the agent's remote
@@ -1392,6 +1462,27 @@ spec:
                           changes.
                         maxLength: 253
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      controlClientCertSecretRef:
+                        description: |-
+                          ControlClientCertSecretRef names a Secret in the DingoNode's namespace
+                          holding tls.crt and tls.key, the TLS client certificate the operator
+                          presents to the agent's control role on the same address. The agent
+                          admits only a client whose certificate key is pinned in
+                          control_client_spki_sha256 on the pool's profile. Only the operator
+                          reads it; it is never mounted into the node, so it may differ from
+                          clientCertSecretRef. Required by rotation.mode Auto, which needs TLS,
+                          serverSpkiSha256 and rotation.reloadInPlace as well, and refused
+                          otherwise.
+                        maxLength: 253
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      controlProfile:
+                        description: |-
+                          ControlProfile names the agent profile that holds this pool's KES key,
+                          for the operator's control commands. It may be omitted when the agent
+                          has one profile. Refused unless rotation.mode is Auto.
+                        maxLength: 253
                         type: string
                       plaintext:
                         description: |-
@@ -1545,6 +1636,75 @@ spec:
               nodeSelector:
                 additionalProperties:
                   type: string
+                type: object
+              otlp:
+                description: |-
+                  OTLP exports the node's logs and metrics over OpenTelemetry and sets
+                  OTEL_RESOURCE_ATTRIBUTES. An empty otlp: {} adds only the resource
+                  attributes, for example to traces.
+                properties:
+                  endpoint:
+                    description: |-
+                      Endpoint is the OTLP collector base URL, for example
+                      http://otel-collector.observability:4317. When empty, the OpenTelemetry
+                      default for the protocol applies.
+                    maxLength: 2048
+                    pattern: ^https?://[^\s]+$
+                    type: string
+                  headersSecretRef:
+                    description: |-
+                      HeadersSecretRef names a Secret key holding OTEL_EXPORTER_OTLP_HEADERS
+                      (comma-separated key=value pairs, for example an authorization header).
+                      The pod does not start until the Secret and key exist.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  logs:
+                    description: Logs exports every log record over OTLP as well as
+                      to stdout.
+                    type: boolean
+                  metrics:
+                    description: |-
+                      Metrics pushes the node's Prometheus metrics over OTLP, with the same
+                      names as /metrics.
+                    type: boolean
+                  protocol:
+                    description: |-
+                      Protocol is the OTLP transport. When empty, the OpenTelemetry default
+                      (http/protobuf) applies.
+                    enum:
+                    - grpc
+                    - http/protobuf
+                    type: string
+                  resourceAttributes:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      ResourceAttributes are added to OTEL_RESOURCE_ATTRIBUTES on every
+                      exported signal. The operator always sets k8s.pod.name,
+                      k8s.namespace.name, k8s.node.name and cardano.network.name, so those
+                      keys are refused. Values are percent-encoded.
+                    maxProperties: 32
+                    type: object
                 type: object
               persistence:
                 description: PersistenceSpec configures the blockchain database volume.
@@ -2121,6 +2281,16 @@ spec:
               tracing:
                 description: Tracing configures OpenTelemetry trace export.
                 properties:
+                  alwaysSamplePools:
+                    description: |-
+                      AlwaysSamplePools lists stake pool IDs, bech32 (pool1...) or the hex
+                      key hash, whose blocks are traced whatever sampleRatio says. Requires a
+                      Dingo image of v0.91.0 or later.
+                    items:
+                      pattern: ^(pool1[0-9a-z]{50,60}|[0-9a-fA-F]{56})$
+                      type: string
+                    maxItems: 64
+                    type: array
                   enabled:
                     description: |-
                       Enabled turns on trace export. It is off by default because an exporter
@@ -2150,9 +2320,10 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-validations:
-                - message: endpoint, serviceName and sampleRatio require enabled=true
-                  rule: (!has(self.endpoint) && !has(self.serviceName) && !has(self.sampleRatio))
-                    || (has(self.enabled) && self.enabled)
+                - message: endpoint, serviceName, sampleRatio and alwaysSamplePools
+                    require enabled=true
+                  rule: (!has(self.endpoint) && !has(self.serviceName) && !has(self.sampleRatio)
+                    && !has(self.alwaysSamplePools)) || (has(self.enabled) && self.enabled)
             required:
             - network
             - role
@@ -2346,6 +2517,77 @@ spec:
               phase:
                 description: Phase is a coarse lifecycle summary.
                 type: string
+              pools:
+                description: |-
+                  Pools reports each pool of spec.blockProducer.pools. status.kes holds
+                  the pool with the fewest KES periods remaining.
+                items:
+                  description: |-
+                    PoolStatus reports one pool of a block producer that forges for several
+                    (spec.blockProducer.pools).
+                  properties:
+                    kes:
+                      description: KES is the pool's KES state as the node reports
+                        it.
+                      properties:
+                        currentPeriod:
+                          format: int64
+                          type: integer
+                        expiryPeriod:
+                          format: int64
+                          type: integer
+                        opcertKesPeriod:
+                          format: int64
+                          type: integer
+                        remainingPeriods:
+                          format: int64
+                          type: integer
+                      type: object
+                    keysMessage:
+                      type: string
+                    keysReason:
+                      description: |-
+                        KeysReason and KeysMessage say why the bundle was accepted or why the
+                        pool was left out of the node's configuration.
+                      type: string
+                    keysValid:
+                      description: |-
+                        KeysValid reports whether the pool's key bundle passed validation and is
+                        part of the node's configuration.
+                      type: boolean
+                    loadedCounter:
+                      description: |-
+                        LoadedCounter is the issue number of the opcert the node reports it is
+                        forging with for this pool. Unset means not observed.
+                      format: int64
+                      type: integer
+                    onChainCounter:
+                      description: |-
+                        OnChainCounter is the highest opcert issue number the chain has
+                        accepted for the pool; see status.opcert.onChainCounter.
+                      format: int64
+                      type: integer
+                    onChainCounterAt:
+                      description: OnChainCounterAt is when onChainCounter was last
+                        read successfully.
+                      format: date-time
+                      type: string
+                    onDiskCounter:
+                      description: OnDiskCounter is the issue number of the pool's
+                        accepted opcert.
+                      format: int64
+                      type: integer
+                    poolId:
+                      description: PoolID is the pool's hex cold-key hash.
+                      type: string
+                  required:
+                  - keysValid
+                  - poolId
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - poolId
+                x-kubernetes-list-type: map
               tip:
                 description: Tip tracks tip slot progress; see the LedgerPipelineHealthy
                   condition.
