@@ -379,10 +379,55 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 {{- end -}}
 
-{{- /* Non-empty when the KES agent's metrics listener binds loopback: an
-     empty address (Bursa's default, 127.0.0.1), localhost, 127.0.0.0/8 or
-     ::1. */ -}}
+{{- /* Non-empty when the KES agent's metrics listener binds loopback, by
+     the rule Bursa applies (netip.Addr.IsLoopback): an empty address (Bursa
+     binds 127.0.0.1), localhost, 127.0.0.0/8, or ::1 in any spelling,
+     including IPv4-mapped 127.0.0.0/8 (::ffff:127.0.0.1, ::ffff:7f00:1).
+     Brackets and an IPv6 zone are ignored. */ -}}
 {{- define "bursa.kesAgentMetricsLoopback" -}}
-{{- $a := toString .Values.kesAgent.metricsAddress | trim | lower | trimPrefix "[" | trimSuffix "]" -}}
-{{- if or (eq $a "") (eq $a "localhost") (eq $a "::1") (hasPrefix "127." $a) -}}true{{- end -}}
+{{- $a := toString .Values.kesAgent.metricsAddress | trim | lower -}}
+{{- if and (hasPrefix "[" $a) (hasSuffix "]" $a) -}}
+{{- $a = $a | trimPrefix "[" | trimSuffix "]" -}}
+{{- end -}}
+{{- $a = splitList "%" $a | first -}}
+{{- $v4lo := "^127\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){2}$" -}}
+{{- if or (eq $a "") (eq $a "localhost") (regexMatch $v4lo $a) -}}
+true
+{{- else if contains ":" $a -}}
+{{- $halves := splitList "::" $a -}}
+{{- if le (len $halves) 2 -}}
+{{- $head := list -}}
+{{- if ne (index $halves 0) "" -}}{{- $head = splitList ":" (index $halves 0) -}}{{- end -}}
+{{- $tail := list -}}
+{{- if and (eq (len $halves) 2) (ne (index $halves 1) "") -}}{{- $tail = splitList ":" (index $halves 1) -}}{{- end -}}
+{{- /* A trailing dotted quad fills the last two groups. */ -}}
+{{- $v4 := "" -}}
+{{- $width := 8 -}}
+{{- if and $tail (contains "." (last $tail)) -}}
+{{- $v4 = last $tail -}}{{- $tail = initial $tail -}}{{- $width = 6 -}}
+{{- else if and (not $tail) $head (eq (len $halves) 1) (contains "." (last $head)) -}}
+{{- $v4 = last $head -}}{{- $head = initial $head -}}{{- $width = 6 -}}
+{{- end -}}
+{{- $fill := sub $width (add (len $head) (len $tail)) | int -}}
+{{- $ok := or (and (eq (len $halves) 1) (eq $fill 0)) (and (eq (len $halves) 2) (ge $fill 1)) -}}
+{{- $groups := $head -}}
+{{- range until (max $fill 0 | int) -}}{{- $groups = append $groups "0" -}}{{- end -}}
+{{- $groups = concat $groups $tail -}}
+{{- range $groups -}}{{- if not (regexMatch "^[0-9a-f]{1,4}$" .) -}}{{- $ok = false -}}{{- end -}}{{- end -}}
+{{- if $ok -}}
+{{- $zero := true -}}
+{{- range $i, $g := $groups -}}
+{{- if and (lt $i 5) (not (regexMatch "^0+$" $g)) -}}{{- $zero = false -}}{{- end -}}
+{{- end -}}
+{{- if $v4 -}}
+{{- if and $zero (eq (index $groups 5) "ffff") (regexMatch $v4lo $v4) -}}true{{- end -}}
+{{- else -}}
+{{- $g5 := index $groups 5 -}}{{- $g6 := index $groups 6 -}}{{- $g7 := index $groups 7 -}}
+{{- if and $zero (regexMatch "^0+$" $g5) (regexMatch "^0+$" $g6) (regexMatch "^0{0,3}1$" $g7) -}}true
+{{- else if and $zero (eq $g5 "ffff") (regexMatch "^7f[0-9a-f]{2}$" $g6) -}}true
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
