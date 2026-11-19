@@ -389,13 +389,16 @@ class DingoChartTests(unittest.TestCase):
             },
             "environment": {
                 "OTEL_EXPORTER_OTLP_ENDPOINT": "http://old-collector",
+                "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT":
+                    "$(OTEL_EXPORTER_OTLP_ENDPOINT)/tenant/v1/traces",
                 "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
                 "OTEL_EXPORTER_OTLP_HEADERS": "authorization=plaintext",
                 "OTEL_LOGS_EXPORTER": "none",
                 "OTEL_METRICS_EXPORTER": "none",
             },
         }
-        entries = dingo_env(values)
+        pod = one(render(values), "StatefulSet")["spec"]["template"]["spec"]
+        entries = pod["containers"][0]["env"]
         by_name = {entry["name"]: entry for entry in entries}
         for name in (
             "OTEL_EXPORTER_OTLP_ENDPOINT",
@@ -410,6 +413,12 @@ class DingoChartTests(unittest.TestCase):
         self.assertEqual(by_name["OTEL_EXPORTER_OTLP_PROTOCOL"]["value"], "grpc")
         self.assertEqual(by_name["OTEL_LOGS_EXPORTER"]["value"], "otlp")
         self.assertEqual(by_name["OTEL_METRICS_EXPORTER"]["value"], "otlp")
+        names = [entry["name"] for entry in entries]
+        self.assertLess(names.index("OTEL_EXPORTER_OTLP_ENDPOINT"),
+                        names.index("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
+        init_names = [entry["name"] for entry in pod["initContainers"][0]["env"]]
+        self.assertLess(init_names.index("OTEL_EXPORTER_OTLP_ENDPOINT"),
+                        init_names.index("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
         secret_ref = by_name["OTEL_EXPORTER_OTLP_HEADERS"]["valueFrom"]["secretKeyRef"]
         self.assertEqual(secret_ref, {"name": "otel-headers", "key": "headers"})
         self.assertIn("OTEL_RESOURCE_ATTRIBUTES", by_name)
@@ -431,6 +440,17 @@ class DingoChartTests(unittest.TestCase):
             }
         }
         self.assertIn("cannot override chart-managed attribute", render_error(values))
+
+    def test_resource_attribute_keys_cannot_change_serialization(self):
+        for key in ("x=ignored,k8s.pod.name", " k8s.pod.name", "k8s.pod.name "):
+            with self.subTest(key=key):
+                values = {
+                    "observability": {
+                        "tracing": {"enabled": True},
+                        "resourceAttributes": {key: "wrong"},
+                    }
+                }
+                self.assertIn("resourceAttributes", render_error(values))
 
 
 if __name__ == "__main__":
