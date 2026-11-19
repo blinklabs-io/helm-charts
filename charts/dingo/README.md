@@ -131,6 +131,44 @@ connections can still close and must reconnect. Readiness cannot preserve
 availability when a single serving replica is replaced; retain a ready peer
 before upgrading another replica or AZ.
 
+### OpenTelemetry export
+
+Tracing, OTLP logs and OTLP metrics are disabled by default. Enable the signals
+you need under `observability`; first-class values replace matching entries in
+`environment` so each environment variable is rendered once.
+
+```yaml
+observability:
+  tracing:
+    enabled: true
+    sampleRatio: "0.1"
+    alwaysSamplePools:
+      - pool1example
+  otlp:
+    endpoint: https://collector.example:4318
+    protocol: http/protobuf
+    logs: true
+    metrics: true
+    headersSecret:
+      name: otel-headers
+      key: headers
+  resourceAttributes:
+    deployment.environment: production
+```
+
+When tracing or an OTLP log or metric exporter is enabled, the chart adds the
+pod name, namespace, node name and Cardano network to
+`OTEL_RESOURCE_ATTRIBUTES`. Additional attributes are appended from
+`observability.resourceAttributes`. The Kubernetes identity and Cardano network
+keys are chart-managed and cannot be overridden. Attribute values are
+percent-encoded as required by the OpenTelemetry environment format.
+
+`observability.tracing.serviceName` defaults to the release fullname while
+tracing is active. Empty pool IDs are discarded and the remaining IDs are
+trimmed and joined with commas. The OTLP headers Secret reference is required,
+not optional: a missing Secret or key prevents the pod from starting instead
+of silently exporting without its configured headers.
+
 ### Keeping the StatefulSet on uninstall
 
 `statefulsetAnnotations` sets annotations on the StatefulSet object only.
@@ -366,6 +404,16 @@ See [`values.yaml`](values.yaml) for the full list of tunables. Key knobs:
 | `service.compatibility.enabled` | Render the `<release>-dingo` compatibility Service        | `true`                         |
 | `networkPolicy.enabled`         | Enable relay policy; always rendered for producers and private-Service opt-ins | `false`       |
 | `networkPolicy.relayIngressFrom` | P2P peers; empty allows relay ingress and denies block-producer ingress | `[]`             |
+| `observability.tracing.enabled` | Enable OpenTelemetry tracing                              | `false`                        |
+| `observability.tracing.serviceName` | Trace service name; release fullname while enabled   | `""`                           |
+| `observability.tracing.sampleRatio` | Fraction of new traces sampled                       | `""` (Dingo default)           |
+| `observability.tracing.alwaysSamplePools` | Pool IDs whose block traces are always sampled | `[]`                            |
+| `observability.otlp.endpoint`   | Shared OTLP collector endpoint                           | `""`                           |
+| `observability.otlp.protocol`   | OTLP transport (`grpc` or `http/protobuf`)                | `""` (SDK default)             |
+| `observability.otlp.logs`       | Export logs over OTLP                                     | `false`                        |
+| `observability.otlp.metrics`    | Export metrics over OTLP                                  | `false`                        |
+| `observability.otlp.headersSecret` | Secret reference for `OTEL_EXPORTER_OTLP_HEADERS`     | empty                          |
+| `observability.resourceAttributes` | Additional OpenTelemetry resource attributes           | `{}`                           |
 | `mithril.enabled`               | Bootstrap the DB from a Mithril snapshot                  | `true`                         |
 | `persistence.size`              | PVC size                                                  | `60Gi`                         |
 

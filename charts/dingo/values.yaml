@@ -182,6 +182,32 @@ topology:
 #  # useLedgerAfterSlot: -1 to disable ledger peer discovery
 #  useLedgerAfterSlot: 83116868
 
+# First-class tracing and OpenTelemetry export settings.
+observability:
+  tracing:
+    enabled: false
+    endpoint: ""
+    # Defaults to the release fullname when tracing is enabled.
+    serviceName: ""
+    # Fraction of new traces sampled, from 0 to 1. Empty uses Dingo's default.
+    sampleRatio: ""
+    # Stake pool IDs whose block traces are always sampled.
+    alwaysSamplePools: []
+  otlp:
+    endpoint: ""
+    # Empty uses the OpenTelemetry SDK default. Supported values are grpc and
+    # http/protobuf.
+    protocol: ""
+    logs: false
+    metrics: false
+    # Secret data must contain the complete OTEL_EXPORTER_OTLP_HEADERS value.
+    headersSecret:
+      name: ""
+      key: ""
+  # Additional OTEL_RESOURCE_ATTRIBUTES entries. The chart supplies the pod,
+  # namespace, node and Cardano network attributes whenever export is enabled.
+  resourceAttributes: {}
+
 # Environment variables passed directly to the dingo container
 # Dingo reads CARDANO_* and DINGO_* environment variables
 # See https://github.com/blinklabs-io/dingo for full list

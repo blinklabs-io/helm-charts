@@ -2,6 +2,22 @@
 {{- if .Values.availability.enabled -}}
 {{- $availability = include "dingo.availabilityConfig" . | fromJson -}}
 {{- end }}
+{{- $tracing := .Values.observability.tracing -}}
+{{- $otlp := .Values.observability.otlp -}}
+{{- $tracingActive := or $tracing.enabled (ne $tracing.endpoint "") -}}
+{{- $signalEnabled := or $tracingActive $otlp.logs $otlp.metrics -}}
+{{- $pools := list -}}
+{{- range $pool := $tracing.alwaysSamplePools -}}
+{{- $pool = trim $pool -}}
+{{- if $pool -}}{{- $pools = append $pools $pool -}}{{- end -}}
+{{- end -}}
+{{- $observabilityEnv := include "dingo.observabilityEnv" (dict "root" . "tracingActive" $tracingActive "signalEnabled" $signalEnabled "pools" $pools) -}}
+{{- $observabilityManaged := list -}}
+{{- if $observabilityEnv -}}
+{{- range $entry := fromYamlArray $observabilityEnv -}}
+{{- $observabilityManaged = append $observabilityManaged $entry.name -}}
+{{- end -}}
+{{- end -}}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -131,11 +147,14 @@ spec:
             echo "Mithril sync complete"
         env:
           {{- range $key, $value := .Values.environment }}
-          {{- if not (kindIs "invalid" $value) }}
+          {{- if and (not (kindIs "invalid" $value)) (not (has $key $observabilityManaged)) }}
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
           {{- end }}
+{{- if $observabilityManaged }}
+          {{- $observabilityEnv | nindent 10 }}
+{{- end }}
           {{- if .Values.mithril.aggregatorUrl }}
           - name: DINGO_MITHRIL_AGGREGATOR_URL
             value: {{ .Values.mithril.aggregatorUrl | quote }}
@@ -170,11 +189,14 @@ spec:
           {{- toYaml .Values.securityContext | nindent 10 }}
         env:
           {{- range $key, $value := .Values.environment }}
-          {{- if and (not (kindIs "invalid" $value)) (not (and $.Values.service.private.enabled (eq $key "CARDANO_PRIVATE_BIND_ADDR"))) (not (has $key (list "CARDANO_PORT" "CARDANO_PRIVATE_PORT" "CARDANO_METRICS_PORT"))) (not (and $.Values.availability.enabled (has $key (list "DINGO_HEALTH_PORT" "DINGO_HEALTH_READY_GAP_SLOTS")))) }}
+          {{- if and (not (kindIs "invalid" $value)) (not (has $key $observabilityManaged)) (not (and $.Values.service.private.enabled (eq $key "CARDANO_PRIVATE_BIND_ADDR"))) (not (has $key (list "CARDANO_PORT" "CARDANO_PRIVATE_PORT" "CARDANO_METRICS_PORT"))) (not (and $.Values.availability.enabled (has $key (list "DINGO_HEALTH_PORT" "DINGO_HEALTH_READY_GAP_SLOTS")))) }}
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
           {{- end }}
+{{- if $observabilityManaged }}
+          {{- $observabilityEnv | nindent 10 }}
+{{- end }}
           {{- /* Dingo binds these listeners from its own env vars only, so the
           Service and containerPort values must be passed through. */}}
           - name: CARDANO_PORT

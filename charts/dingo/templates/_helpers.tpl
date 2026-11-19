@@ -84,6 +84,80 @@ cardano_network: {{ include "dingo.network" . }}
 cardano_service: dingo
 {{- end -}}
 
+{{- define "dingo.observabilityEnv" -}}
+{{- $root := .root -}}
+{{- $tracing := $root.Values.observability.tracing -}}
+{{- $otlp := $root.Values.observability.otlp -}}
+{{- if $tracing.enabled }}
+- name: DINGO_TRACING_ENABLED
+  value: "true"
+{{- end }}
+{{- if $tracing.endpoint }}
+- name: DINGO_TRACING_ENDPOINT
+  value: {{ $tracing.endpoint | quote }}
+{{- end }}
+{{- if or .tracingActive $tracing.serviceName }}
+- name: DINGO_TRACING_SERVICE_NAME
+  value: {{ default (include "dingo.fullname" $root) $tracing.serviceName | quote }}
+{{- end }}
+{{- if ne (toString $tracing.sampleRatio) "" }}
+- name: DINGO_TRACING_SAMPLE_RATIO
+  value: {{ $tracing.sampleRatio | quote }}
+{{- end }}
+{{- if .pools }}
+- name: DINGO_TRACING_ALWAYS_SAMPLE_POOLS
+  value: {{ join "," .pools | quote }}
+{{- end }}
+{{- if $otlp.endpoint }}
+- name: OTEL_EXPORTER_OTLP_ENDPOINT
+  value: {{ $otlp.endpoint | quote }}
+{{- end }}
+{{- if $otlp.protocol }}
+- name: OTEL_EXPORTER_OTLP_PROTOCOL
+  value: {{ $otlp.protocol | quote }}
+{{- end }}
+{{- if $otlp.logs }}
+- name: OTEL_LOGS_EXPORTER
+  value: otlp
+{{- end }}
+{{- if $otlp.metrics }}
+- name: OTEL_METRICS_EXPORTER
+  value: otlp
+{{- end }}
+{{- if or $otlp.headersSecret.name $otlp.headersSecret.key }}
+{{- $secretName := required "observability.otlp.headersSecret.name is required when OTLP headers are configured" $otlp.headersSecret.name }}
+{{- $secretKey := required "observability.otlp.headersSecret.key is required when OTLP headers are configured" $otlp.headersSecret.key }}
+- name: OTEL_EXPORTER_OTLP_HEADERS
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secretName | quote }}
+      key: {{ $secretKey | quote }}
+{{- end }}
+{{- if .signalEnabled }}
+- name: DINGO_OTEL_POD_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: DINGO_OTEL_NAMESPACE_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.namespace
+- name: DINGO_OTEL_NODE_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: spec.nodeName
+{{- $attributes := list "k8s.pod.name=$(DINGO_OTEL_POD_NAME)" "k8s.namespace.name=$(DINGO_OTEL_NAMESPACE_NAME)" "k8s.node.name=$(DINGO_OTEL_NODE_NAME)" (printf "cardano.network.name=%s" (include "dingo.network" $root | urlquery | replace "+" "%20")) -}}
+{{- range $key, $value := $root.Values.observability.resourceAttributes }}
+{{- if has $key (list "k8s.pod.name" "k8s.namespace.name" "k8s.node.name" "cardano.network.name") }}
+{{- fail (printf "observability.resourceAttributes cannot override chart-managed attribute %q" $key) }}
+{{- end }}
+{{- $attributes = append $attributes (printf "%s=%s" $key (toString $value | urlquery | replace "+" "%20")) -}}
+{{- end }}
+- name: OTEL_RESOURCE_ATTRIBUTES
+  value: {{ join "," $attributes | quote }}
+{{- end }}
+{{- end -}}
+
 {{- define "dingo.blockProducer.keysSecretName" -}}
 {{- if .Values.blockProducer.existingSecret -}}
 {{- .Values.blockProducer.existingSecret -}}
