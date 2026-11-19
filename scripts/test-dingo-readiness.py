@@ -44,10 +44,15 @@ def endpoint(tls=False):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             time.sleep(state["delay"])
+            body = b'{"slot":100,"height":5}'
             self.send_response(state.get(self.path, 404))
+            # Without a length the body ends at connection close, and this
+            # server closes TLS without close_notify, which wget with
+            # OpenSSL 3.5 reports as a read error.
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             try:
-                self.wfile.write(b'{"slot":100,"height":5}')
+                self.wfile.write(body)
             except (BrokenPipeError, ConnectionResetError):
                 pass
 
