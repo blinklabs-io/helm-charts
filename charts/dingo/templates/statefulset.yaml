@@ -146,9 +146,6 @@ spec:
 
             echo "Mithril sync complete"
         env:
-{{- if $observabilityManaged }}
-          {{- $observabilityEnv | nindent 10 }}
-{{- end }}
           {{- range $key, $value := .Values.environment }}
           {{- if and (not (kindIs "invalid" $value)) (not (has $key $observabilityManaged)) }}
           - name: {{ $key }}

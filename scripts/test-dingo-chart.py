@@ -417,8 +417,15 @@ class DingoChartTests(unittest.TestCase):
         self.assertLess(names.index("OTEL_EXPORTER_OTLP_ENDPOINT"),
                         names.index("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
         init_names = [entry["name"] for entry in pod["initContainers"][0]["env"]]
-        self.assertLess(init_names.index("OTEL_EXPORTER_OTLP_ENDPOINT"),
-                        init_names.index("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
+        for name in (
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            "OTEL_EXPORTER_OTLP_PROTOCOL",
+            "OTEL_EXPORTER_OTLP_HEADERS",
+            "OTEL_LOGS_EXPORTER",
+            "OTEL_METRICS_EXPORTER",
+            "OTEL_RESOURCE_ATTRIBUTES",
+        ):
+            self.assertNotIn(name, init_names)
         secret_ref = by_name["OTEL_EXPORTER_OTLP_HEADERS"]["valueFrom"]["secretKeyRef"]
         self.assertEqual(secret_ref, {"name": "otel-headers", "key": "headers"})
         self.assertIn("OTEL_RESOURCE_ATTRIBUTES", by_name)
