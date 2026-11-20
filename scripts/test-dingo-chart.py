@@ -449,7 +449,13 @@ class DingoChartTests(unittest.TestCase):
         self.assertIn("cannot override chart-managed attribute", render_error(values))
 
     def test_resource_attribute_keys_cannot_change_serialization(self):
-        for key in ("x=ignored,k8s.pod.name", " k8s.pod.name", "k8s.pod.name "):
+        whitespace = "\t\n\v\f\r \u0085\u00a0\u1680" + "".join(
+            chr(codepoint) for codepoint in range(0x2000, 0x200B)
+        ) + "\u2028\u2029\u202f\u205f\u3000"
+        keys = ["x=ignored,k8s.pod.name"]
+        for character in whitespace:
+            keys.extend((character + "k8s.pod.name", "k8s.pod.name" + character))
+        for key in keys:
             with self.subTest(key=key):
                 values = {
                     "observability": {
@@ -457,7 +463,12 @@ class DingoChartTests(unittest.TestCase):
                         "resourceAttributes": {key: "wrong"},
                     }
                 }
-                self.assertIn("resourceAttributes", render_error(values))
+                error = render_error(values)
+                if "\u0085" in key:
+                    # Helm rejects NEL while reparsing values for schema validation.
+                    self.assertIn("values don't meet the specifications", error)
+                else:
+                    self.assertIn("resourceAttributes", error)
 
 
 if __name__ == "__main__":
