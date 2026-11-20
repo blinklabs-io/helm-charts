@@ -1400,8 +1400,9 @@ spec:
                           Mode selects how the operator rotates keys. Note that key-material
                           validation is not mode-dependent: the operator validates the keys Secret
                           (opcert signature, pool binding, counter, KES period) for every block
-                          producer, including MonitorOnly, and refuses to roll the pod onto a
-                          bundle that fails.
+                          producer, including MonitorOnly. Assisted delivers an accepted replacement
+                          to the node; MonitorOnly reports it, keeps the live pod template, and
+                          withholds approval to stage the replacement.
                         enum:
                         - Auto
                         - Assisted
@@ -1517,6 +1518,31 @@ spec:
                 maxLength: 253
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
+              drainDelaySeconds:
+                description: |-
+                  DrainDelaySeconds is how long the Dingo container sleeps in a preStop hook
+                  before it receives SIGTERM. Kubernetes starts removing a terminating pod
+                  from Service endpoints at the same moment it begins termination, and
+                  kube-proxy and load balancers take a while to stop selecting it. Dingo
+                  closes its listeners on SIGTERM, so without a delay new connections that
+                  are still routed to the pod are refused.
+
+                  The delay is part of terminationGracePeriodSeconds, not added to it:
+                  CARDANO_SHUTDOWN_TIMEOUT is reduced by the same amount, and the value must
+                  leave at least 10 seconds of headroom under the grace period.
+
+                  When omitted, a relay waits 15 seconds, provided that still leaves Dingo
+                  a 30 second shutdown budget and spec.environment does not set
+                  CARDANO_SHUTDOWN_TIMEOUT, and a block producer does not wait, because the
+                  delay would postpone the forging pod's shutdown. Set 0 to disable the
+                  hook.
+
+                  The hook uses the native preStop sleep action. On an API server older
+                  than Kubernetes 1.30 the operator renders no hook and the value has no
+                  effect.
+                format: int64
+                minimum: 0
+                type: integer
               environment:
                 additionalProperties:
                   type: string
@@ -1533,10 +1559,19 @@ spec:
               image:
                 description: ImageSpec configures the Dingo container image.
                 properties:
-                  digest:
+                  capabilityVersion:
                     description: |-
-                      Digest pins immutable image content and takes precedence over Tag.
-                      Tag is required with Digest for UID and probe selection.
+                      CapabilityVersion declares the Dingo release contract implemented by a
+                      digest-pinned image. It selects UID, probe and optional feature support.
+                      New digest references require this field. Existing digest and tag pairs
+                      remain compatible, but changing either value requires CapabilityVersion.
+                      Once declared, it must remain set while the image is digest-pinned.
+                    maxLength: 64
+                    pattern: ^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$
+                    type: string
+                  digest:
+                    description: Digest pins immutable image content and takes precedence
+                      over Tag.
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   pullPolicy:
@@ -1557,8 +1592,15 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-validations:
-                - message: tag must be set when digest is set
-                  rule: '!has(self.digest) || (has(self.tag) && size(self.tag) > 0)'
+                - message: capabilityVersion requires digest
+                  rule: '!has(self.capabilityVersion) || has(self.digest)'
+                - message: capabilityVersion is required for a new digest, a digest
+                    or tag change, or once declared
+                  optionalOldSelf: true
+                  rule: '!has(self.digest) || has(self.capabilityVersion) || (oldSelf.hasValue()
+                    && !has(oldSelf.value().capabilityVersion) && has(oldSelf.value().digest)
+                    && oldSelf.value().digest == self.digest && has(oldSelf.value().tag)
+                    && has(self.tag) && oldSelf.value().tag == self.tag)'
               logging:
                 description: Logging configures the node's log level and format.
                 properties:
@@ -2009,6 +2051,146 @@ spec:
                     maximum: 65535
                     minimum: 0
                     type: integer
+                  ingressFrom:
+                    description: |-
+                      IngressFrom grants access to the node-to-node listener using standard
+                      NetworkPolicy peers. For block producers these peers augment the
+                      same-namespace relays named by topology.relayRefs. When empty, relays
+                      accept node-to-node traffic from any source and block producers admit
+                      only their relayRefs, preserving the default policy.
+                    items:
+                      description: |-
+                        NetworkPolicyPeer describes a peer to allow traffic to/from. Only certain combinations of
+                        fields are allowed
+                      properties:
+                        ipBlock:
+                          description: |-
+                            ipBlock defines policy on a particular IPBlock. If this field is set then
+                            neither of the other fields can be.
+                          properties:
+                            cidr:
+                              description: |-
+                                cidr is a string representing the IPBlock
+                                Valid examples are "192.168.1.0/24" or "2001:db8::/64"
+                              type: string
+                            except:
+                              description: |-
+                                except is a slice of CIDRs that should not be included within an IPBlock
+                                Valid examples are "192.168.1.0/24" or "2001:db8::/64"
+                                Except values will be rejected if they are outside the cidr range
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - cidr
+                          type: object
+                        namespaceSelector:
+                          description: |-
+                            namespaceSelector selects namespaces using cluster-scoped labels. This field follows
+                            standard label selector semantics; if present but empty, it selects all namespaces.
+
+                            If podSelector is also set, then the NetworkPolicyPeer as a whole selects
+                            the pods matching podSelector in the namespaces selected by namespaceSelector.
+                            Otherwise it selects all pods in the namespaces selected by namespaceSelector.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        podSelector:
+                          description: |-
+                            podSelector is a label selector which selects pods. This field follows standard label
+                            selector semantics; if present but empty, it selects all pods.
+
+                            If namespaceSelector is also set, then the NetworkPolicyPeer as a whole selects
+                            the pods matching podSelector in the Namespaces selected by NamespaceSelector.
+                            Otherwise it selects the pods matching podSelector in the policy's own namespace.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                    type: array
                   loadBalancerSourceRanges:
                     items:
                       type: string
@@ -2151,7 +2333,8 @@ spec:
                   default state where Kubernetes and Dingo are given the same 30s and
                   kubelet fires exactly as Dingo's deadline expires.
 
-                  Raise it for a node with a large ledger, whose flush takes longer.
+                  Raise it for a node with a large ledger, whose flush takes longer. The
+                  preStop drain delay (drainDelaySeconds) counts against this period.
                 format: int64
                 minimum: 15
                 type: integer
@@ -2328,6 +2511,11 @@ spec:
             - network
             - role
             type: object
+            x-kubernetes-validations:
+            - message: drainDelaySeconds must be at least 10 seconds below terminationGracePeriodSeconds
+              rule: '!has(self.drainDelaySeconds) || self.drainDelaySeconds + 10 <
+                (has(self.terminationGracePeriodSeconds) ? self.terminationGracePeriodSeconds
+                : 60)'
           status:
             description: DingoNodeStatus defines the observed state of a DingoNode.
             properties:
