@@ -67,6 +67,112 @@
           ]
         }
       }
+    },
+    "observability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tracing",
+        "otlp",
+        "resourceAttributes"
+      ],
+      "properties": {
+        "tracing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "endpoint",
+            "serviceName",
+            "sampleRatio",
+            "alwaysSamplePools"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "endpoint": {
+              "type": "string"
+            },
+            "serviceName": {
+              "type": "string"
+            },
+            "sampleRatio": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(|0(\\.[0-9]+)?|1(\\.0+)?)$"
+                },
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              ]
+            },
+            "alwaysSamplePools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "otlp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "endpoint",
+            "protocol",
+            "logs",
+            "metrics",
+            "headersSecret"
+          ],
+          "properties": {
+            "endpoint": {
+              "type": "string"
+            },
+            "protocol": {
+              "enum": [
+                "",
+                "grpc",
+                "http/protobuf"
+              ]
+            },
+            "logs": {
+              "type": "boolean"
+            },
+            "metrics": {
+              "type": "boolean"
+            },
+            "headersSecret": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "key"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "resourceAttributes": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[^,=\\s\u000b\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000]+$"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assert the Dingo chart's rendered security and migration contracts."""
+"""Assert the Dingo chart's rendered contracts."""
 
 import os
 from pathlib import Path
@@ -27,6 +27,26 @@ def render(values=None, fixture=None):
 
 def one(objects, kind):
     return next(obj for obj in objects if obj["kind"] == kind)
+
+
+def dingo_env(values=None):
+    container = one(render(values), "StatefulSet")["spec"]["template"]["spec"]["containers"][0]
+    return container["env"]
+
+
+def render_error(values):
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "values.yaml"
+        path.write_text(yaml.safe_dump(values))
+        result = subprocess.run(
+            ["helm", "template", "review", str(CHART), "-f", str(path)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    if result.returncode == 0:
+        raise AssertionError("helm template unexpectedly succeeded")
+    return result.stderr
 
 
 class DingoChartTests(unittest.TestCase):
@@ -277,6 +297,178 @@ class DingoChartTests(unittest.TestCase):
         override_entries = one(render({"environment": {"CARDANO_BIND_ADDR": "127.0.0.1"}}),
                                "StatefulSet")["spec"]["template"]["spec"]["containers"][0]["env"]
         self.assertEqual([e["value"] for e in override_entries if e["name"] == "CARDANO_BIND_ADDR"], ["127.0.0.1"])
+
+    def test_observability_defaults_are_inert(self):
+        entries = dingo_env()
+        names = {entry["name"] for entry in entries}
+        self.assertFalse(any(name.startswith("DINGO_TRACING_") for name in names))
+        self.assertFalse(any(name.startswith("OTEL_") for name in names))
+
+        configured = dingo_env({"environment": {"DINGO_TRACING_ENABLED": "true"}})
+        self.assertEqual([entry["value"] for entry in configured
+                          if entry["name"] == "DINGO_TRACING_ENABLED"], ["true"])
+
+    def test_tracing_values_override_environment(self):
+        values = {
+            "observability": {
+                "tracing": {
+                    "enabled": True,
+                    "endpoint": "https://collector.example/v1/traces",
+                    "serviceName": "relay",
+                    "sampleRatio": "0.25",
+                    "alwaysSamplePools": [" pool1alpha ", "", "   ", "pool1beta"],
+                },
+                "resourceAttributes": {
+                    "deployment.environment": "preview cluster",
+                    "team": "core,protocol",
+                },
+            },
+            "environment": {
+                "DINGO_TRACING_ENABLED": "false",
+                "DINGO_TRACING_ENDPOINT": "http://old-collector",
+                "DINGO_TRACING_SERVICE_NAME": "old-name",
+                "DINGO_TRACING_SAMPLE_RATIO": "1",
+                "DINGO_TRACING_ALWAYS_SAMPLE_POOLS": "old-pool",
+                "OTEL_RESOURCE_ATTRIBUTES": "old=value",
+            },
+        }
+        entries = dingo_env(values)
+        by_name = {entry["name"]: entry for entry in entries}
+        for name in (
+            "DINGO_TRACING_ENABLED",
+            "DINGO_TRACING_ENDPOINT",
+            "DINGO_TRACING_SERVICE_NAME",
+            "DINGO_TRACING_SAMPLE_RATIO",
+            "DINGO_TRACING_ALWAYS_SAMPLE_POOLS",
+            "OTEL_RESOURCE_ATTRIBUTES",
+        ):
+            self.assertEqual([entry["name"] for entry in entries].count(name), 1)
+        self.assertEqual(by_name["DINGO_TRACING_ENABLED"]["value"], "true")
+        self.assertEqual(by_name["DINGO_TRACING_ENDPOINT"]["value"],
+                         "https://collector.example/v1/traces")
+        self.assertEqual(by_name["DINGO_TRACING_SERVICE_NAME"]["value"], "relay")
+        self.assertEqual(by_name["DINGO_TRACING_SAMPLE_RATIO"]["value"], "0.25")
+        self.assertEqual(by_name["DINGO_TRACING_ALWAYS_SAMPLE_POOLS"]["value"],
+                         "pool1alpha,pool1beta")
+        self.assertEqual(
+            by_name["OTEL_RESOURCE_ATTRIBUTES"]["value"],
+            "k8s.pod.name=$(DINGO_OTEL_POD_NAME),"
+            "k8s.namespace.name=$(DINGO_OTEL_NAMESPACE_NAME),"
+            "k8s.node.name=$(DINGO_OTEL_NODE_NAME),"
+            "cardano.network.name=preview,"
+            "deployment.environment=preview%20cluster,"
+            "team=core%2Cprotocol",
+        )
+        self.assertEqual(by_name["DINGO_OTEL_POD_NAME"]["valueFrom"]["fieldRef"]["fieldPath"],
+                         "metadata.name")
+        self.assertEqual(by_name["DINGO_OTEL_NAMESPACE_NAME"]["valueFrom"]["fieldRef"]["fieldPath"],
+                         "metadata.namespace")
+        self.assertEqual(by_name["DINGO_OTEL_NODE_NAME"]["valueFrom"]["fieldRef"]["fieldPath"],
+                         "spec.nodeName")
+
+    def test_tracing_defaults_service_name_to_release_fullname(self):
+        entries = dingo_env({"observability": {"tracing": {"enabled": True}}})
+        self.assertEqual([entry["value"] for entry in entries
+                          if entry["name"] == "DINGO_TRACING_SERVICE_NAME"], ["review-dingo"])
+
+    def test_zero_sample_ratio_is_not_erased(self):
+        entries = dingo_env({"observability": {"tracing": {"sampleRatio": 0}}})
+        self.assertEqual([entry["value"] for entry in entries
+                          if entry["name"] == "DINGO_TRACING_SAMPLE_RATIO"], ["0"])
+
+    def test_otlp_values_override_environment(self):
+        values = {
+            "observability": {
+                "otlp": {
+                    "endpoint": "https://collector.example",
+                    "protocol": "grpc",
+                    "logs": True,
+                    "metrics": True,
+                    "headersSecret": {"name": "otel-headers", "key": "headers"},
+                }
+            },
+            "environment": {
+                "OTEL_EXPORTER_OTLP_ENDPOINT": "http://old-collector",
+                "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT":
+                    "$(OTEL_EXPORTER_OTLP_ENDPOINT)/tenant/v1/traces",
+                "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+                "OTEL_EXPORTER_OTLP_HEADERS": "authorization=plaintext",
+                "OTEL_LOGS_EXPORTER": "none",
+                "OTEL_METRICS_EXPORTER": "none",
+            },
+        }
+        pod = one(render(values), "StatefulSet")["spec"]["template"]["spec"]
+        entries = pod["containers"][0]["env"]
+        by_name = {entry["name"]: entry for entry in entries}
+        for name in (
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            "OTEL_EXPORTER_OTLP_PROTOCOL",
+            "OTEL_EXPORTER_OTLP_HEADERS",
+            "OTEL_LOGS_EXPORTER",
+            "OTEL_METRICS_EXPORTER",
+        ):
+            self.assertEqual([entry["name"] for entry in entries].count(name), 1)
+        self.assertEqual(by_name["OTEL_EXPORTER_OTLP_ENDPOINT"]["value"],
+                         "https://collector.example")
+        self.assertEqual(by_name["OTEL_EXPORTER_OTLP_PROTOCOL"]["value"], "grpc")
+        self.assertEqual(by_name["OTEL_LOGS_EXPORTER"]["value"], "otlp")
+        self.assertEqual(by_name["OTEL_METRICS_EXPORTER"]["value"], "otlp")
+        names = [entry["name"] for entry in entries]
+        self.assertLess(names.index("OTEL_EXPORTER_OTLP_ENDPOINT"),
+                        names.index("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
+        init_names = [entry["name"] for entry in pod["initContainers"][0]["env"]]
+        for name in (
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            "OTEL_EXPORTER_OTLP_PROTOCOL",
+            "OTEL_EXPORTER_OTLP_HEADERS",
+            "OTEL_LOGS_EXPORTER",
+            "OTEL_METRICS_EXPORTER",
+            "OTEL_RESOURCE_ATTRIBUTES",
+        ):
+            self.assertNotIn(name, init_names)
+        secret_ref = by_name["OTEL_EXPORTER_OTLP_HEADERS"]["valueFrom"]["secretKeyRef"]
+        self.assertEqual(secret_ref, {"name": "otel-headers", "key": "headers"})
+        self.assertIn("OTEL_RESOURCE_ATTRIBUTES", by_name)
+
+    def test_otlp_headers_require_complete_secret_reference(self):
+        for headers, message in (
+            ({"name": "otel-headers", "key": ""}, "headersSecret.key is required"),
+            ({"name": "", "key": "headers"}, "headersSecret.name is required"),
+        ):
+            with self.subTest(headers=headers):
+                values = {"observability": {"otlp": {"headersSecret": headers}}}
+                self.assertIn(message, render_error(values))
+
+    def test_resource_identity_attributes_cannot_be_overridden(self):
+        values = {
+            "observability": {
+                "tracing": {"enabled": True},
+                "resourceAttributes": {"k8s.pod.name": "forged-name"},
+            }
+        }
+        self.assertIn("cannot override chart-managed attribute", render_error(values))
+
+    def test_resource_attribute_keys_cannot_change_serialization(self):
+        whitespace = "\t\n\v\f\r \u0085\u00a0\u1680" + "".join(
+            chr(codepoint) for codepoint in range(0x2000, 0x200B)
+        ) + "\u2028\u2029\u202f\u205f\u3000"
+        keys = ["x=ignored,k8s.pod.name"]
+        for character in whitespace:
+            keys.extend((character + "k8s.pod.name", "k8s.pod.name" + character))
+        for key in keys:
+            with self.subTest(key=key):
+                values = {
+                    "observability": {
+                        "tracing": {"enabled": True},
+                        "resourceAttributes": {key: "wrong"},
+                    }
+                }
+                error = render_error(values)
+                if "\u0085" in key:
+                    # Helm rejects NEL while reparsing values for schema validation.
+                    self.assertIn("values don't meet the specifications", error)
+                else:
+                    self.assertIn("resourceAttributes", error)
 
 
 if __name__ == "__main__":
