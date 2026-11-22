@@ -87,9 +87,9 @@ authorized role across all profiles.
 
 For a single profile without `profiles`, put the role lists directly under
 `kes_agent`. The runtime also accepts `KESAGENT_SIGN_CLIENT_SPKI_SHA256` and
-`KESAGENT_CONTROL_CLIENT_SPKI_SHA256`, or their `BURSA_KESAGENT_KESAGENT_`
-prefixed forms (`BURSA_KESAGENT_KESAGENT_SIGN_CLIENT_SPKI_SHA256` and
-`BURSA_KESAGENT_KESAGENT_CONTROL_CLIENT_SPKI_SHA256`),
+`KESAGENT_CONTROL_CLIENT_SPKI_SHA256`, or the fully prefixed forms
+`BURSA_KESAGENT_KESAGENT_SIGN_CLIENT_SPKI_SHA256` and
+`BURSA_KESAGENT_KESAGENT_CONTROL_CLIENT_SPKI_SHA256`,
 from `environment` or `kesAgent.extraEnv`, including `valueFrom` references.
 Do not combine these global lists with `profiles`.
 
