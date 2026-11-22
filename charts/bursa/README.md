@@ -42,6 +42,169 @@ issuer. Bursa requires HTTPS for a non-loopback JWKS endpoint.
 | `api.auth.existingSecretKey` | `API_JWT_SECRET` | Key selected from the authentication Secret |
 | `api.tls.secretName` | empty | Secret containing `tls.crt` and `tls.key` |
 
+## Signer mode
+
+`mode: signer` runs `bursa signer`, the remote signing service. The full
+configuration reference is the
+[Bursa signer runbook](https://github.com/blinklabs-io/bursa/blob/main/docs/signer/runbook.md).
+`signer.config` is the signer config file: the chart sets `signer.listen_address`,
+`signer.listen_port` and the TLS file paths, and passes everything else through.
+Because the file is a ConfigMap, rendering fails when it carries a credential
+(`mnemonic`, `api.jwt_secret`, `storage.dsn`, `signer.jwt_secret`,
+`signer.watermark.dsn`). Supply those through `signer.extraEnv` with
+`valueFrom`; a watermark DSN is named by `signer.watermark.dsn_env`.
+
+- Server TLS is required: set `signer.tls.secretName` to a `kubernetes.io/tls`
+  Secret. `signer.tls.clientCASecretName` (a Secret with `ca.crt`) enables mTLS
+  client authentication. The chart refuses `require_client_cert: true`, because
+  the kubelet HTTPS probes present no client certificate; requests to the
+  signer API without one still get 401.
+- Backends are listed under `signer.backends`. A `sops` backend reads
+  SOPS-encrypted `*.json` key files from the Secret named by
+  `signer.sopsKeys.secretName`, mounted at `/etc/bursa/signer/sops-keys`, and
+  decrypts them with the age identity in `signer.ageKey.secretName`. A `sops`
+  backend may set `profile` to bind it to one network; the other backend types
+  and profile routing are described in the runbook.
+- Each key needs a `signer.keys` entry with `allowed_requests`; a key with no
+  entry can sign nothing.
+- `signer.callers` maps a caller to the key hashes it may use. The subject is
+  the client certificate URI SAN, else DNS SAN, else common name.
+- Operational certificates need a per-KES-key grant, required since Bursa
+  v0.26.0: list the cold key in the caller's `keys`, and each staged KES
+  verification key under `opcerts[].kes_vkeys` for that cold key. The default
+  `image.tag` predates this requirement, so the examples set `0.26.0`.
+- `/readyz` checks that the watermark store is writable.
+
+The watermark records the highest counter signed per key, so it must survive a
+restart. A single replica can use the `file` store. Several replicas must share
+one `postgres` store: the chart refuses `replicaCount` above 1 unless the
+watermark type is `postgres` and its mode is `enforce`.
+
+### Single replica
+
+The `file` watermark is a SQLite file, so mount a PersistentVolumeClaim, which
+the chart does not create, and keep two pods from opening it at once with the
+`Recreate` update strategy.
+
+```yaml
+mode: signer
+replicaCount: 1
+image:
+  tag: "0.26.0"
+updateStrategy:
+  type: Recreate
+signer:
+  config:
+    signer:
+      watermark:
+        type: file
+        path: /var/lib/bursa/signer/watermark.sqlite
+        mode: enforce
+      backends:
+        - name: cold
+          type: sops
+          path: /etc/bursa/signer/sops-keys
+      callers:
+        - subject: dingo-operator
+          keys: ["<cold key hash>"]
+          opcerts:
+            - key: "<cold key hash>"
+              kes_vkeys: ["<staged KES verification key>"]
+      keys:
+        - hash: "<cold key hash>"
+          backend: cold
+          allowed_requests: ["opcert"]
+  tls:
+    secretName: bursa-signer-tls
+    clientCASecretName: bursa-signer-client-ca
+  sopsKeys:
+    secretName: bursa-signer-cold-keys
+  ageKey:
+    secretName: bursa-signer-age
+  extraVolumes:
+    - name: watermark
+      persistentVolumeClaim:
+        claimName: bursa-signer-watermark
+  extraVolumeMounts:
+    - name: watermark
+      mountPath: /var/lib/bursa/signer
+```
+
+### Multiple replicas
+
+Every replica points at the same PostgreSQL database. The DSN comes from a
+Secret through `dsn_env`; a remote database needs `sslmode=verify-full` in it.
+The database role must be able to create the watermark tables on first start.
+
+```yaml
+mode: signer
+replicaCount: 2
+image:
+  tag: "0.26.0"
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: bursa
+            app.kubernetes.io/instance: <release>
+        topologyKey: kubernetes.io/hostname
+podDisruptionBudget:
+  enabled: true
+signer:
+  config:
+    signer:
+      watermark:
+        type: postgres
+        dsn_env: SIGNER_WATERMARK_DSN
+        mode: enforce
+      backends:
+        - name: cold
+          type: sops
+          path: /etc/bursa/signer/sops-keys
+      callers:
+        - subject: dingo-operator
+          keys: ["<cold key hash>"]
+          opcerts:
+            - key: "<cold key hash>"
+              kes_vkeys: ["<staged KES verification key>"]
+      keys:
+        - hash: "<cold key hash>"
+          backend: cold
+          allowed_requests: ["opcert"]
+  tls:
+    secretName: bursa-signer-tls
+    clientCASecretName: bursa-signer-client-ca
+  sopsKeys:
+    secretName: bursa-signer-cold-keys
+  ageKey:
+    secretName: bursa-signer-age
+  extraEnv:
+    - name: SIGNER_WATERMARK_DSN
+      valueFrom:
+        secretKeyRef:
+          name: bursa-signer-watermark
+          key: dsn
+```
+
+Do not move an active signer from `file` to PostgreSQL by repointing it: Bursa
+does not import watermark history, so the runbook's controlled cutover applies.
+
+`signer.networkPolicy` restricts ingress to the signer port and, optionally,
+egress to the watermark database, custody backends and DNS.
+
+| Value | Default | Purpose |
+| --- | --- | --- |
+| `signer.config` | `{}` | Signer config file contents, passed through |
+| `signer.port` | `8090` | Signer HTTPS port, which also serves `/healthz` and `/readyz` |
+| `signer.tls.secretName` | empty | Server certificate Secret; required |
+| `signer.tls.clientCASecretName` | empty | CA Secret that enables mTLS client authentication |
+| `signer.sopsKeys.secretName` | empty | Secret of SOPS-encrypted `*.json` key files |
+| `signer.ageKey.secretName` | empty | Secret holding the age identity for SOPS decryption |
+| `signer.extraEnv` | `[]` | Extra environment, such as the watermark DSN from a `secretKeyRef` |
+| `signer.extraVolumes` / `signer.extraVolumeMounts` | `[]` | Extra volumes, such as a watermark PVC |
+| `signer.networkPolicy.enabled` | `false` | Create a NetworkPolicy; `from` must list a peer |
+
 ## KES agent metrics
 
 In `kes-agent` mode the metrics listener, which also serves `/healthz` and
