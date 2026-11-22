@@ -143,6 +143,103 @@ class BursaSignerGuardTests(unittest.TestCase):
                 self.assertFails({"podMonitor": {"enabled": True}}, "podMonitor.enabled is not supported", fixture)
 
 
+class BursaKesAgentClientTests(unittest.TestCase):
+    pin = "11" * 32
+
+    def assertRenders(self, values=None):
+        result = render(values, "kes-agent-values.yaml")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+
+    def assertFails(self, values, message):
+        result = render(values, "kes-agent-values.yaml")
+        self.assertNotEqual(result.returncode, 0, "render succeeded")
+        self.assertIn(message, result.stderr)
+
+    def singleProfile(self, **fields):
+        return {"kesAgent": {"config": {"kes_agent": {
+            "profiles": [],
+            "cold_vkey_hex": "00" * 32,
+            "system_start": "2022-10-25T00:00:00Z",
+            **fields,
+        }}}}
+
+    def test_profile_client_pins_render(self):
+        docs = self.assertRenders()
+        config = next(doc for doc in docs if doc["kind"] == "ConfigMap")
+        agent = yaml.safe_load(config["data"]["config.yaml"])["kes_agent"]
+        self.assertEqual(agent["profiles"][0]["sign_client_spki_sha256"], [self.pin])
+        self.assertIn("attested_client_ca_file", agent)
+
+    def test_remote_clients_require_verified_tls(self):
+        self.assertFails({"kesAgent": {"tls": {"secretName": ""}}},
+                         "needs kesAgent.tls.secretName")
+        self.assertFails({"kesAgent": {"tls": {"clientCASecretName": ""}}},
+                         "needs kesAgent.tls.clientCASecretName")
+        self.assertFails({"kesAgent": {"tls": {"secretName": "", "clientCASecretName": ""},
+                                      "config": {"kes_agent": {"attested_plaintext": True}}}},
+                         "attested_plaintext cannot admit")
+
+    def test_no_authorized_remote_role_is_rejected(self):
+        self.assertFails({"kesAgent": {"config": {"kes_agent": {"profiles": [
+            {"name": "local-only", "cold_vkey_hex": "00" * 32,
+             "system_start": "2022-10-25T00:00:00Z"},
+        ]}}}}, "authorization for at least one profile")
+        self.assertFails(self.singleProfile(), "authorization for at least one profile")
+
+    def test_control_only_and_unserved_profiles_render(self):
+        self.assertRenders({"kesAgent": {"config": {"kes_agent": {"profiles": [
+            {"name": "control-only", "cold_vkey_hex": "00" * 32,
+             "system_start": "2022-10-25T00:00:00Z",
+             "control_client_spki_sha256": [self.pin]},
+            {"name": "local-only", "cold_vkey_hex": "22" * 32,
+             "system_start": "2022-10-25T00:00:00Z"},
+        ]}}}})
+
+    def test_single_profile_config_roles_render(self):
+        for role in ("sign", "control"):
+            with self.subTest(role=role):
+                self.assertRenders(self.singleProfile(**{f"{role}_client_spki_sha256": [self.pin]}))
+
+    def test_single_profile_environment_roles_render(self):
+        for role in ("SIGN", "CONTROL"):
+            for prefix in ("", "BURSA_KESAGENT_"):
+                name = f"{prefix}KESAGENT_{role}_CLIENT_SPKI_SHA256"
+                with self.subTest(name=name, source="environment"):
+                    values = self.singleProfile()
+                    values["environment"] = {name: self.pin}
+                    self.assertRenders(values)
+                for entry in ({"name": name, "value": self.pin},
+                              {"name": name, "valueFrom": {"secretKeyRef": {"name": "client-pins", "key": "pins"}}}):
+                    with self.subTest(name=name, entry=entry):
+                        values = self.singleProfile()
+                        values["kesAgent"]["extraEnv"] = [entry]
+                        self.assertRenders(values)
+
+    def test_effective_environment_cannot_clear_the_last_role(self):
+        values = self.singleProfile(sign_client_spki_sha256=[self.pin])
+        values["environment"] = {"KESAGENT_SIGN_CLIENT_SPKI_SHA256": self.pin}
+        values["kesAgent"]["extraEnv"] = [{"name": "BURSA_KESAGENT_KESAGENT_SIGN_CLIENT_SPKI_SHA256", "value": ""}]
+        self.assertFails(values, "authorization for at least one profile")
+
+    def test_empty_environment_map_value_is_not_emitted(self):
+        values = self.singleProfile(sign_client_spki_sha256=[self.pin])
+        name = "KESAGENT_SIGN_CLIENT_SPKI_SHA256"
+        values["environment"] = {name: ""}
+        docs = self.assertRenders(values)
+        deployment = next(doc for doc in docs if doc["kind"] == "Deployment")
+        env = deployment["spec"]["template"]["spec"]["containers"][0]["env"]
+        self.assertNotIn(name, [entry["name"] for entry in env])
+
+    def test_unrecognized_environment_name_is_not_authorization(self):
+        values = self.singleProfile()
+        values["environment"] = {"BURSA_KESAGENT_SIGN_CLIENT_SPKI_SHA256": self.pin}
+        self.assertFails(values, "authorization for at least one profile")
+
+    def test_runtime_must_support_client_authorization(self):
+        self.assertFails({"image": {"tag": "0.25.0"}}, "needs bursa 0.26.0 or newer")
+
+
 class BursaApiServiceTests(unittest.TestCase):
     def documents(self, values):
         result = render(values, "api-values.yaml")

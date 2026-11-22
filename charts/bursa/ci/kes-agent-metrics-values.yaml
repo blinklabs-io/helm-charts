@@ -16,6 +16,7 @@ kesAgent:
           cold_vkey_hex: "0000000000000000000000000000000000000000000000000000000000000000"
           system_start: "2022-10-25T00:00:00Z"
           slots_per_kes_period: 129600
+          sign_client_spki_sha256: ["1111111111111111111111111111111111111111111111111111111111111111"]
   tls:
     secretName: bursa-kes-agent-tls
     clientCASecretName: bursa-kes-agent-client-ca

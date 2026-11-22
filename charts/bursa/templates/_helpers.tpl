@@ -170,8 +170,8 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- define "bursa.validateKesAgent" -}}
 {{- $tag := toString .Values.image.tag -}}
 {{- if regexMatch "^v?[0-9]+\\.[0-9]+\\.[0-9]+$" $tag -}}
-{{- if semverCompare "<0.23.0-0" $tag -}}
-{{- fail (printf "mode kes-agent needs bursa 0.23.0 or newer (shared store, profiles and listener transport options); image.tag is %q" $tag) -}}
+{{- if semverCompare "<0.26.0-0" $tag -}}
+{{- fail (printf "mode kes-agent needs bursa 0.26.0 or newer (verified remote client authorization); image.tag is %q" $tag) -}}
 {{- end -}}
 {{- end -}}
 {{- if not (int .Values.kesAgent.metricsPort) -}}
@@ -200,14 +200,52 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 {{- end -}}
 {{- $plain := eq (toString $k.attested_plaintext) "true" -}}
-{{- if and $plain .Values.kesAgent.tls.secretName -}}
-{{- fail "kesAgent.tls.secretName and kes_agent.attested_plaintext cannot both be set: the agent refuses TLS files on a plaintext listener" -}}
+{{- if $plain -}}
+{{- fail "mode kes-agent requires verified mutual TLS: kes_agent.attested_plaintext cannot admit remote signing or control clients" -}}
 {{- end -}}
-{{- if and (not $plain) (not .Values.kesAgent.tls.secretName) -}}
-{{- fail "mode kes-agent needs kesAgent.tls.secretName, or kes_agent.attested_plaintext: true with transport security provided elsewhere" -}}
+{{- if not .Values.kesAgent.tls.secretName -}}
+{{- fail "mode kes-agent needs kesAgent.tls.secretName for verified mutual TLS" -}}
 {{- end -}}
-{{- if and .Values.kesAgent.tls.clientCASecretName (not .Values.kesAgent.tls.secretName) -}}
-{{- fail "kesAgent.tls.clientCASecretName requires kesAgent.tls.secretName" -}}
+{{- if not .Values.kesAgent.tls.clientCASecretName -}}
+{{- fail "mode kes-agent needs kesAgent.tls.clientCASecretName to verify remote client certificates" -}}
+{{- end -}}
+{{- /* Profiles may be control-only or unserved. The listener needs one
+     authorized role somewhere; otherwise every remote session is refused.
+     For the single-profile form, envconfig prefers the prefixed variable.
+     A valueFrom list is unknown here and may contain valid client pins. */ -}}
+{{- $hasClients := false -}}
+{{- $profiles := default list $k.profiles -}}
+{{- if $profiles -}}
+{{- range $profiles -}}
+{{- if or .sign_client_spki_sha256 .control_client_spki_sha256 -}}
+{{- $hasClients = true -}}
+{{- end -}}
+{{- end -}}
+{{- else -}}
+{{- $pinEnv := dict -}}
+{{- $names := list "KESAGENT_SIGN_CLIENT_SPKI_SHA256" "BURSA_KESAGENT_KESAGENT_SIGN_CLIENT_SPKI_SHA256" "KESAGENT_CONTROL_CLIENT_SPKI_SHA256" "BURSA_KESAGENT_KESAGENT_CONTROL_CLIENT_SPKI_SHA256" -}}
+{{- range $name, $value := .Values.environment -}}
+{{- if and $value (has $name $names) -}}
+{{- $_ := set $pinEnv $name (ne (trimAll " ," (toString $value)) "") -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.kesAgent.extraEnv -}}
+{{- if has (toString .name) $names -}}
+{{- $_ := set $pinEnv (toString .name) (or (not (empty .valueFrom)) (ne (trimAll " ," (toString (default "" .value))) "")) -}}
+{{- end -}}
+{{- end -}}
+{{- range $role := list "sign" "control" -}}
+{{- $present := not (empty (get $k (printf "%s_client_spki_sha256" $role))) -}}
+{{- range $name := list (printf "KESAGENT_%s_CLIENT_SPKI_SHA256" (upper $role)) (printf "BURSA_KESAGENT_KESAGENT_%s_CLIENT_SPKI_SHA256" (upper $role)) -}}
+{{- if hasKey $pinEnv $name -}}
+{{- $present = get $pinEnv $name -}}
+{{- end -}}
+{{- end -}}
+{{- if $present -}}{{- $hasClients = true -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if not $hasClients -}}
+{{- fail "mode kes-agent needs sign_client_spki_sha256 or control_client_spki_sha256 authorization for at least one profile; otherwise every remote session is refused" -}}
 {{- end -}}
 {{- /* The config file is a ConfigMap, so a credential from a reused
      application config must not reach it. */ -}}

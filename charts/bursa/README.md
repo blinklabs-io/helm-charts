@@ -200,6 +200,57 @@ egress to the watermark database, custody backends and DNS.
 | `signer.extraVolumes` / `signer.extraVolumeMounts` | `[]` | Extra volumes, such as a watermark PVC |
 | `signer.networkPolicy.enabled` | `false` | Create a NetworkPolicy; `from` must list a peer |
 
+## KES agent client authorization
+
+`mode: kes-agent` requires Bursa 0.26.0 or newer. Remote signing and control
+sessions need a verified client TLS certificate whose public key is pinned in
+the selected profile's role list. Set both `kesAgent.tls.secretName` (the
+listener's `tls.crt` and `tls.key`) and `kesAgent.tls.clientCASecretName` (the
+client issuer's `ca.crt`). Plaintext or TLS without client verification cannot
+admit remote sessions.
+
+Configure each producer's public-key fingerprint in its profile:
+
+```yaml
+mode: kes-agent
+kesAgent:
+  tls:
+    secretName: kes-agent-tls
+    clientCASecretName: producer-client-ca
+  config:
+    kes_agent:
+      store:
+        type: postgres
+        dsn_env: KESAGENT_PG_DSN
+      profiles:
+        - name: preview-pool
+          cold_vkey_hex: "<pool cold verification key, hex>"
+          system_start: "2022-10-25T00:00:00Z"
+          slots_per_kes_period: 129600
+          sign_client_spki_sha256: ["<producer client SPKI SHA-256, 64 hex characters>"]
+  extraEnv:
+    - name: KESAGENT_PG_DSN
+      valueFrom:
+        secretKeyRef:
+          name: kes-agent-store
+          key: dsn
+```
+
+Compute a client's fingerprint with
+`openssl x509 -in client.crt -pubkey -noout | openssl pkey -pubin -outform DER | openssl dgst -sha256`.
+Add `control_client_spki_sha256` only for clients permitted to install or rotate
+keys. Control permission grants no signing permission. A profile can be
+control-only or have no remote clients; the chart requires at least one
+authorized role across all profiles.
+
+For a single profile without `profiles`, put the role lists directly under
+`kes_agent`. The runtime also accepts `KESAGENT_SIGN_CLIENT_SPKI_SHA256` and
+`KESAGENT_CONTROL_CLIENT_SPKI_SHA256`, or the fully prefixed forms
+`BURSA_KESAGENT_KESAGENT_SIGN_CLIENT_SPKI_SHA256` and
+`BURSA_KESAGENT_KESAGENT_CONTROL_CLIENT_SPKI_SHA256`,
+from `environment` or `kesAgent.extraEnv`, including `valueFrom` references.
+Do not combine these global lists with `profiles`.
+
 ## KES agent metrics
 
 In `kes-agent` mode the metrics listener, which also serves `/healthz` and
