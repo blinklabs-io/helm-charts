@@ -63,5 +63,14 @@ metricsNetworkPolicy:
   rename.
 - `extraObjects` renders additional manifests as given, for example a
   NetworkPolicy that admits relays in another namespace to a block producer.
+- Do not render a block producer's keys Secret through `extraObjects` under
+  `spec.blockProducer.rotation.mode: Auto`. The operator writes each new opcert,
+  and the new `kes.skey` unless a signing agent holds the KES key, into that
+  Secret, and the next `helm upgrade` restores the data the chart rendered
+  (Helm's three-way patch), so the producer returns to an expiring key. Under
+  `Auto`, create the keys Secret outside the release, only when it is absent,
+  and never re-apply it. Under `Assisted`, re-applying the Secret on each
+  deploy is how a new opcert reaches the node. `keep: true` only stops Helm
+  deleting the Secret; it does not stop an upgrade from reverting its data.
 
 See [values.yaml](values.yaml) for every setting.
