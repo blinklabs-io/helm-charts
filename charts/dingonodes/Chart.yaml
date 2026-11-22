@@ -2,7 +2,7 @@
 apiVersion: v2
 name: dingonodes
 description: "A Helm chart for DingoNode resources managed by the Dingo operator, with a PodMonitor and metrics NetworkPolicy per node"
-version: 0.1.0
+version: 0.1.1
 
 sources:
   - https://github.com/blinklabs-io/dingo-operator
