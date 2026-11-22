@@ -72,11 +72,13 @@ metricsNetworkPolicy:
   and never re-apply it. Under `Assisted`, re-applying the Secret on each
   deploy is how a new opcert reaches the node. `keep: true` only stops Helm
   deleting the Secret; it does not stop an upgrade from reverting its data.
-- To move a keys Secret out of `extraObjects`, first make sure the live Secret
-  carries `helm.sh/resource-policy: keep`, then remove it from `extraObjects`.
-  Helm reads that annotation from the live object and leaves the Secret in
-  place; without it, the upgrade deletes the Secret. Setting `keep: true` adds
-  the annotation, but that upgrade also restores the rendered data, so put the
-  live Secret's current data in the values first.
+- To move a keys Secret out of `extraObjects`, back it up, annotate the live
+  Secret directly (`kubectl annotate secret <name>
+  helm.sh/resource-policy=keep`), then remove it from `extraObjects` in the
+  next upgrade. Helm reads that annotation from the live object and leaves the
+  Secret in place; without it, the upgrade deletes the Secret. Do not add the
+  annotation through `keep: true` or any other upgrade that still renders the
+  Secret: under `Auto` the operator can rotate the keys before that upgrade,
+  and the upgrade then restores the rendered data.
 
 See [values.yaml](values.yaml) for every setting.
