@@ -2,7 +2,7 @@
 apiVersion: v2
 name: dingo-operator
 description: "A Helm chart for deploying the Dingo operator, which manages Dingo Cardano relays and block producers"
-version: 0.10.0
+version: 0.10.1
 appVersion: "0.6.0"
 # The CRD's image transition rule sets optionalOldSelf, which needs CRD
 # validation ratcheting; Kubernetes enables that by default from 1.30.
