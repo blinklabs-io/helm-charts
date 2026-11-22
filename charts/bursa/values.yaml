@@ -168,6 +168,9 @@ signer:
     #   callers:   # subject = client cert URI SAN, else DNS SAN, else CN
     #     - subject: dingo-operator
     #       keys: ["<cold key hash>"]
+    #       opcerts:   # an opcert needs its staged KES key granted
+    #         - key: "<cold key hash>"
+    #           kes_vkeys: ["<staged KES verification key>"]
     #   keys:
     #     - hash: "<cold key hash>"
     #       backend: cold
