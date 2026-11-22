@@ -71,8 +71,7 @@ Because the file is a ConfigMap, rendering fails when it carries a credential
   the client certificate URI SAN, else DNS SAN, else common name.
 - Operational certificates need a per-KES-key grant, required since Bursa
   v0.26.0: list the cold key in the caller's `keys`, and each staged KES
-  verification key under `opcerts[].kes_vkeys` for that cold key. The default
-  `image.tag` predates this requirement, so the examples set `0.26.0`.
+  verification key under `opcerts[].kes_vkeys` for that cold key.
 - `/readyz` checks that the watermark store is writable.
 
 The watermark records the highest counter signed per key, so it must survive a
@@ -89,8 +88,6 @@ the chart does not create, and keep two pods from opening it at once with the
 ```yaml
 mode: signer
 replicaCount: 1
-image:
-  tag: "0.26.0"
 updateStrategy:
   type: Recreate
 signer:
@@ -139,8 +136,6 @@ The database role must be able to create the watermark tables on first start.
 ```yaml
 mode: signer
 replicaCount: 2
-image:
-  tag: "0.26.0"
 affinity:
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
