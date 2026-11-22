@@ -251,7 +251,10 @@ kesAgent:
   #
   # One release can serve several pools: list a profile per pool. From bursa
   # 0.24.0, each remote session selects one profile when it is admitted and
-  # signs only for that profile.
+  # signs only for that profile. This chart requires Bursa 0.26.0 or newer:
+  # remote clients need verified TLS and a public-key pin in the profile's
+  # sign_client_spki_sha256 or control_client_spki_sha256 list. A control pin
+  # grants no signing authority. Profiles without either list remain local.
   config: {}
     # kes_agent:
     #   attestation_provider: none
@@ -264,6 +267,7 @@ kesAgent:
     #       cold_vkey_hex: "<cold verification key, hex>"
     #       system_start: "2022-10-25T00:00:00Z"
     #       slots_per_kes_period: 129600
+    #       sign_client_spki_sha256: ["<producer client SPKI SHA-256, 64 hex characters>"]
   # The agent reads its TLS key and age identity as secret key files: it
   # refuses a symlink, which is how a Secret volume presents each key, and
   # any group or other access, which a Secret volume under the pod's fsGroup
@@ -273,12 +277,12 @@ kesAgent:
   # restart the Deployment after rotating the TLS or age Secret.
   copyImage: busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
   tls:
-    # kubernetes.io/tls Secret with the listener certificate (tls.crt,
-    # tls.key). Without it, set kes_agent.attested_plaintext: true in config
-    # and provide transport security elsewhere.
+    # Required kubernetes.io/tls Secret with the listener certificate
+    # (tls.crt, tls.key). Plaintext cannot admit remote sessions, including
+    # behind a proxy that does not pass the verified client TLS connection.
     secretName: ""
-    # Secret holding the CA (ca.crt) that issues producer client
-    # certificates. Setting it makes the listener require one.
+    # Required Secret holding the CA (ca.crt) that issues remote client
+    # certificates. Each client must also be pinned in its profile's role list.
     clientCASecretName: ""
   ageIdentity:
     # Secret holding this release's age identity, which unseals the shared
