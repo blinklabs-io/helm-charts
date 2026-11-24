@@ -373,7 +373,7 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- $mount := dict -}}
 {{- $depth := 0 -}}
 {{- range $m := (default list $.Values.kesAgent.extraVolumeMounts) -}}
-{{- $root := trimSuffix "/" (toString $m.mountPath) -}}
+{{- $root := clean (toString $m.mountPath) -}}
 {{- if and $root (hasPrefix (printf "%s/" $root) $g.path) (gt (len $root) $depth) -}}
 {{- $mount = $m -}}
 {{- $depth = len $root -}}
@@ -393,6 +393,9 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- $pvc := false -}}
 {{- range $v := (default list $.Values.kesAgent.extraVolumes) -}}
 {{- if and (eq (toString $v.name) (toString $mount.name)) $v.persistentVolumeClaim -}}
+{{- if $v.persistentVolumeClaim.readOnly -}}
+{{- fail (printf "%s is on kesAgent.extraVolumes %q, whose persistentVolumeClaim must not be readOnly: the agent writes the guard" $g.field (toString $v.name)) -}}
+{{- end -}}
 {{- $pvc = true -}}
 {{- end -}}
 {{- end -}}

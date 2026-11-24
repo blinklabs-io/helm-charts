@@ -330,6 +330,16 @@ class BursaKesAgentFileStoreTests(unittest.TestCase):
                                   {"name": "guard", "mountPath": GUARD_DIR}],
         }}
         self.assertRenders(nested)
+        unclean = {"kesAgent": {
+            "extraVolumes": [pvc, scratch],
+            "extraVolumeMounts": [{"name": "guard", "mountPath": "/var/lib/bursa"},
+                                  {"name": "scratch", "mountPath": "/var/lib/bursa/./kes-agent/"}],
+        }}
+        self.assertFails(unclean, "persistentVolumeClaim")
+
+    def test_guard_volume_must_be_writable(self):
+        pvc = {"name": "guard", "persistentVolumeClaim": {"claimName": "x", "readOnly": True}}
+        self.assertFails({"kesAgent": {"extraVolumes": [pvc]}}, "must not be readOnly")
 
     def test_guard_under_a_chart_mount_refused(self):
         for root, guard in (("/run/bursa", "/run/bursa/kes-agent/pool.guard"),
