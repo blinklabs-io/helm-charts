@@ -315,6 +315,31 @@ class BursaKesAgentFileStoreTests(unittest.TestCase):
         mount = {"name": "guard", "mountPath": GUARD_DIR, "readOnly": True}
         self.assertFails({"kesAgent": {"extraVolumeMounts": [mount]}}, "must not be readOnly")
 
+    def test_deepest_mount_backs_the_guard(self):
+        pvc = {"name": "guard", "persistentVolumeClaim": {"claimName": "x"}}
+        scratch = {"name": "scratch", "emptyDir": {}}
+        shadowed = {"kesAgent": {
+            "extraVolumes": [pvc, scratch],
+            "extraVolumeMounts": [{"name": "guard", "mountPath": "/var/lib/bursa"},
+                                  {"name": "scratch", "mountPath": GUARD_DIR}],
+        }}
+        self.assertFails(shadowed, "persistentVolumeClaim")
+        nested = {"kesAgent": {
+            "extraVolumes": [scratch, pvc],
+            "extraVolumeMounts": [{"name": "scratch", "mountPath": "/var/lib/bursa", "readOnly": True},
+                                  {"name": "guard", "mountPath": GUARD_DIR}],
+        }}
+        self.assertRenders(nested)
+
+    def test_guard_under_a_chart_mount_refused(self):
+        for root, guard in (("/run/bursa", "/run/bursa/kes-agent/pool.guard"),
+                            ("/run", "/run/bursa/kes-agent-secrets/pool.guard"),
+                            ("/etc/bursa", "/etc/bursa/kes-agent/client-ca/pool.guard")):
+            with self.subTest(guard=guard):
+                values = profile(guard_file=guard)
+                values["kesAgent"]["extraVolumeMounts"] = [{"name": "guard", "mountPath": root}]
+                self.assertFails(values, "is mounted by the chart")
+
     def test_single_profile_form_needs_top_level_guard_file(self):
         agent = {
             "profiles": None, "cold_vkey_hex": "00" * 32, "system_start": "2022-10-25T00:00:00Z",

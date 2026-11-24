@@ -368,24 +368,33 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- if or (not (hasPrefix "/" $g.path)) (ne (clean $g.path) $g.path) -}}
 {{- fail (printf "%s must be a clean absolute path, got %q" $g.field $g.path) -}}
 {{- end -}}
-{{- $pvc := false -}}
-{{- $under := false -}}
+{{- /* The deepest mount containing the path is the one that holds the file,
+     so a shallower PVC does not count when an emptyDir is mounted below it. */ -}}
+{{- $mount := dict -}}
+{{- $depth := 0 -}}
 {{- range $m := (default list $.Values.kesAgent.extraVolumeMounts) -}}
 {{- $root := trimSuffix "/" (toString $m.mountPath) -}}
-{{- if and $root (hasPrefix (printf "%s/" $root) $g.path) -}}
-{{- $under = true -}}
-{{- if $m.readOnly -}}
-{{- fail (printf "%s is under kesAgent.extraVolumeMounts %q, which must not be readOnly: the agent writes the guard" $g.field (toString $m.name)) -}}
+{{- if and $root (hasPrefix (printf "%s/" $root) $g.path) (gt (len $root) $depth) -}}
+{{- $mount = $m -}}
+{{- $depth = len $root -}}
 {{- end -}}
+{{- end -}}
+{{- range $root := (list "/etc/bursa/kes-agent/config.yaml" "/etc/bursa/kes-agent/client-ca" "/run/bursa/kes-agent" "/run/bursa/kes-agent-secrets" "/tmp") -}}
+{{- if and $depth (hasPrefix (printf "%s/" $root) $g.path) (ge (len $root) $depth) -}}
+{{- fail (printf "%s is under %s, which is mounted by the chart and does not persist" $g.field $root) -}}
+{{- end -}}
+{{- end -}}
+{{- if not $mount -}}
+{{- fail (printf "%s must be under the mountPath of a kesAgent.extraVolumeMounts entry, got %q" $g.field $g.path) -}}
+{{- end -}}
+{{- if $mount.readOnly -}}
+{{- fail (printf "%s is under kesAgent.extraVolumeMounts %q, which must not be readOnly: the agent writes the guard" $g.field (toString $mount.name)) -}}
+{{- end -}}
+{{- $pvc := false -}}
 {{- range $v := (default list $.Values.kesAgent.extraVolumes) -}}
-{{- if and (eq (toString $v.name) (toString $m.name)) $v.persistentVolumeClaim -}}
+{{- if and (eq (toString $v.name) (toString $mount.name)) $v.persistentVolumeClaim -}}
 {{- $pvc = true -}}
 {{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- if not $under -}}
-{{- fail (printf "%s must be under the mountPath of a kesAgent.extraVolumeMounts entry, got %q" $g.field $g.path) -}}
 {{- end -}}
 {{- if not $pvc -}}
 {{- fail (printf "%s must sit on a kesAgent.extraVolumes entry with a persistentVolumeClaim: a guard lost on restart lets the agent sign a second header for a slot" $g.field) -}}

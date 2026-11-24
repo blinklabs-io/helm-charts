@@ -255,7 +255,8 @@ kesAgent:
   #   replicaCount 1, updateStrategy.type Recreate, and every guard_file (one
   #   per profile, or kes_agent.guard_file without profiles) an absolute path
   #   under the mountPath of a kesAgent.extraVolumeMounts entry whose
-  #   extraVolumes entry is a persistentVolumeClaim. age_recipients,
+  #   extraVolumes entry is a persistentVolumeClaim (the deepest mount
+  #   containing the path, never one the chart creates). age_recipients,
   #   ageIdentity and dsn_env need postgres.
   #
   # One release can serve several pools: list a profile per pool. From bursa

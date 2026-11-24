@@ -263,7 +263,9 @@ guard stores.
   It is limited to a single agent: `replicaCount: 1`,
   `updateStrategy.type: Recreate`, and every guard file an absolute path under
   the `mountPath` of a writable `kesAgent.extraVolumeMounts` entry whose
-  `kesAgent.extraVolumes` entry is a `persistentVolumeClaim`. Rendering fails
+  `kesAgent.extraVolumes` entry is a `persistentVolumeClaim`. The deepest
+  mount containing the path is the one checked, and a path under a mount the
+  chart creates (`/run/bursa/kes-agent`, `/tmp`) is refused. Rendering fails
   otherwise. `age_recipients`, `kesAgent.ageIdentity` and `store.dsn_env` need
   `postgres`.
 
