@@ -247,10 +247,16 @@ kesAgent:
   # producer in another pod. The control socket stays inside the pod.
   #
   # The guard must survive a restart, or the agent could sign a second
-  # header for a slot it already signed, so the chart requires the shared
-  # PostgreSQL store (store.type postgres) and refuses guard_file. The DSN is
-  # read only from the variable store.dsn_env names: set that variable in
-  # extraEnv with valueFrom.
+  # header for a slot it already signed. Two stores are accepted:
+  # - store.type postgres, shared by any number of replicas; guard_file must
+  #   be unset. The DSN is read only from the variable store.dsn_env names:
+  #   set that variable in extraEnv with valueFrom.
+  # - store.type file (the default when store is unset), for one replica only:
+  #   replicaCount 1, updateStrategy.type Recreate, and every guard_file (one
+  #   per profile, or kes_agent.guard_file without profiles) an absolute path
+  #   under the mountPath of a kesAgent.extraVolumeMounts entry whose
+  #   extraVolumes entry is a persistentVolumeClaim. age_recipients,
+  #   ageIdentity and dsn_env need postgres.
   #
   # One release can serve several pools: list a profile per pool. From bursa
   # 0.24.0, each remote session selects one profile when it is admitted and
@@ -296,3 +302,12 @@ kesAgent:
   extraEnv: []
   extraVolumes: []
   extraVolumeMounts: []
+  networkPolicy:
+    # Admit ingress to the attested listener only from these peers
+    # (NetworkPolicyPeer list); an empty list admits any source, so set it.
+    enabled: false
+    from: []
+    # Peers allowed to reach the metrics port, such as the Prometheus
+    # namespace. The metrics rule exists only when kesAgent.metricsAddress is
+    # not loopback; an empty list admits any source.
+    metricsFrom: []

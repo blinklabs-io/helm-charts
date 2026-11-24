@@ -240,6 +240,157 @@ class BursaKesAgentClientTests(unittest.TestCase):
         self.assertFails({"image": {"tag": "0.25.0"}}, "needs bursa 0.26.0 or newer")
 
 
+FILE_FIXTURE = "kes-agent-file-values.yaml"
+GUARD_DIR = "/var/lib/bursa/kes-agent"
+
+
+def profile(**fields):
+    base = {
+        "name": "preview-pool",
+        "cold_vkey_hex": "00" * 32,
+        "system_start": "2022-10-25T00:00:00Z",
+        "slots_per_kes_period": 129600,
+        "sign_client_spki_sha256": ["11" * 32],
+        "guard_file": f"{GUARD_DIR}/preview-pool.guard",
+    }
+    return {"kesAgent": {"config": {"kes_agent": {"profiles": [{**base, **fields}]}}}}
+
+
+class BursaKesAgentFileStoreTests(unittest.TestCase):
+    def assertRenders(self, values=None, fixture=FILE_FIXTURE):
+        result = render(values, fixture)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+
+    def assertFails(self, values, message, fixture=FILE_FIXTURE):
+        result = render(values, fixture)
+        self.assertNotEqual(result.returncode, 0, "render succeeded")
+        self.assertIn(message, result.stderr)
+
+    def test_file_store_renders(self):
+        docs = self.assertRenders()
+        deployment = next(doc for doc in docs if doc["kind"] == "Deployment")
+        self.assertEqual(deployment["spec"]["replicas"], 1)
+        self.assertEqual(deployment["spec"]["strategy"]["type"], "Recreate")
+        volumes = deployment["spec"]["template"]["spec"]["volumes"]
+        self.assertIn("persistentVolumeClaim", next(v for v in volumes if v["name"] == "guard"))
+        config = next(doc for doc in docs if doc["kind"] == "ConfigMap")
+        agent = yaml.safe_load(config["data"]["config.yaml"])["kes_agent"]
+        self.assertEqual(agent["profiles"][0]["guard_file"], f"{GUARD_DIR}/preview-pool.guard")
+
+    def test_default_store_type_is_file(self):
+        self.assertRenders({"kesAgent": {"config": {"kes_agent": {"store": {"type": None}}}}})
+
+    def test_single_replica_required(self):
+        self.assertFails({"replicaCount": 2}, "replicaCount 1")
+
+    def test_recreate_required(self):
+        self.assertFails({"updateStrategy": {"type": "RollingUpdate"}}, "updateStrategy.type Recreate")
+
+    def test_guard_file_required_per_profile(self):
+        values = profile()
+        del values["kesAgent"]["config"]["kes_agent"]["profiles"][0]["guard_file"]
+        self.assertFails(values, "kes_agent.profiles[0].guard_file is required")
+
+    def test_guard_file_must_be_absolute_and_clean(self):
+        for path in ("guard.json", f"{GUARD_DIR}/../etc/guard", f"{GUARD_DIR}//guard"):
+            with self.subTest(path=path):
+                self.assertFails(profile(guard_file=path), "must be a clean absolute path")
+
+    def test_guard_file_must_sit_under_a_mount(self):
+        for path in ("/tmp/guard.json", f"{GUARD_DIR}-other/guard", GUARD_DIR):
+            with self.subTest(path=path):
+                self.assertFails(profile(guard_file=path), "must be under the mountPath")
+
+    def test_guard_volume_must_be_a_pvc(self):
+        volumes = (
+            {"name": "guard", "emptyDir": {}},
+            {"name": "other", "persistentVolumeClaim": {"claimName": "x"}},
+        )
+        for volume in volumes:
+            with self.subTest(volume=volume):
+                self.assertFails({"kesAgent": {"extraVolumes": [volume]}}, "persistentVolumeClaim")
+
+    def test_guard_mount_must_be_writable(self):
+        mount = {"name": "guard", "mountPath": GUARD_DIR, "readOnly": True}
+        self.assertFails({"kesAgent": {"extraVolumeMounts": [mount]}}, "must not be readOnly")
+
+    def test_single_profile_form_needs_top_level_guard_file(self):
+        agent = {
+            "profiles": None, "cold_vkey_hex": "00" * 32, "system_start": "2022-10-25T00:00:00Z",
+            "slots_per_kes_period": 129600, "sign_client_spki_sha256": ["11" * 32],
+        }
+        single = {"kesAgent": {"config": {"kes_agent": agent}}}
+        self.assertFails(single, "kes_agent.guard_file is required")
+        agent["guard_file"] = f"{GUARD_DIR}/guard.json"
+        self.assertRenders(single)
+        agent["guard_file"] = "/tmp/guard.json"
+        self.assertFails(single, "kes_agent.guard_file must be under the mountPath")
+
+    def test_shared_key_settings_stay_refused(self):
+        recipients = {"kesAgent": {"config": {"kes_agent": {"store": {"age_recipients": ["age1x"]}}}}}
+        self.assertFails(recipients, "age_recipients needs kes_agent.store.type postgres")
+        identity = {"kesAgent": {"ageIdentity": {"secretName": "age"}}}
+        self.assertFails(identity, "needs kes_agent.store.type postgres")
+
+    def test_dsn_env_refused_with_file_store(self):
+        values = {"kesAgent": {"config": {"kes_agent": {"store": {"dsn_env": "KESAGENT_PG_DSN"}}}}}
+        self.assertFails(values, "store.dsn_env needs kes_agent.store.type postgres")
+
+    def test_unknown_store_type_refused(self):
+        values = {"kesAgent": {"config": {"kes_agent": {"store": {"type": "s3"}}}}}
+        self.assertFails(values, "kes_agent.store.type must be file or postgres")
+
+    def test_postgres_path_unchanged(self):
+        pg = "kes-agent-values.yaml"
+        self.assertRenders(None, pg)
+        self.assertRenders({"replicaCount": 3, "updateStrategy": {"type": "RollingUpdate"}}, pg)
+        self.assertFails({"kesAgent": {"config": {"kes_agent": {"guard_file": "/x"}}}},
+                         "kes_agent.guard_file must not be set with the postgres store", pg)
+        self.assertFails({"kesAgent": {"config": {"kes_agent": {"profiles": [{"name": "p", "guard_file": "/x", "sign_client_spki_sha256": ["11" * 32]}]}}}},
+                         "kes_agent.profiles[0].guard_file must not be set with the postgres store", pg)
+
+
+class BursaKesAgentNetworkPolicyTests(unittest.TestCase):
+    def docs(self, values, fixture):
+        result = render(values, fixture)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+
+    def policies(self, values, fixture):
+        return [doc for doc in self.docs(values, fixture) if doc["kind"] == "NetworkPolicy"]
+
+    def test_disabled_by_default(self):
+        self.assertEqual(self.policies(None, "kes-agent-values.yaml"), [])
+
+    def test_renders_when_enabled(self):
+        peer = {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "producers"}}}
+        values = {"kesAgent": {"networkPolicy": {"enabled": True, "from": [peer]}}}
+        (policy,) = self.policies(values, "kes-agent-values.yaml")
+        self.assertEqual(policy["spec"]["policyTypes"], ["Ingress"])
+        (rule,) = policy["spec"]["ingress"]
+        self.assertEqual(rule["ports"], [{"port": "kes-agent", "protocol": "TCP"}])
+        self.assertEqual(rule["from"], [peer])
+
+    def test_metrics_port_follows_the_listener(self):
+        scrape = {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "monitoring"}}}
+        values = {"kesAgent": {"networkPolicy": {"enabled": True, "metricsFrom": [scrape]}}}
+        (policy,) = self.policies(values, "kes-agent-metrics-values.yaml")
+        self.assertEqual(len(policy["spec"]["ingress"]), 2)
+        rule = policy["spec"]["ingress"][1]
+        self.assertEqual(rule["ports"], [{"port": "metrics", "protocol": "TCP"}])
+        self.assertEqual(rule["from"], [scrape])
+        (loopback,) = self.policies({"kesAgent": {"networkPolicy": {"enabled": True}}}, "kes-agent-values.yaml")
+        self.assertEqual(len(loopback["spec"]["ingress"]), 1)
+
+    def test_not_rendered_in_other_modes(self):
+        values = {"kesAgent": {"networkPolicy": {"enabled": True}}}
+        for fixture in ("signer-values.yaml", "api-values.yaml"):
+            with self.subTest(fixture=fixture):
+                names = [p["metadata"]["name"] for p in self.policies(values, fixture)]
+                self.assertFalse([n for n in names if "kes-agent" in n], names)
+
+
 class BursaApiServiceTests(unittest.TestCase):
     def documents(self, values):
         result = render(values, "api-values.yaml")

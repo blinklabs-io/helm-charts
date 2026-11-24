@@ -1,7 +1,7 @@
 apiVersion: v2
 name: bursa
 description: "A Helm chart for deploying Bursa"
-version: 0.0.20
+version: 0.0.21
 appVersion: "0.26.0"
 
 sources:

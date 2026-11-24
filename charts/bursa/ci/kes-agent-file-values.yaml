@@ -1,0 +1,28 @@
+# kes-agent mode with the file guard store on a persistent volume.
+mode: kes-agent
+replicaCount: 1
+updateStrategy:
+  type: Recreate
+kesAgent:
+  config:
+    kes_agent:
+      attestation_provider: none
+      store:
+        type: file
+      profiles:
+        - name: preview-pool
+          cold_vkey_hex: "0000000000000000000000000000000000000000000000000000000000000000"
+          system_start: "2022-10-25T00:00:00Z"
+          slots_per_kes_period: 129600
+          guard_file: /var/lib/bursa/kes-agent/preview-pool.guard
+          sign_client_spki_sha256: ["1111111111111111111111111111111111111111111111111111111111111111"]
+  tls:
+    secretName: bursa-kes-agent-tls
+    clientCASecretName: bursa-kes-agent-client-ca
+  extraVolumes:
+    - name: guard
+      persistentVolumeClaim:
+        claimName: bursa-kes-agent-guard
+  extraVolumeMounts:
+    - name: guard
+      mountPath: /var/lib/bursa/kes-agent
