@@ -286,6 +286,9 @@ kesAgent:
           slots_per_kes_period: 129600
           guard_file: /var/lib/bursa/kes-agent/preview-pool.guard
           sign_client_spki_sha256: ["<producer client SPKI SHA-256, 64 hex characters>"]
+  tls:
+    secretName: bursa-kes-agent-tls
+    clientCASecretName: bursa-kes-agent-client-ca
   extraVolumes:
     - name: guard
       persistentVolumeClaim:
