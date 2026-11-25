@@ -251,6 +251,63 @@ For a single profile without `profiles`, put the role lists directly under
 from `environment` or `kesAgent.extraEnv`, including `valueFrom` references.
 Do not combine these global lists with `profiles`.
 
+## KES agent guard store
+
+The agent must not lose its record of signed slots, so the chart accepts two
+guard stores.
+
+- `kes_agent.store.type: postgres` is shared by any number of replicas.
+  `guard_file` must be unset.
+- `kes_agent.store.type: file` (the default when `store` is unset) keeps one
+  guard file per profile, or `kes_agent.guard_file` when `profiles` is unset.
+  It is limited to a single agent: `replicaCount: 1`,
+  `updateStrategy.type: Recreate`, and every guard file an absolute path under
+  the `mountPath` of a writable `kesAgent.extraVolumeMounts` entry whose
+  `kesAgent.extraVolumes` entry is a `persistentVolumeClaim`. The deepest
+  mount containing the path is the one checked, and a path under a mount the
+  chart creates (`/run/bursa/kes-agent`, `/tmp`) is refused. Rendering fails
+  otherwise. `age_recipients`, `kesAgent.ageIdentity` and `store.dsn_env` need
+  `postgres`.
+
+```yaml
+mode: kes-agent
+replicaCount: 1
+updateStrategy:
+  type: Recreate
+kesAgent:
+  config:
+    kes_agent:
+      store:
+        type: file
+      profiles:
+        - name: preview-pool
+          cold_vkey_hex: "<pool cold verification key, hex>"
+          system_start: "2022-10-25T00:00:00Z"
+          slots_per_kes_period: 129600
+          guard_file: /var/lib/bursa/kes-agent/preview-pool.guard
+          sign_client_spki_sha256: ["<producer client SPKI SHA-256, 64 hex characters>"]
+  tls:
+    secretName: bursa-kes-agent-tls
+    clientCASecretName: bursa-kes-agent-client-ca
+  extraVolumes:
+    - name: guard
+      persistentVolumeClaim:
+        claimName: kes-agent-guard
+  extraVolumeMounts:
+    - name: guard
+      mountPath: /var/lib/bursa/kes-agent
+```
+
+`kesAgent.networkPolicy` restricts ingress to the attested listener port. When
+the metrics listener is not loopback, a second rule admits the metrics port.
+
+| Value | Default | Purpose |
+| --- | --- | --- |
+| `kesAgent.extraVolumes` / `kesAgent.extraVolumeMounts` | `[]` | Extra volumes, such as the guard PVC |
+| `kesAgent.networkPolicy.enabled` | `false` | Create a NetworkPolicy for `kes-agent` mode |
+| `kesAgent.networkPolicy.from` | `[]` | Peers admitted to the attested listener; empty admits any source |
+| `kesAgent.networkPolicy.metricsFrom` | `[]` | Peers admitted to the metrics port; empty admits any source |
+
 ## KES agent metrics
 
 In `kes-agent` mode the metrics listener, which also serves `/healthz` and

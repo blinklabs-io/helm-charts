@@ -268,12 +268,10 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- if and $pg (not $store.dsn_env) -}}
 {{- fail "kes_agent.store.type postgres needs store.dsn_env" -}}
 {{- end -}}
-{{- /* A guard file in a pod does not survive a restart unless it sits on
-     a persistent volume, and a ReadWriteOnce volume plus the guard's lock
-     stall a rolling update, so the chart takes only the shared store. */ -}}
-{{- if not $pg -}}
-{{- fail "mode kes-agent requires kes_agent.store.type postgres: a guard lost on restart lets the agent sign a second header for a slot, and replicas must share one guard" -}}
+{{- if and (not $pg) (not (has (default "" $store.type) (list "" "file"))) -}}
+{{- fail (printf "kes_agent.store.type must be file or postgres, got %q" (toString $store.type)) -}}
 {{- end -}}
+{{- if $pg -}}
 {{- if or (hasKey $k "guard_file") (gt (len (default list $k.profiles)) 0) -}}
 {{- range $i, $p := (default list $k.profiles) -}}
 {{- if hasKey (default dict $p) "guard_file" -}}
@@ -284,6 +282,9 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- fail "kes_agent.guard_file must not be set with the postgres store" -}}
 {{- end -}}
 {{- end -}}
+{{- else -}}
+{{- include "bursa.validateKesAgentFileStore" . -}}
+{{- end -}}
 {{- if hasKey $store "age_identity_file" -}}
 {{- fail "kesAgent.config.kes_agent.store.age_identity_file is set by the chart: use kesAgent.ageIdentity.secretName" -}}
 {{- end -}}
@@ -292,9 +293,6 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 {{- if and .Values.kesAgent.ageIdentity.secretName (not $store.age_recipients) -}}
 {{- fail "kesAgent.ageIdentity.secretName needs kes_agent.store.age_recipients" -}}
-{{- end -}}
-{{- if and .Values.kesAgent.ageIdentity.secretName (not $pg) -}}
-{{- fail "kesAgent.ageIdentity.secretName needs kes_agent.store.type postgres: the sealed key lives in the shared store" -}}
 {{- end -}}
 {{- if and .Values.kesAgent.ageIdentity.secretName (not .Values.kesAgent.ageIdentity.key) -}}
 {{- fail "kesAgent.ageIdentity.key is required with kesAgent.ageIdentity.secretName" -}}
@@ -328,6 +326,82 @@ SIGNER_POLICY_HOOK_URL BURSA_SIGNER_SIGNER_POLICY_HOOK_URL SIGNER_JWKS_URL BURSA
 {{- end -}}
 {{- if and $store.dsn_env (get (default dict .Values.environment) (toString $store.dsn_env)) -}}
 {{- fail (printf "%s must not be set in environment: the Deployment is readable; set it in kesAgent.extraEnv with valueFrom" (toString $store.dsn_env)) -}}
+{{- end -}}
+{{- end }}
+
+{{- /* The file store keeps each guard in a file, which is safe only when it
+     survives a restart and no second agent can open it: one replica, Recreate
+     (a ReadWriteOnce volume plus the guard's lock stall a rolling update), and
+     every guard under a writable mount of a PersistentVolumeClaim. Bursa takes
+     guard_file per profile, or at the top level when profiles is unset. */ -}}
+{{- define "bursa.validateKesAgentFileStore" -}}
+{{- $k := default dict (default dict .Values.kesAgent.config).kes_agent -}}
+{{- $store := default dict $k.store -}}
+{{- if hasKey $store "dsn_env" -}}
+{{- fail "kes_agent.store.dsn_env needs kes_agent.store.type postgres" -}}
+{{- end -}}
+{{- if .Values.kesAgent.ageIdentity.secretName -}}
+{{- fail "kesAgent.ageIdentity.secretName needs kes_agent.store.type postgres: the sealed key lives in the shared store" -}}
+{{- end -}}
+{{- if $store.age_recipients -}}
+{{- fail "kes_agent.store.age_recipients needs kes_agent.store.type postgres: the sealed key lives in the shared store" -}}
+{{- end -}}
+{{- if ne (int .Values.replicaCount) 1 -}}
+{{- fail (printf "kes_agent.store.type file needs replicaCount 1: replicas cannot share a guard file, got %v" .Values.replicaCount) -}}
+{{- end -}}
+{{- if ne (toString (default dict .Values.updateStrategy).type) "Recreate" -}}
+{{- fail "kes_agent.store.type file needs updateStrategy.type Recreate: a surge pod would open the guard beside the old one" -}}
+{{- end -}}
+{{- $guards := list -}}
+{{- $profiles := default list $k.profiles -}}
+{{- if $profiles -}}
+{{- range $i, $p := $profiles -}}
+{{- $guards = append $guards (dict "field" (printf "kes_agent.profiles[%d].guard_file" $i) "path" (toString (default "" (default dict $p).guard_file))) -}}
+{{- end -}}
+{{- else -}}
+{{- $guards = append $guards (dict "field" "kes_agent.guard_file" "path" (toString (default "" $k.guard_file))) -}}
+{{- end -}}
+{{- range $g := $guards -}}
+{{- if not $g.path -}}
+{{- fail (printf "%s is required with kes_agent.store.type file" $g.field) -}}
+{{- end -}}
+{{- if or (not (hasPrefix "/" $g.path)) (ne (clean $g.path) $g.path) -}}
+{{- fail (printf "%s must be a clean absolute path, got %q" $g.field $g.path) -}}
+{{- end -}}
+{{- /* The deepest mount containing the path is the one that holds the file,
+     so a shallower PVC does not count when an emptyDir is mounted below it. */ -}}
+{{- $mount := dict -}}
+{{- $depth := 0 -}}
+{{- range $m := (default list $.Values.kesAgent.extraVolumeMounts) -}}
+{{- $root := clean (toString $m.mountPath) -}}
+{{- if and $root (hasPrefix (printf "%s/" $root) $g.path) (gt (len $root) $depth) -}}
+{{- $mount = $m -}}
+{{- $depth = len $root -}}
+{{- end -}}
+{{- end -}}
+{{- range $root := (list "/etc/bursa/kes-agent/config.yaml" "/etc/bursa/kes-agent/client-ca" "/run/bursa/kes-agent" "/run/bursa/kes-agent-secrets" "/tmp") -}}
+{{- if and $depth (hasPrefix (printf "%s/" $root) $g.path) (ge (len $root) $depth) -}}
+{{- fail (printf "%s is under %s, which is mounted by the chart and does not persist" $g.field $root) -}}
+{{- end -}}
+{{- end -}}
+{{- if not $mount -}}
+{{- fail (printf "%s must be under the mountPath of a kesAgent.extraVolumeMounts entry, got %q" $g.field $g.path) -}}
+{{- end -}}
+{{- if $mount.readOnly -}}
+{{- fail (printf "%s is under kesAgent.extraVolumeMounts %q, which must not be readOnly: the agent writes the guard" $g.field (toString $mount.name)) -}}
+{{- end -}}
+{{- $pvc := false -}}
+{{- range $v := (default list $.Values.kesAgent.extraVolumes) -}}
+{{- if and (eq (toString $v.name) (toString $mount.name)) $v.persistentVolumeClaim -}}
+{{- if $v.persistentVolumeClaim.readOnly -}}
+{{- fail (printf "%s is on kesAgent.extraVolumes %q, whose persistentVolumeClaim must not be readOnly: the agent writes the guard" $g.field (toString $v.name)) -}}
+{{- end -}}
+{{- $pvc = true -}}
+{{- end -}}
+{{- end -}}
+{{- if not $pvc -}}
+{{- fail (printf "%s must sit on a kesAgent.extraVolumes entry with a persistentVolumeClaim: a guard lost on restart lets the agent sign a second header for a slot" $g.field) -}}
+{{- end -}}
 {{- end -}}
 {{- end }}
 
