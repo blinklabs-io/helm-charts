@@ -143,7 +143,7 @@ See [values.yaml](values.yaml) for every setting. Key knobs:
 
 | Key | Description | Default |
 | --- | ----------- | ------- |
-| `image.tag` | Operator image tag; the release whose CRD is bundled | `"0.6.0"` |
+| `image.tag` | Operator image tag; the release whose CRD is bundled | `"0.7.0"` |
 | `image.digest` | Immutable image digest (`sha256:...`); overrides the tag | `""` |
 | `replicaCount` | Controller replicas; more than one requires `leaderElection.enabled` | `1` |
 | `leaderElection.enabled` | Enable leader election | `false` |
