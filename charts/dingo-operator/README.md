@@ -40,7 +40,7 @@ RoleBinding, and leaves the grant to the deployment on purpose.
 | `rbac.keySecretsNamespaces` | Namespaces that get the Role. Empty grants access only in the release namespace. List every namespace that holds block-producer DingoNodes. |
 | `rbac.readSecretNames` | Limits `get` to these Secret names plus `rbac.keySecretNames`, instead of every Secret in the namespace. List every Secret the operator reads: each block producer's `keys.secretRef` (with `pools`, every pool's `keys.secretRef`); with rotation `coldSigner` type `bursa`, its `mtlsSecretRef` (type `secret`: its `secretRef`); and with `signingAgent`, its `clientCertSecretRef` and `controlClientCertSecretRef`. A Secret missing here is refused at its first read. |
 | `rbac.keySecretsUpdate` | Also grants `update` on the Secrets in `rbac.keySecretNames`. Rendering fails when `rbac.keySecretNames` is empty, because an update rule without `resourceNames` would cover every Secret in the namespace. |
-| `rbac.keySecretNames` | Secrets the operator may update. |
+| `rbac.keySecretNames` | Secrets the operator may update: with Auto rotation, each block producer's `keys.secretRef` (with `pools`, every pool's `keys.secretRef`). |
 | `rbac.watchKeySecrets` | Adds `list` and `watch` on Secrets and passes `--key-namespaces` to the operator, so a delivered key bundle is applied at once instead of on the periodic reconcile (up to two minutes later). Only metadata is cached, but RBAC cannot limit `list` to metadata or to named Secrets, so this grants read access to every Secret in those namespaces. Rendering fails when combined with `rbac.readSecretNames`. Requires an operator image that has `--key-namespaces`; older images exit on the unknown flag. |
 
 Which rotation mode needs which:
@@ -48,7 +48,7 @@ Which rotation mode needs which:
 | `rotation.mode` | Needs |
 | --------------- | ----- |
 | `MonitorOnly`, `Assisted` | Read only. The defaults are enough. |
-| `Auto` | `rbac.keySecretsUpdate: true` and `rbac.keySecretNames`, because the operator writes the new opcert, and without `signingAgent` the new `kes.skey`, into the keys Secret. |
+| `Auto` | `rbac.keySecretsUpdate: true` and `rbac.keySecretNames`, because the operator writes the new opcert, and without `signingAgent` the new `kes.skey`, into the keys Secret; with `pools`, into each pool's keys Secret. A pool whose Secret is not listed fails rotation with `SecretUpdateFailed`. |
 
 ```yaml
 rbac:
