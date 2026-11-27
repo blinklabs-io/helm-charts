@@ -1292,8 +1292,12 @@ spec:
                       forging; with every bundle invalid the node is refused as a whole. A
                       new opcert in one pool's Secret is loaded into the running node
                       without a roll; adding, removing or dropping a pool rolls the pod.
-                      Rotation mode Auto is not supported with pools, and more than one pool
-                      is refused with Leios (a vote key, runMode leios or the Musashi
+                      Rotation mode Auto rotates each pool that is due on its own KES state,
+                      through the signing agent with the pool's agentProfile; it takes the
+                      signing agent's control settings except controlProfile, an empty
+                      coldSigner.coldKeyHash (the signer is asked for each pool's own cold
+                      key), and the secret cold signer only for a single pool. More than one
+                      pool is refused with Leios (a vote key, runMode leios or the Musashi
                       network).
                     items:
                       description: BlockProducerPool is one pool of a block producer
@@ -1355,6 +1359,16 @@ spec:
                         description: ColdSignerSpec configures the pluggable cold-signer
                           used for opcert issuance.
                         properties:
+                          allowMainnet:
+                            default: false
+                            description: |-
+                              AllowMainnet lets Mode=Auto use the secret signer on a network named
+                              mainnet or with the mainnet network magic, which is otherwise refused.
+                              It exists for networks that reuse the mainnet magic without being
+                              Cardano mainnet. The cold key stays in the cluster, so only set it
+                              when that key does not guard mainnet funds or pool. Only for
+                              Type=secret. DEV/TESTNET ONLY.
+                            type: boolean
                           coldKeyHash:
                             description: |-
                               ColdKeyHash is the blake2b224 hash of the cold verification key; the
@@ -1512,7 +1526,8 @@ spec:
                   referenced genesis files (byron/shelley/alonzo/conway-genesis.json), all as
                   sibling keys. When set, the operator mounts it read-only and points Dingo at
                   it via CARDANO_CONFIG. Required for custom networks whose genesis is not
-                  built into Dingo; leave empty for named networks (mainnet/preprod/preview).
+                  built into Dingo; leave empty for named networks (mainnet, preprod, preview,
+                  musashi and dijkstra).
                   Must be a valid ConfigMap name (RFC 1123 DNS subdomain) so an invalid
                   reference is rejected at admission rather than failing pod creation later.
                 maxLength: 253
@@ -1639,11 +1654,15 @@ spec:
                   sync".
                 properties:
                   aggregatorUrl:
-                    description: AggregatorURL is auto-detected from the network when
-                      empty.
+                    description: |-
+                      AggregatorURL is auto-detected from mainnet, preprod and preview when
+                      empty. Setting it explicitly also enables Mithril when enabled is unset.
                     type: string
                   enabled:
-                    default: true
+                    description: |-
+                      Enabled selects Mithril bootstrap. When unset, bootstrap is enabled only
+                      for networks with a built-in aggregator (mainnet, preprod and preview), or
+                      when aggregatorUrl is set explicitly.
                     type: boolean
                   forceResync:
                     description: |-
@@ -1661,8 +1680,8 @@ spec:
                 type: object
               network:
                 description: |-
-                  Network is a named Cardano network (mainnet, preprod, preview, devnet) or
-                  "custom" (with networkMagic).
+                  Network is a named Cardano network (mainnet, preprod, preview, devnet,
+                  musashi or dijkstra) or "custom" (with networkMagic).
                 minLength: 1
                 type: string
               networkMagic:
@@ -2227,8 +2246,14 @@ spec:
                 type: object
               replicas:
                 default: 1
-                description: Replicas applies to relays. Block-producer active count
-                  is HA-managed.
+                description: |-
+                  Replicas is the number of pods. A block producer honours it only when it
+                  signs through spec.blockProducer.signingAgent, where every pod forges and
+                  the agent's one-header-per-slot guard admits the first. That guard needs
+                  a Bursa KES agent of v0.23.0 or later, and every pod must reach one
+                  guard. A block producer that holds its KES key in a Secret runs one pod,
+                  and a larger value is refused. A producer scales above its running pod
+                  count only once none of its pods signs with a local KES key.
                 format: int32
                 minimum: 0
                 type: integer
@@ -2433,6 +2458,15 @@ spec:
                       - port
                       type: object
                     type: array
+                  peerSnapshotRef:
+                    description: |-
+                      PeerSnapshotRef names a ConfigMap in this DingoNode's namespace whose
+                      peer-snapshot.json key holds a cardano-node peer snapshot. The operator
+                      copies the snapshot beside topology.json and points Dingo at it, allowing
+                      ledger peers to seed a node before its local ledger is available.
+                    maxLength: 253
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
                   publicRoots:
                     items:
                       description: AccessPoint is a bootstrap/public root peer passthrough
@@ -2765,6 +2799,16 @@ spec:
                         accepted opcert.
                       format: int64
                       type: integer
+                    pendingInstallCounter:
+                      description: |-
+                        PendingInstallCounter is the issue number of an opcert Auto rotation
+                        is installing in the signing agent, recorded before the install and
+                        before the pool's keys Secret is written. While the Secret's opcert is
+                        below it, a refused bundle holds
+                        the pod template instead of dropping the pool. It is cleared once the
+                        pool's accepted bundle reaches it; zero means none.
+                      format: int64
+                      type: integer
                     poolId:
                       description: PoolID is the pool's hex cold-key hash.
                       type: string
@@ -2775,6 +2819,56 @@ spec:
                 type: array
                 x-kubernetes-list-map-keys:
                 - poolId
+                x-kubernetes-list-type: map
+              replicas:
+                description: |-
+                  Replicas reports what the last scrape saw of each pod of a block
+                  producer. status.kes and status.opcert.loadedCounter summarize the pod
+                  that is furthest behind.
+                items:
+                  description: ReplicaStatus reports one pod of a block producer as
+                    the last scrape saw it.
+                  properties:
+                    name:
+                      description: Name is the pod name.
+                      type: string
+                    opcertKesPeriod:
+                      description: |-
+                        OpCertKESPeriod is the KES period the pod's loaded opcert starts at.
+                        Unset under the same conditions as remainingKesPeriods.
+                      format: int64
+                      type: integer
+                    pipelineHalted:
+                      description: PipelineHalted is set when the pod's ledger pipeline
+                        reports it halted.
+                      type: boolean
+                    pipelineStuck:
+                      description: PipelineStuck is set when the pod's ledger pipeline
+                        reports it is stuck.
+                      type: boolean
+                    remainingKesPeriods:
+                      description: |-
+                        RemainingKESPeriods is the KES periods the pod's key has left. Unset for
+                        a pod that reports no KES state, or reports it per pool; see
+                        status.pools.
+                      format: int64
+                      type: integer
+                    scraped:
+                      description: |-
+                        Scraped reports whether the pod's metrics were fetched. The fields below
+                        are unset when it is false.
+                      type: boolean
+                    tipSlot:
+                      description: TipSlot is the pod's tip slot.
+                      format: int64
+                      type: integer
+                  required:
+                  - name
+                  - scraped
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
                 x-kubernetes-list-type: map
               tip:
                 description: Tip tracks tip slot progress; see the LedgerPipelineHealthy
